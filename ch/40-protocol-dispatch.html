@@ -1,1 +1,22 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="initial-scale=1"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>R06 协议、泛型与派发边界 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">R06</span><h1>协议、泛型与派发边界</h1><p class="sub">源代码抽象与二进制调用形态不是一一对应</p></header><p class="lead">Swift 协议、泛型和扩展提供强大的抽象能力。静态派发、动态派发、协议见证表和特化取决于声明位置、约束和优化条件。</p><h2>阅读代码时的问题</h2><ul><li>调用点的静态类型是什么？实际值类型是什么？</li><li>成员通过协议要求、具体类型成员还是扩展默认实现调用？</li><li>泛型参数有哪些约束，编译器是否可特化？</li><li>当前观察来自语言规则、ABI 承诺还是某次优化后的产物？</li></ul><h2>工程影响</h2><p>协议设计影响可测试性、模块边界和二进制接口。公开库应审慎承诺 ABI 与 API；不要依赖反编译后的私有布局。性能判断用基准测试验证，避免为了猜测的派发开销提前牺牲抽象。</p><h2>练习</h2><p>在自有小项目中实现协议要求、默认实现和泛型算法，写单元测试覆盖不同具体类型；分别构建 Debug/Release，对照编译器文档理解差异，不将机器码形态推广成语言保证。</p><p><strong>参考：</strong><a href="https://docs.swift.org/swift-book/documentation/the-swift-programming-language/protocols/">Swift Protocols</a> · <a href="https://docs.swift.org/swift-book/documentation/the-swift-programming-language/generics/">Swift Generics</a></p><nav class="pager"><a href="./39-blocks-closures.html">← 上一章</a><a href="./41-objc-swift-bridge.html">下一章：互操作 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>R06 协议、泛型与派发边界 · IOSBook</title><link rel="stylesheet" href="../style.css"></head>
+<body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">R06</span><h1>协议、泛型与派发边界</h1><p class="sub">从抽象接口理解静态选择、动态派发和二进制约束</p></header>
+<p class="lead">“面向协议”是设计方法，不意味着所有调用都使用同一种运行时派发。Swift 的静态特化、协议见证表、类继承动态派发和 Objective-C 消息派发具有不同语义与成本。</p>
+<h2>先区分三层</h2><ul><li><strong>语言语义：</strong>源码层保证的行为，如访问控制、泛型约束和协议一致性。</li><li><strong>派发策略：</strong>编译器可能采用静态调用、见证表或类虚表等方式；优化后机器代码可能内联。</li><li><strong>ABI/实现：</strong>跨模块调用约定、元数据布局和运行库机制；只有公开承诺的部分才能作为兼容性依赖。</li></ul>
+<h2>设计取舍</h2><p>协议适合描述能力与可替换性；泛型可保留类型关系并支持专门化；类继承适合共享状态或需要动态覆盖的模型。选型应优先依据正确性、可测试性和演进需求，而非猜测某种派发“必然更快”。</p>
+<div class="code"><div class="code-title">Swift：用协议表达可测试的依赖边界</div><button class="copy" type="button">复制</button><pre><code>protocol ProfileStore {
+    func profile(for id: String) async throws -&gt; Profile
+}
+
+struct ProfileService {
+    let store: any ProfileStore
+
+    func load(id: String) async throws -&gt; Profile {
+        try await store.profile(for: id)
+    }
+}</code></pre></div>
+<p>生产实现和测试替身遵循同一协议；服务端仍负责判断调用者是否有权读取对应资料，客户端抽象不是安全授权边界。</p>
+<h2>二进制观察的边界</h2><p>反汇编结果会受优化级别、whole-module optimization、架构和工具链版本影响。观察一个构建产物只能说明该次构建，不足以推断所有 Swift 版本或未来 ABI。公开接口、稳定 ABI 和私有实现必须分别标注。</p>
+<h2>自有样例实验</h2><ol><li>分别用协议、泛型和类继承实现同一个小型格式化器。</li><li>在 Debug 与 Release 配置下比较行为、可测试性和构建产物。</li><li>记录编译器、SDK、架构与优化配置，不从单次汇编推导普遍规则。</li><li>为协议实现替换、错误路径和并发访问编写测试。</li></ol>
+<h2>自测</h2><ol><li>为什么源码层的协议调用不总能直接映射成一种固定派发方式？</li><li>什么情况下可以把 ABI 细节当作兼容性契约？</li><li>为什么客户端协议抽象不能承担服务端授权？</li></ol>
+<nav class="pager"><a href="./39-blocks-closures.html">← 上一章</a><a href="../part/04-runtime.html">第四部目录</a><a href="./41-objc-swift-bridge.html">下一章：语言互操作 →</a></nav></article></main></body></html>

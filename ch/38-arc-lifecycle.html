@@ -1,1 +1,25 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>R04 ARC、所有权与对象生命周期 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">R04</span><h1>ARC、所有权与对象生命周期</h1><p class="sub">引用计数自动化不等于生命周期自动正确</p></header><p class="lead">ARC 在编译期插入引用计数管理，使对象所有权更易表达；它不消除强引用环、并发访问错误、资源未关闭或业务状态过早释放等问题。</p><h2>所有权模型</h2><p>强引用延长对象生命周期；弱引用不拥有对象，在目标释放后变为 nil；非拥有引用需要严格保证目标生命周期。属性的 ownership、闭包捕获和异步任务都应纳入对象图分析。</p><h2>常见生命周期问题</h2><ul><li>对象之间形成强引用环，导致界面或资源无法释放。</li><li>异步闭包强持有控制器，使其离开页面后仍存活。</li><li>把 weak 当作通用修复，导致关键对象意外变为 nil。</li><li>Swift 与 Objective-C 桥接时，集合/闭包所有权边界不清。</li></ul><h2>诊断步骤</h2><ol><li>用 Memory Graph 找出未释放对象及强引用路径。</li><li>先定义谁拥有对象，再选择 strong/weak/unowned 或捕获列表。</li><li>验证页面退出、任务取消、重复进入和错误返回路径。</li><li>用 XCTest 生命周期断言或释放回调验证修复；避免只看内存总量。</li></ol><p>ARC 的具体优化实现不应当作稳定 ABI 细节。性能敏感结论应在目标设备与发布构建中测量。</p><p><strong>参考：</strong><a href="https://docs.swift.org/swift-book/documentation/the-swift-programming-language/automaticreferencecounting/">Swift ARC</a> · <a href="https://developer.apple.com/documentation/xcode/diagnosing-memory-thread-and-crash-issues-early">Memory Graph</a></p><nav class="pager"><a href="../part/04-runtime.html">第四部目录</a><a href="./39-blocks-closures.html">下一章：Block 与闭包 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>R04 ARC、所有权与对象生命周期 · IOSBook</title><link rel="stylesheet" href="../style.css"></head>
+<body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">R04</span><h1>ARC、所有权与对象生命周期</h1><p class="sub">从对象图推理引用关系，而不是把 ARC 当作“自动清理一切”</p></header>
+<p class="lead">ARC 是编译器在适用的 Objective-C 引用语义上插入所有权管理操作的机制。它减少手工 retain/release 负担，但不能替你解决强引用环、外部资源生命周期或并发竞态。</p>
+<h2>1. 先画对象图</h2><p>把对象视为节点，把强引用视为有向边。对象通常在不再被强持有时释放；弱引用不维持目标存活，并会在目标销毁时自动置空。排查生命周期问题时，先问“谁强持有谁”，再问某个回调何时发生。</p>
+<ul><li><strong>strong：</strong>表达拥有关系，延长对象生命周期。</li><li><strong>weak：</strong>表达非拥有观察关系，适用于委托等场景，但读取时仍须处理目标已消失。</li><li><strong>unowned：</strong>仅适用于生命周期关系可证明的场景；若假设不成立，访问可能触发运行时错误。</li></ul>
+<h2>2. 强引用环的典型模型</h2><p>例如控制器强持有闭包，而闭包又强捕获控制器，就形成环。Swift 中可通过捕获列表表达非拥有捕获；但是否应使用 weak，取决于闭包的语义：若目标消失后任务应取消/无操作，weak 常合适；若闭包必须保证目标存活，应重构所有权或任务生命周期，而不是盲目改成 weak。</p>
+<div class="code"><div class="code-title">Swift：明确异步闭包的捕获语义</div><button class="copy" type="button">复制</button><pre><code>final class Loader {
+    var onFinish: (() -> Void)?
+
+    func start() {
+        onFinish = { [weak self] in
+            guard let self else { return }
+            self.finish()
+        }
+    }
+
+    private func finish() { /* 更新自己的状态 */ }
+}</code></pre></div>
+<p>这段示意只解决“闭包不拥有 Loader”这一关系；仍需明确闭包何时清空、任务是否取消、回调在哪个执行器运行。</p>
+<h2>3. 生命周期不等于资源管理</h2><p>文件句柄、观察令牌、通知订阅、任务、锁和外部会话都有各自的关闭/取消协议。对象释放时才清理可能太晚；应设计显式、幂等的 teardown，并保证异常路径也会执行。不要把 deinit 当作业务正确性的唯一保障。</p>
+<h2>4. 并发下的所有权</h2><p>对象还活着，不代表其可变状态可安全并发访问。所有权管理解决“何时释放”，同步策略解决“谁能同时读写”。用 actor、串行队列、锁或不可变值明确隔离边界，并避免在锁内调用未知回调。</p>
+<h2>自有样例实验</h2><ol><li>创建两个互相强引用的对象，观察对象释放回调未执行的现象。</li><li>把其中一条非拥有关系改为 weak，验证对象图断开后释放时序。</li><li>为任务、订阅和资源增加显式取消/关闭，测试重复 teardown。</li><li>运行 Xcode 内存诊断工具，记录 OS、Xcode 和构建配置；区分工具报告与根因推断。</li></ol>
+<h2>自测</h2><ol><li>ARC 能解决哪些问题，哪些问题仍需程序员设计？</li><li>weak 与 unowned 的生命周期前提有什么差异？</li><li>为什么“对象已释放”与“并发访问安全”是两类问题？</li></ol>
+<nav class="pager"><a href="./15-swift.html">← 上一章</a><a href="../part/04-runtime.html">第四部目录</a><a href="./39-blocks-closures.html">下一章：Block 与闭包 →</a></nav></article></main></body></html>

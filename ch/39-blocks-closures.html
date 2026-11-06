@@ -1,1 +1,28 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>R05 Block、闭包与捕获 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">R05</span><h1>Block、闭包与捕获</h1><p class="sub">闭包把代码与捕获的环境一起带入后续执行</p></header><p class="lead">Block/closure 让函数可作为值传递，但捕获规则会影响所有权、可变状态和生命周期。排查问题时要同时看调用时序和对象图。</p><h2>捕获语义</h2><p>闭包可能捕获值或引用；在 Objective-C 中，Block 对局部变量的捕获、对象引用和可变变量处理有特定规则。Swift 捕获列表可明确引用语义，但使用 weak/unowned 需要证明生命周期假设成立。</p><h2>设计检查</h2><ul><li>识别 escaping 闭包：它可能在当前函数返回后执行。</li><li>确认异步回调是否被调用、调用几次、是否可取消。</li><li>检查闭包持有控制器、服务对象或资源的路径。</li><li>将结果回调设计为明确的成功、失败、取消状态，并避免重复完成。</li></ul><h2>自有样例练习</h2><p>构建一个可取消的异步加载示例，记录闭包捕获对象、任务结束和页面退出时序。用 Memory Graph 验证页面释放；加入取消和失败测试。练习目标是稳健生命周期，不是修改其他应用的运行行为。</p><p><strong>参考：</strong><a href="https://docs.swift.org/swift-book/documentation/the-swift-programming-language/closures/">Swift Closures</a> · <a href="https://clang.llvm.org/docs/Block-ABI-Apple.html">Clang Blocks ABI</a></p><nav class="pager"><a href="./38-arc-lifecycle.html">← 上一章</a><a href="./40-protocol-dispatch.html">下一章：协议与派发 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>R05 Block、闭包与捕获 · IOSBook</title><link rel="stylesheet" href="../style.css"></head>
+<body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">R05</span><h1>Block、闭包与捕获</h1><p class="sub">理解闭包的环境、逃逸和执行时机</p></header>
+<p class="lead">Block 与 Swift closure 都可以把代码和所需环境一起传递。分析时要区分闭包的语义、捕获规则、存储位置和调用时机；不同语言运行时与编译器实现不能简单互相类比。</p>
+<h2>闭包携带什么</h2><p>闭包至少包含可调用行为及其所需的捕获环境。捕获值还是捕获引用、捕获是否延长对象生命周期、闭包是否逃逸到调用返回之后，都会影响行为和内存图。具体布局属于编译器/ABI实现细节，不应依赖未承诺的内存偏移。</p>
+<h2>逃逸与非逃逸</h2><p>非逃逸闭包在调用期间使用；逃逸闭包可能被保存并稍后调用，例如异步完成回调。逃逸使生命周期分析更重要：回调可能在对象状态变化、页面离开或任务取消之后到达。</p>
+<div class="code"><div class="code-title">Swift：为异步回调定义可取消的生命周期</div><button class="copy" type="button">复制</button><pre><code>final class SearchModel {
+    private var task: Task&lt;Void, Never&gt;?
+
+    func search(_ query: String) {
+        task?.cancel()
+        task = Task { [weak self] in
+            let result = await fetchLocalFixture(query)
+            guard !Task.isCancelled else { return }
+            await self?.apply(result)
+        }
+    }
+
+    func stop() {
+        task?.cancel()
+        task = nil
+    }
+}</code></pre></div>
+<p>示例中的本地 fixture 代表自有测试数据。真实异步 API 应明确错误、取消、主线程/actor 隔离和结果过期策略。</p>
+<h2>常见生命周期陷阱</h2><ul><li>长期持有的回调强捕获拥有者，形成循环引用。</li><li>多次注册回调却没有对应移除，造成重复执行或资源泄漏。</li><li>异步结果晚于当前界面/状态，覆盖更新的数据。</li><li>把“弱捕获防环”误当成任务取消；对象不再被捕获，不会自动终止底层工作。</li></ul>
+<h2>工程检查</h2><ol><li>标出闭包由谁存储、谁负责释放或取消。</li><li>说明捕获变量是快照还是共享可变状态。</li><li>保证 UI 状态在正确 actor/线程更新。</li><li>给重复、延迟、取消和失败回调编写测试。</li></ol>
+<h2>自测</h2><p>设计一个会延迟返回的自有异步任务：用户连续提交两次请求时，如何避免旧结果覆盖新结果？对象销毁时应取消什么、保留什么？</p>
+<nav class="pager"><a href="./38-arc-lifecycle.html">← 上一章</a><a href="../part/04-runtime.html">第四部目录</a><a href="./40-protocol-dispatch.html">下一章：协议与派发 →</a></nav></article></main></body></html>

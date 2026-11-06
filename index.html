@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="iOS 系统架构、运行时与应用安全的条理化学习手册。">
+  <title>IOSBook · iOS 系统、运行时与安全</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <input id="nav-toggle" type="checkbox" hidden>
+  <label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+  <aside class="sidebar">
+    <a class="brand" href="./index.html"><span class="brand-k">IOSBOOK</span><span class="brand-t">iOS 系统 · 运行时 · 安全</span></a>
+    <label class="search-wrap"><span class="visually-hidden">搜索目录</span><input id="q" type="search" placeholder="搜索章节…" autocomplete="off"></label>
+    <nav class="toc" aria-label="全书目录">
+      <a class="part" href="./part/01-foundation.html">第一部 · 系统基础</a>
+      <a class="item" href="./ch/01-boot.html"><span class="num">01</span>启动链与信任建立</a>
+      <a class="item" href="./ch/02-xnu.html"><span class="num">02</span>xnu、Mach 与 Darwin</a>
+      <a class="item" href="./ch/03-dyld.html"><span class="num">03</span>dyld 与程序加载</a>
+      <a class="item" href="./ch/04-sandbox.html"><span class="num">04</span>沙盒与权限边界</a>
+      <a class="item" href="./ch/05-signature.html"><span class="num">05</span>代码签名与完整性</a>
+      <a class="part" href="./part/02-runtime.html">第二部 · Objective-C Runtime</a>
+      <a class="item" href="./ch/06-objc.html"><span class="num">06</span>对象模型与消息派发</a>
+      <a class="item" href="./ch/07-runtime-safety.html"><span class="num">07</span>运行时行为与安全边界</a>
+      <a class="part" href="./part/03-binary.html">第三部 · Mach-O 与内存</a>
+      <a class="item" href="./ch/08-macho.html"><span class="num">08</span>Mach-O 与虚拟地址空间</a>
+      <a class="part" href="./part/04-appsec.html">第四部 · 应用安全</a>
+      <a class="item" href="./ch/09-appsec.html"><span class="num">09</span>威胁建模与防护验证</a>
+      <a class="part" href="./part/05-platform.html">第五部 · 平台安全</a>
+      <a class="item" href="./ch/10-platform.html"><span class="num">10</span>平台安全边界与研究规范</a>
+    </nav>
+    <div class="side-foot">起步版 · 持续编写中</div>
+  </aside>
+  <main class="content">
+    <article class="hero">
+      <p class="eyebrow">A STRUCTURED GUIDE TO iOS</p>
+      <h1>理解 iOS<br>系统、运行时与安全</h1>
+      <p class="sub">从启动信任链和 Mach-O，到对象运行时与应用安全——先建立模型，再用证据验证。</p>
+      <div class="stats"><div class="stat"><b>5</b><span>学习部分</span></div><div class="stat"><b>10</b><span>起步章节</span></div><div class="stat"><b>3</b><span>贯穿主线</span></div></div>
+      <h2>这本书的组织方式</h2>
+      <p>IOSBook 不是 API 速查表，也不把零散技巧当作体系。内容围绕<strong>可信链</strong>（系统如何验证）、<strong>运行链</strong>（程序如何加载执行）和<strong>检测链</strong>（如何在授权环境中观察并验证）组织。</p>
+      <div class="cards">
+        <a class="card" href="./part/01-foundation.html"><span class="k blue">系统</span><h3>从启动到应用进程</h3><p>认识启动流程、xnu、dyld、沙盒与代码签名的职责边界。</p></a>
+        <a class="card" href="./part/02-runtime.html"><span class="k purple">运行时</span><h3>对象如何响应消息</h3><p>建立 Objective-C 对象、类与动态派发的概念模型。</p></a>
+        <a class="card" href="./part/04-appsec.html"><span class="k green">安全</span><h3>从威胁模型到验证</h3><p>以防御目标、可观测证据和回归验证组织应用安全研究。</p></a>
+      </div>
+      <h2>建议阅读顺序</h2>
+      <ol><li>先读系统基础，分清硬件信任、内核、系统服务和应用各自的职责。</li><li>再学习 Mach-O 加载与 Runtime，理解代码如何成为进程中的运行行为。</li><li>最后做应用安全威胁建模；所有测试限于自有或明确授权的目标。</li></ol>
+      <aside class="callout"><strong>研究边界</strong><br>请只在自有设备、模拟器和明确授权的应用上实验。章节重点是架构理解、安全验证与防护。</aside>
+    </article>
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>

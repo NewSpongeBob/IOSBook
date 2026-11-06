@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>01 iOS 启动链与 Boot 流程</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><a href="../index.html"><span class="brand-k">IOS</span><span class="brand-t">iOS 系统架构 · 运行时 · 安全</span></a></div>
+  </aside>
+  <main class="content">
+    <article class="hero">
+      <h1>01 iOS 启动链与 Boot 流程</h1>
+      <p>iOS 的启动链可以理解为一条从硬件信任到用户空间可执行环境的验证与初始化过程。它涉及 BootROM、iBoot、Kernel、launchd，以及 app 的最终加载。</p>
+      <p><b>关键主线：</b>Trusted boot → kernel init → userland launch → app entry.</p>
+      <p><b>工程重点：</b>认识启动环节中的信任、权限、隔离和加载顺序。</p>
+    </article>
+  </main>
+</body>
+</html>

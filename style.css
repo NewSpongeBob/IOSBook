@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iOS 系统架构 · 运行时 · 安全</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <input type="checkbox" id="nav-toggle" hidden>
+  <label for="nav-toggle" class="nav-btn" aria-label="目录">☰</label>
+
+  <aside class="sidebar">
+    <div class="brand">
+      <a href="./index.html">
+        <span class="brand-k">IOS</span>
+        <span class="brand-t">iOS 系统架构 · 运行时 · 安全</span>
+      </a>
+    </div>
+
+    <div class="search-wrap">
+      <input id="q" type="search" placeholder="搜索章名…" autocomplete="off">
+    </div>
+
+    <nav class="toc">
+      <a class="part" href="./part/01-foundation.html">第一部 · iOS 与系统基础</a>
+      <a class="item" href="./ch/01-boot.html"><span class="num">01</span>iOS 启动链与 Boot 流程</a>
+      <a class="item" href="./ch/02-xnu.html"><span class="num">02</span>xnu / Mach / Darwin 基础</a>
+      <a class="item" href="./ch/03-dyld.html"><span class="num">03</span>dyld 与程序加载过程</a>
+      <a class="item" href="./ch/04-sandbox.html"><span class="num">04</span>Sandbox / 权限 / 资源隔离</a>
+      <a class="item" href="./ch/05-signature.html"><span class="num">05</span>签名、完整性与信任链</a>
+
+      <a class="part" href="./part/02-runtime.html">第二部 · 运行时与对象模型</a>
+      <a class="item" href="./ch/06-objc.html"><span class="num">06</span>Objective-C Runtime 基础</a>
+      <a class="item" href="./ch/07-msgsend.html"><span class="num">07</span>objc_msgSend 与 isa / class</a>
+      <a class="item" href="./ch/08-swizzle.html"><span class="num">08</span>Method Swizzling / KVO / KVC</a>
+      <a class="item" href="./ch/09-block.html"><span class="num">09</span>Block / closure / 捕获语义</a>
+
+      <a class="part" href="./part/03-memory.html">第三部 · 内存与加载</a>
+      <a class="item" href="./ch/10-macho.html"><span class="num">10</span>Mach-O 与 load commands</a>
+      <a class="item" href="./ch/11-aslr.html"><span class="num">11</span>ASLR 与地址空间布局</a>
+      <a class="item" href="./ch/12-mmap.html"><span class="num">12</span>内存映射与堆栈/堆的结构</a>
+      <a class="item" href="./ch/13-memory.html"><span class="num">13</span>二进制重定位与 lazy binding</a>
+
+      <a class="part" href="./part/04-detection.html">第四部 · 检测与防护</a>
+      <a class="item" href="./ch/14-frida.html"><span class="num">14</span>Frida 与 iOS 注入基础</a>
+      <a class="item" href="./ch/15-ptrace.html"><span class="num">15</span>ptrace / process / syscall</a>
+      <a class="item" href="./ch/16-anti.html"><span class="num">16</span>反调试与反检测</a>
+      <a class="item" href="./ch/17-pinning.html"><span class="num">17</span>SSL Pinning 与 API 保护</a>
+
+      <a class="part" href="./part/05-kernel.html">第五部 · 内核与越狱工程</a>
+      <a class="item" href="./ch/18-kext.html"><span class="num">18</span>kext / kernel extension / PAC</a>
+      <a class="item" href="./ch/19-kernel.html"><span class="num">19</span>xnu 内核基础与权限模型</a>
+      <a class="item" href="./ch/20-jb.html"><span class="num">20</span>越狱与权限提升工程</a>
+
+      <a class="part" href="./part/99-appendix.html">附录</a>
+      <a class="item" href="./ch/a01.html"><span class="num">A01</span>速查表</a>
+      <a class="item" href="./ch/a02.html"><span class="num">A02</span>术语表</a>
+      <a class="item" href="./ch/a03.html"><span class="num">A03</span>学习路线与实验环境</a>
+    </nav>
+
+    <div class="side-foot">V0.1 · 2026</div>
+  </aside>
+
+  <main class="content">
+    <article class="hero">
+      <h1>iOS<br>系统架构 · 运行时 · 安全</h1>
+      <p class="sub">从 Mach-O、dyld 与 objc runtime 到内核工程的一本条理化教程</p>
+
+      <div class="stats">
+        <div class="stat"><b>20</b><span>讲正文</span></div>
+        <div class="stat"><b>5</b><span>个部分</span></div>
+        <div class="stat"><b>3</b><span>条主线</span></div>
+      </div>
+
+      <h2>这本书讲什么</h2>
+      <p>
+        这不是一份“技巧合集”，而是一份按能力阶梯组织的工程手册。全书围绕三条主线展开：
+        <b>可信链</b>（怎么验证）、<b>运行链</b>（怎么执行）、<b>检测链</b>（怎么发现）。
+        所有技术，都是在这三条线上的某个点做文章。
+      </p>
+
+      <div class="cards">
+        <a class="card" href="./part/01-foundation.html">
+          <span class="k" style="background:#0ea5e9">基础</span>
+          <h3>第一部 · iOS 与系统基础</h3>
+          <p>从 boot 流程、Mach、dyld、launchd、Sandbox 到签名与信任链的整体认知。</p>
+        </a>
+        <a class="card" href="./part/02-runtime.html">
+          <span class="k" style="background:#8b5cf6">运行时</span>
+          <h3>第二部 · 运行时与对象模型</h3>
+          <p>objc runtime、ISA、msgSend、KVO、KVC、method swizzling 与对象生命周期。</p>
+        </a>
+        <a class="card" href="./part/04-detection.html">
+          <span class="k" style="background:#f59e0b">检测</span>
+          <h3>第四部 · 检测与防护</h3>
+          <p>Frida、ptrace、反调试、签名校验、SSL Pinning 与应用安全防护。</p>
+        </a>
+      </div>
+
+      <h2>怎么读</h2>
+      <ol>
+        <li><b>先建模型，再记细节</b>。模型对了，细节可以查；模型错了，细节全是散的。</li>
+        <li><b>每个结论配一个可证伪实验</b>。不做实验的“理解”，多半是错觉。</li>
+        <li><b>改完必须回归</b>。任何“应该没问题”的改动，都应重新验证。</li>
+      </ol>
+
+      <blockquote>把系统看清楚，把实验做扎实，剩下的就是学习与实战的时间。</blockquote>
+    </article>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

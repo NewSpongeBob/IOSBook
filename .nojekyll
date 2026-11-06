@@ -1,0 +1,14 @@
+document.addEventListener('DOMContentLoaded', function () {
+  const q = document.getElementById('q');
+  if (!q) return;
+
+  const items = Array.from(document.querySelectorAll('.item'));
+  q.addEventListener('input', function () {
+    const value = this.value.trim().toLowerCase();
+    items.forEach((el) => {
+      const text = el.textContent.toLowerCase();
+      const visible = !value || text.includes(value);
+      el.style.display = visible ? '' : 'none';
+    });
+  });
+});

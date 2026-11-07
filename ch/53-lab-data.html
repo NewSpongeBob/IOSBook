@@ -65,7 +65,7 @@
 <li>修复建议：按“最小改动、可回归”排序。</li>
 </ol>
 
-<h2>6. 判定标准</h2><table><thead><tr><th>发现</th><th>结论</th><th>动作</th></tr></thead><tbody><tr><td>凭据出现在日志/偏好设置</td><td>需修复</td><td>改存钥匙串、清理日志</td></tr><tr><td>明文缓存位于受保护目录</td><td>可接受</td><td>补清理策略</td></tr><tr><td>敏感文件参与备份</td><td>需修复</td><td>排除备份或改保护类</td></tr></tbody></table><div class="code"><div class="code-title">检索容器中的测试标识</div><button class="copy" type="button">复制</button><pre><code>APP=$(xcrun simctl get_app_container booted com.example.app data)
+<h2>6. 结论到动作：一张对照表</h2><table><thead><tr><th>发现</th><th>结论</th><th>动作</th></tr></thead><tbody><tr><td>凭据出现在日志/偏好设置</td><td>需修复</td><td>改存钥匙串、清理日志</td></tr><tr><td>明文缓存位于受保护目录</td><td>可接受</td><td>补清理策略</td></tr><tr><td>敏感文件参与备份</td><td>需修复</td><td>排除备份或改保护类</td></tr></tbody></table><div class="code"><div class="code-title">检索容器中的测试标识</div><button class="copy" type="button">复制</button><pre><code>APP=$(xcrun simctl get_app_container booted com.example.app data)
 grep -rl "TEST-RECORD-001" "$APP" | head
 du -sh "$APP"/Library/Caches</code></pre></div>
 <div class="callout"><strong>先枚举副本</strong><br>先列“数据出现在哪些位置”，再判断每份副本的暴露条件，最后才选加密手段；顺序反了会漏掉日志与备份。</div>

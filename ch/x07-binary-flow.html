@@ -65,15 +65,8 @@ nm -m YourApp | grep -i "ListService\|TokenStore" | head -20</code></pre></div>
 </tbody>
 </table>
 
-<h2>7. 练习：一周完成一次完整分析</h2>
-<ol>
-<li>按模板完成一份一页结论，附三条证据。</li>
-<li>让同事只凭结论复现一次，记录对方卡住的位置并补充说明。</li>
-<li>把结论里“推断”的部分单独列出，标出需要补什么证据。</li>
-</ol>
-
-<h2>8. 阶段产出：每步一个可验证物</h2><table><thead><tr><th>阶段</th><th>产出</th><th>不通过时的表现</th></tr></thead><tbody><tr><td>静态定位</td><td>候选入口</td><td>断点打不中</td></tr><tr><td>运行时确认</td><td>调用顺序与参数</td><td>与源码预期不符</td></tr><tr><td>指令验证</td><td>业务规则</td><td>分支条件解释不通</td></tr></tbody></table><div class="callout"><strong>结论要带限制</strong><br>“在 Debug 构建、iOS 17.x 上验证”比“已验证”有用得多；没有限制的结论无法复用。</div>
-<h2>9. 一次完整分析的记录示例</h2>
+<h2>7. 阶段产出：每步一个可验证物</h2><table><thead><tr><th>阶段</th><th>产出</th><th>不通过时的表现</th></tr></thead><tbody><tr><td>静态定位</td><td>候选入口</td><td>断点打不中</td></tr><tr><td>运行时确认</td><td>调用顺序与参数</td><td>与源码预期不符</td></tr><tr><td>指令验证</td><td>业务规则</td><td>分支条件解释不通</td></tr></tbody></table><div class="callout"><strong>结论要带限制</strong><br>“在 Debug 构建、iOS 17.x 上验证”比“已验证”有用得多；没有限制的结论无法复用。</div>
+<h2>8. 一次完整分析的记录示例</h2>
 <table>
 <thead><tr><th>阶段</th><th>用到的命令</th><th>产出</th></tr></thead>
 <tbody>
@@ -85,7 +78,7 @@ nm -m YourApp | grep -i "ListService\|TokenStore" | head -20</code></pre></div>
 </table>
 <p>记录的价值在于“别人能照着复现”，而不是“我懂了”。每个阶段都要写下命令与观察结果。</p>
 
-<h2>10. 工程权衡：什么时候收手</h2>
+<h2>9. 工程权衡：什么时候收手</h2>
 <table>
 <thead><tr><th>信号</th><th>判断</th></tr></thead>
 <tbody>
@@ -96,7 +89,7 @@ nm -m YourApp | grep -i "ListService\|TokenStore" | head -20</code></pre></div>
 </table>
 <p>分析不是越深越好：能支持当前决策的结论，就是足够的结论。</p>
 
-<h2>11. 数据细节：一次分析的时间预算</h2>
+<h2>10. 数据细节：一次分析的时间预算</h2>
 <table>
 <thead><tr><th>阶段</th><th>耗时量级</th><th>容易超时的原因</th></tr></thead>
 <tbody>
@@ -107,6 +100,13 @@ nm -m YourApp | grep -i "ListService\|TokenStore" | head -20</code></pre></div>
 </tbody>
 </table>
 <p>如果某一阶段明显超出量级，通常不是“难”，而是方法错了——停下来换线索比硬撑更快。</p>
+
+<h2>11. 练习：一周完成一次完整分析</h2>
+<ol>
+<li>按模板完成一份一页结论，附三条证据。</li>
+<li>让同事只凭结论复现一次，记录对方卡住的位置并补充说明。</li>
+<li>把结论里“推断”的部分单独列出，标出需要补什么证据。</li>
+</ol>
 
 <h2>12. 自测</h2>
 <ol>

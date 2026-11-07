@@ -91,17 +91,7 @@ NSLog(@"imp before=%p after=%p", before, after);</code></pre></div>
 <li><strong>结论与限制：</strong>记录“调用未走消息发送”，并注明该结论只对当前构建与优化设置成立。</li>
 </ol>
 
-<h2>7. 工程权衡：三种改法怎么选</h2>
-<table>
-<thead><tr><th>手法</th><th>能力</th><th>痕迹</th><th>维护成本</th></tr></thead>
-<tbody>
-<tr><td>改数据</td><td>只影响依赖该数据的判断</td><td>几乎无</td><td>低，但覆盖面小</td></tr>
-<tr><td>改方法表</td><td>覆盖所有消息发送</td><td>实现地址异常</td><td>中，受派发方式限制</td></tr>
-<tr><td>改指令</td><td>连直接调用也能拦</td><td>代码页被写、私有脏页</td><td>高，需处理并发与签名</td></tr>
-</tbody>
-</table>
-
-<h2>8. 失败分流表</h2>
+<h2>7. 失败分流表</h2>
 <table>
 <thead><tr><th>现象</th><th>最可能的原因</th><th>该查哪里</th></tr></thead>
 <tbody>
@@ -110,6 +100,16 @@ NSLog(@"imp before=%p after=%p", before, after);</code></pre></div>
 <tr><td>只有部分入口生效</td><td>同一功能有多个实现或缓存已建立</td><td>搜同名选择子，查调用链</td></tr>
 <tr><td>断点停不住</td><td>断点设在原方法上，而实现已被替换</td><td>改为在新实现或调用点下断</td></tr>
 <tr><td>Swift 方法无效</td><td>未暴露给 Objective-C 运行时</td><td>看是否有 <code>@objc</code>/<code>dynamic</code>，或加包装层</td></tr>
+</tbody>
+</table>
+
+<h2>8. 工程权衡：三种改法怎么选</h2>
+<table>
+<thead><tr><th>手法</th><th>能力</th><th>痕迹</th><th>维护成本</th></tr></thead>
+<tbody>
+<tr><td>改数据</td><td>只影响依赖该数据的判断</td><td>几乎无</td><td>低，但覆盖面小</td></tr>
+<tr><td>改方法表</td><td>覆盖所有消息发送</td><td>实现地址异常</td><td>中，受派发方式限制</td></tr>
+<tr><td>改指令</td><td>连直接调用也能拦</td><td>代码页被写、私有脏页</td><td>高，需处理并发与签名</td></tr>
 </tbody>
 </table>
 

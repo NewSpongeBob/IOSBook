@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x13-swift-limit.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>F04 Swift 支持与限制 · IOSBook</title>
+<meta name="description" content="同一个“方法”，在 Swift 里可能根本没有方法表项">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">F04</span><h1>Swift 支持与限制</h1><p class="sub">同一个“方法”，在 Swift 里可能根本没有方法表项</p></header>
+
+<p class="lead">Swift 有四种派发：静态、类虚表、协议见证、Objective-C 消息。只有最后一种能直接按选择子 hook。打不中的原因通常不是工具，而是方法压根没走消息发送。</p>
+
+<h2>1. 四种派发与可 hook 性</h2>
+<table>
+<thead><tr><th>派发方式</th><th>典型写法</th><th>能否按名字 hook</th></tr></thead>
+<tbody>
+<tr><td>静态</td><td><code>final</code>、值类型方法、全局函数</td><td>不能，只能按地址</td></tr>
+<tr><td>类虚表</td><td>可继承的类方法</td><td>不能按选择子，需按 vtable 偏移或地址</td></tr>
+<tr><td>协议见证</td><td>通过协议类型调用</td><td>不能，需定位见证表项</td></tr>
+<tr><td>Objective-C 消息</td><td><code>@objc</code>、<code>dynamic</code>、继承 NSObject 并暴露</td><td>能，<code>ObjC.classes</code> 可见</td></tr>
+</tbody>
+</table>
+
+<h2>2. 什么样的 Swift 方法能被 ObjC 桥看到</h2>
+<ul>
+<li>标了 <code>@objc</code>，或类型继承自 <code>NSObject</code> 且方法被隐式暴露。</li>
+<li>标了 <code>dynamic</code>，强制走消息发送（KVO、交换的前提）。</li>
+<li>实现协议中带 <code>@objc</code> 要求的方法。</li>
+<li>被 <code>@objcMembers</code> 修饰的类里的成员。</li>
+</ul>
+<div class="code"><div class="code-title">先确认它在不在 Objective-C 方法表里</div><button class="copy" type="button">复制</button><pre><code>const cls = ObjC.classes.LoginService;
+console.log(cls ? cls.$ownMethods : 'class not visible to ObjC');</code></pre></div>
+
+<figure>
+<img src="../assets/figures/swift-exposure.svg" alt="Swift 方法暴露给运行时的三种状态" loading="lazy">
+<figcaption>图 3-8　纯 Swift 挂不上，@objc 可能被优化掉，@objc dynamic 才稳定。</figcaption>
+</figure>
+
+<h2>3. 打不中时的三条路</h2>
+<table>
+<thead><tr><th>路径</th><th>做法</th><th>代价</th></tr></thead>
+<tbody>
+<tr><td>改源码</td><td>给自己的方法加 <code>@objc dynamic</code></td><td>需要重新构建，但最干净</td></tr>
+<tr><td>按符号</td><td>用修饰名定位函数地址，按地址 hook</td><td>符号随版本变化，泛型会分裂多份</td></tr>
+<tr><td>换边界</td><td>hook 它调用的 ObjC 边界（网络、存储、通知）</td><td>看不到内部逻辑，但稳定</td></tr>
+</tbody>
+</table>
+
+<h2>4. 泛型与内联</h2>
+<ul>
+<li>泛型函数会为每个具体类型生成特化版本，符号里带类型信息，看起来像多个同名函数。</li>
+<li>优化开启后，短方法可能被内联进调用方，原地址不再被调用。</li>
+<li>因此“符号存在”不等于“运行时执行它”；用断点确认比看符号可靠。</li>
+</ul>
+
+<h2>5. 对象布局不要依赖</h2>
+<p>Swift 类实例的头部含类型指针与引用计数相关字段，之后才是属性。字段顺序与对齐会随编译器、优化与属性包装变化，按固定偏移读字段在版本升级后必然失效。需要读状态时优先调用公开方法或 KVC（若暴露）。</p>
+
+<h2>6. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>类取不到</td><td>未继承 NSObject 或未暴露</td><td>看类型声明与 <code>@objc</code></td></tr>
+<tr><td>类在但方法不在</td><td>非 <code>@objc</code> 成员</td><td>枚举 <code>$ownMethods</code> 核对</td></tr>
+<tr><td>按符号 hook 后无效果</td><td>被内联或调用的是特化版本</td><td>断点验证实际入口</td></tr>
+<tr><td>hook 生效但参数错位</td><td>Swift 调用约定与 ObjC 不同</td><td>改用 ObjC 暴露的包装层</td></tr>
+<tr><td>升级后偏移错乱</td><td>依赖了对象布局</td><td>改为调用方法读取</td></tr>
+</tbody>
+</table>
+
+<h2>7. 建议顺序</h2>
+<ol>
+<li>先 hook 对外边界：网络请求、数据库读写、通知发送。</li>
+<li>再 hook 标了 <code>@objc</code> 的业务方法。</li>
+<li>最后才用符号/地址进入纯 Swift 内部，并接受“版本一变就失效”。</li>
+</ol>
+
+<div class="callout"><strong>泛型会分裂符号</strong><br>同一份泛型代码会为不同类型生成多个特化版本，按符号 hook 时可能只挂到其中一个。</div>
+<h2>8. 数据细节：符号里藏着什么</h2>
+<table>
+<thead><tr><th>组成</th><th>含义</th><th>对 hook 的影响</th></tr></thead>
+<tbody>
+<tr><td>前缀与长度</td><td>修饰名格式与总长度</td><td>长度错误即解析失败</td></tr>
+<tr><td>模块名</td><td>所属 target</td><td>同名类靠模块区分</td></tr>
+<tr><td>类型与函数名</td><td>签名拼装后的标识</td><td>重载会生成多个符号</td></tr>
+<tr><td>特化标记</td><td>泛型具体类型</td><td>一份代码可能对应多个实现</td></tr>
+</tbody>
+</table>
+<p>这就是“按符号 hook 只挂到一个版本”的根源：你以为挂了函数，其实挂了某个特化。</p>
+
+<h2>9. 自测</h2>
+<ol>
+<li><code>final</code> 方法为什么不出现在 Objective-C 方法表里？</li>
+<li>泛型为什么会生成多个符号？这对按符号 hook 有什么影响？</li>
+<li>为什么不能按固定偏移读 Swift 对象字段？</li>
+<li>“先 hook 边界”在稳定性上有什么好处？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

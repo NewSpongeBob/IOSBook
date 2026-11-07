@@ -1,1 +1,148 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>K01 进程、线程与调度 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">K01</span><h1>进程、线程与调度概念</h1><p class="sub">从 POSIX 进程视角连接到 Mach task/thread 抽象</p></header><p class="lead">理解 iOS 执行模型时，避免把进程、线程、Mach task 和 BSD process 当作同义词。它们是相关但职责不同的系统抽象。</p><h2>概念分层</h2><ul><li><strong>进程：</strong>资源与安全策略的重要边界，包含地址空间、凭据及文件描述符等资源。</li><li><strong>线程：</strong>进程中的可调度执行流，拥有寄存器上下文和栈等执行状态。</li><li><strong>Mach task/thread：</strong>Mach 层对任务与线程的抽象；BSD 兼容接口与内核实现共同组成完整系统视图。</li></ul><h2>调度要点</h2><p>调度器根据优先级、QoS、可运行状态和系统负载安排线程执行。应用应通过公开并发 API 表达工作优先级，而非假设线程会固定运行于某个 CPU 或获得确定时序。</p><h2>安全与稳定性</h2><p>并发错误会造成竞态、死锁和数据一致性问题；将状态变更限定到明确的隔离策略，并使用 Thread Sanitizer 等适用的开发诊断能力验证自有代码。</p><h2>自测</h2><ol><li>说明进程与线程在地址空间关系上的区别。</li><li>解释为什么 QoS 是调度意图而非精确时限保证。</li><li>记录一个自有示例中主线程、后台任务和共享状态的关系。</li></ol><nav class="pager"><a href="../part/02-kernel.html">第二部目录</a><a href="./12-vm.html">下一章：虚拟内存 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/11-process.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K01 进程、线程与调度 · IOSBook</title>
+<meta name="description" content="进程是资源容器，线程是调度单位，队列只是组织方式">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">K01</span><h1>进程、线程与调度</h1><p class="sub">进程是资源容器，线程是调度单位，队列只是组织方式</p></header>
+
+<p class="lead">三个概念常被混用：进程持有地址空间与凭据，线程是可被调度的执行流，队列是提交任务的抽象。分清它们，才能解释“为什么换个线程并不能提升权限”。</p>
+
+<h2>1. 资源归属</h2>
+<table>
+<thead><tr><th>资源</th><th>归属</th><th>线程间共享</th></tr></thead>
+<tbody>
+<tr><td>虚拟地址空间</td><td>进程</td><td>是</td></tr>
+<tr><td>栈与寄存器</td><td>线程</td><td>否</td></tr>
+<tr><td>文件描述符表</td><td>进程</td><td>是</td></tr>
+<tr><td>凭据与沙盒</td><td>进程</td><td>是（不可自行提升）</td></tr>
+<tr><td>端口命名空间</td><td>进程</td><td>是（跨进程需权能）</td></tr>
+</tbody>
+</table>
+<p>直接推论：线程共享内存，所以共享可变状态必须同步；线程不隔离权限，所以“换到后台线程”不会降低风险，也不会绕过沙盒。</p>
+
+<h2>2. 线程与栈</h2>
+<ul>
+<li>主线程承担 UI 与事件分发，阻塞它等于卡住界面。</li>
+<li>子线程默认栈空间有限（常见 512 KB 量级，可按属性调整），递归与大队列数组容易踩栈。</li>
+<li>线程局部存储在子线程不继承主线程的值。</li>
+</ul>
+
+<figure>
+<img src="../assets/figures/process-resources.svg" alt="进程内的资源归属与线程" loading="lazy">
+<figcaption>图 2-1　共享的是地址空间、描述符与凭据，独立的是栈与寄存器。</figcaption>
+</figure>
+
+<figure data-steps="收到请求|fork|exec|检查|运行" data-cols="5" data-rows="1" data-geometry="24,44,136,110,16,0">
+<img src="../assets/figures/launchd-steps.svg" alt="派生五步：fork 复制、exec 替换，检查在第 4 步。" loading="lazy">
+<figcaption>图 2-2　派生五步：fork 复制、exec 替换，检查在第 4 步。</figcaption>
+</figure>
+
+<h2>3. 调度输入</h2>
+<table>
+<thead><tr><th>QoS</th><th>适用</th><th>误用后果</th></tr></thead>
+<tbody>
+<tr><td>userInteractive</td><td>动画、直接响应</td><td>挤占资源、耗电</td></tr>
+<tr><td>userInitiated</td><td>用户等待的短任务</td><td>滥用等同全速跑</td></tr>
+<tr><td>utility</td><td>可延迟的维护工作</td><td>放到前台路径会变慢</td></tr>
+<tr><td>background</td><td>预取、清理</td><td>被系统大幅限流</td></tr>
+</tbody>
+</table>
+<div class="code"><div class="code-title">Swift：把工作放到合适队列，并回到主执行器</div><button class="copy" type="button">复制</button><pre><code>DispatchQueue.global(qos: .utility).async {
+    let result = compute()          // 无 UI 依赖
+    DispatchQueue.main.async {
+        render(result)              // 回到主线程
+    }
+}</code></pre></div>
+
+<h2>4. 优先级与锁</h2>
+<table>
+<thead><tr><th>原语</th><th>优先级继承</th><th>建议</th></tr></thead>
+<tbody>
+<tr><td>互斥锁（带继承语义）</td><td>有</td><td>短临界区</td></tr>
+<tr><td>普通互斥锁</td><td>无</td><td>注意高优先级被拖慢</td></tr>
+<tr><td>串行队列</td><td>不适用</td><td>把状态收敛到单一上下文</td></tr>
+<tr><td>原子操作</td><td>不适用</td><td>仅适合单变量</td></tr>
+</tbody>
+</table>
+
+<div class="callout"><strong>线程不是权限单位</strong><br>把敏感操作放到后台线程不会降低风险，也不会绕过沙盒；线程只改变执行位置，不改变凭据与策略。</div>
+
+<h2>5. 观测：进程、线程与作业</h2>
+<div class="code"><div class="code-title">模拟器中查看进程与线程</div><button class="copy" type="button">复制</button><pre><code>xcrun simctl spawn booted ps -A -o pid,ppid,comm | head
+xcrun simctl spawn booted launchctl list | head</code></pre></div>
+
+<h2>6. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>界面卡顿但 CPU 不高</td><td>主线程等待锁或 I/O</td><td>主线程栈、同步调用</td></tr>
+<tr><td>偶发数据错乱</td><td>共享状态无同步</td><td>线程检查工具</td></tr>
+<tr><td>后台任务迟迟不跑</td><td>QoS 过低被限流</td><td>任务队列与优先级</td></tr>
+<tr><td>崩溃在栈溢出</td><td>递归或大局部变量</td><td>线程栈大小</td></tr>
+</tbody>
+</table>
+
+<h2>7. 数据细节：几个决定行为的默认值</h2>
+<table>
+<thead><tr><th>项</th><th>默认值 / 量级</th><th>影响</th></tr></thead>
+<tbody>
+<tr><td>主线程栈</td><td>1 MB 量级</td><td>递归与大队列数组容易踩栈</td></tr>
+<tr><td>子线程栈</td><td>512 KB 量级（可配置）</td><td>默认更小，深调用易溢出</td></tr>
+<tr><td>QoS 档位</td><td>4 档</td><td>决定调度优先级与能耗</td></tr>
+<tr><td>串行队列</td><td>同一时刻一个任务</td><td>天然互斥，但会排队</td></tr>
+<tr><td>上下文切换</td><td>微秒级</td><td>频繁切换会吃掉吞吐</td></tr>
+</tbody>
+</table>
+<p>这些默认值解释了很多“看起来玄学”的现象：同样的代码在主线程与子线程表现不同，往往只是栈大小与 QoS 不同。</p>
+
+<h2>8. 一次真实排查记录：界面卡顿但 CPU 不高</h2>
+<ol>
+<li><strong>现象：</strong>滑动卡顿，但 CPU 占用只有个位数。</li>
+<li><strong>先怀疑等待：</strong>低 CPU 高延迟通常意味着主线程在等锁或同步 I/O。</li>
+<li><strong>取主线程栈：</strong>采样主线程，看是否停在锁等待或文件/网络调用上。</li>
+<li><strong>定位来源：</strong>顺着调用链找到把同步操作放到主线程的那一行。</li>
+<li><strong>结论与限制：</strong>记录“主线程同步等待”，并注明结论只对该路径成立，其他入口需单独验证。</li>
+</ol>
+
+<h2>9. 工程权衡：锁、串行队列还是 actor</h2>
+<table>
+<thead><tr><th>方式</th><th>优势</th><th>代价</th></tr></thead>
+<tbody>
+<tr><td>互斥锁</td><td>临界区最小，改动局部</td><td>容易死锁，优先级反转</td></tr>
+<tr><td>串行队列</td><td>状态收敛到单一上下文</td><td>重活会堵住同队列所有任务</td></tr>
+<tr><td>actor</td><td>编译期约束访问</td><td>需要改造调用点，跨 await 有状态窗口</td></tr>
+</tbody>
+</table>
+<p>选择标准不是“哪个更现代”，而是“这份状态被谁访问、能不能收敛到一个上下文”。</p>
+
+<div class="code"><div class="code-title">实机输出：进程树（macOS）</div><button class="copy" type="button">复制</button><pre><code>  PID  PPID COMM
+    1     0 /sbin/launchd
+   89     1 /usr/libexec/logd
+   91     1 /usr/libexec/UserEventAgent</code></pre></div>
+<p>读法：<code>PID 1</code> 且 <code>PPID 0</code> 是 launchd，所有用户态进程最终都挂在它下面；<code>COMM</code> 给的是完整路径，说明这条信息不含隐藏。<code>PPID</code> 比 <code>PID</code> 更能说明“谁启动了它”。</p>
+
+<h2>10. 自测</h2>
+<ol>
+<li>为什么线程之间不需要“传递文件描述符”就能共用？</li>
+<li>QoS 与实际执行时间是什么关系？</li>
+<li>优先级反转在什么条件下发生？</li>
+<li>主线程卡顿但 CPU 占用低，可能是什么原因？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

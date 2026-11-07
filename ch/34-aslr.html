@@ -1,1 +1,119 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>B05 ASLR 与地址坐标 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">B05</span><h1>ASLR 与地址坐标</h1><p class="sub">分清文件偏移、映像地址与进程运行时地址</p></header><p class="lead">地址随机化改变映像在进程地址空间中的布局，增加地址预测难度。它是纵深防御措施，不修复越界、释放后使用等内存安全缺陷。</p><h2>三种坐标</h2><ul><li><strong>文件偏移：</strong>字节在磁盘文件中的位置。</li><li><strong>映像虚拟地址：</strong>Mach-O 描述的地址视图。</li><li><strong>运行时地址：</strong>特定进程、特定运行时映射中的地址。</li></ul><p>从映像地址到运行时地址的换算依赖映像加载地址和映射信息；不能拿任意段的文件偏移直接当指针。不同架构、切片和系统版本也会改变计算前提。</p><h2>崩溃分析中的注意点</h2><p>符号化工具需要匹配的二进制 UUID/dSYM 和正确架构。复制地址时保留报告上下文；不要用一次运行地址推断下一次运行布局。报告分享前去除路径中的个人信息。</p><h2>防御实践</h2><p>启用平台默认安全构建设置，避免关闭地址随机化相关保护；优先使用内存安全语言和安全 API，并通过测试找出内存错误。ASLR 应与代码签名、沙盒和最小权限并用。</p><p><strong>参考：</strong><a href="https://support.apple.com/guide/security/welcome/web">Apple Platform Security</a> · <a href="https://developer.apple.com/documentation/xcode/analyzing-a-crash-report">崩溃报告分析</a></p><nav class="pager"><a href="./33-dyld-dependencies.html">← 上一章</a><a href="./35-universal-binaries.html">下一章：通用二进制 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/34-aslr.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K07 地址随机化与运行地址 · IOSBook</title>
+<meta name="description" content="slide 把“文件里的地址”换算成“这次运行的地址”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">K07</span><h1>地址随机化与运行地址</h1><p class="sub">slide 把“文件里的地址”换算成“这次运行的地址”</p></header>
+
+<p class="lead">地址随机化改变映像在进程地址空间中的落点。它不是加密，也不是完整性保护，而是一种提高预测成本的防御措施；理解它，首先要理解“同一条指令在每次运行中地址不同”这件事如何影响分析。</p>
+
+<h2>1. 换算公式</h2>
+<p>对每个映像，加载器会给出一个偏移量（slide）。同一条指令的运行时地址为：</p>
+<blockquote><code>运行时地址 = 映像首选虚拟地址（vmaddr） + slide</code></blockquote>
+<p>slide 在每次进程启动时不同，同一进程内每个映像的 slide 也不同。因此“这条指令的地址”只在特定进程、特定映像下成立。</p>
+
+<table><thead><tr><th>坐标</th><th>来源</th><th>是否稳定</th></tr></thead><tbody><tr><td>文件偏移</td><td>文件布局</td><td>同一产物内稳定</td></tr><tr><td>vmaddr</td><td>Mach-O 首选布局</td><td>随构建变化</td></tr><tr><td>运行时地址</td><td>本次映射</td><td>每次启动不同</td></tr></tbody></table><div class="callout"><strong>slide 属于映像</strong><br>同一进程里每个映像的 slide 不同，把一个映像的基址套到另一个上，符号化结果会完全错位。</div>
+
+<h2>2. 三种坐标的换算</h2>
+<table>
+<thead><tr><th>已知</th><th>求</th><th>做法</th></tr></thead>
+<tbody>
+<tr><td>运行时地址</td><td>对应源码位置</td><td>用映像列表确定该地址所属映像与基址，再交给符号化工具</td></tr>
+<tr><td>崩溃报告中的地址</td><td>源码位置</td><td>报告已给出映像基址与 UUID，直接按 UUID 找符号文件</td></tr>
+<tr><td>反汇编里的地址</td><td>文件偏移</td><td>用所属段的 vmaddr 与 fileoff 差值换算，注意段边界</td></tr>
+</tbody>
+</table>
+<p>手工计算容易错在“用了错误的基址”：把主程序基址套到系统库地址上，结果会指向完全无关的函数。</p>
+
+<figure>
+<img src="../assets/figures/address-coords.svg" alt="文件偏移、vmaddr 与运行时地址的换算关系" loading="lazy">
+<figcaption>图 2-11　三段坐标的换算：文件偏移只描述磁盘，vmaddr 描述首选布局，只有加上 slide 才得到本次运行的地址。</figcaption>
+</figure>
+
+<h2>3. 原理推演：slide 为什么必须是页的整数倍</h2>
+<p>内存映射与权限都以页为单位：同一页只能有一套权限位，不能“前半页只读、后半页可写”。若随机偏移不是 16 KB 的倍数，段边界就会落在页中间，段与段之间原本不同的权限无法分别设置。</p>
+<p>所以随机化粒度只能是页：<b>slide = 页大小 × 随机页数</b>。这条约束同时解释了两个现象：地址低 14 位在页内保持不变；以及手工换算时若把 slide 当成任意数，结果会对不齐。</p>
+
+<h2>4. 哪些区域被随机化</h2>
+<ul>
+<li><strong>主程序映像：</strong>位置无关可执行文件在加载时被放到随机基址。</li>
+<li><strong>动态库与框架：</strong>各自独立随机，共享缓存内的库同样按布局随机。</li>
+<li><strong>堆与栈：</strong>起始位置随机，配合页级保护与边界检查使用。</li>
+</ul>
+<p>随机化以页为粒度，因此低若干位在页内是稳定的；这既是分析时的可利用规律，也是攻击者缩小猜测范围的依据。</p>
+
+<h2>5. 对调试与崩溃分析的影响</h2>
+<div class="code"><div class="code-title">查看映像基址与 slide（自有程序）</div><button class="copy" type="button">复制</button><pre><code>#include &lt;mach-o/dyld.h&gt;
+#include &lt;stdio.h&gt;
+
+int main(void) {
+    intptr_t slide = _dyld_get_image_vmaddr_slide(0);
+    const void *header = _dyld_get_image_header(0);
+    printf("image0 header=%p slide=%#lx\n", header, (unsigned long)slide);
+    return 0;
+}</code></pre></div>
+<p>连续运行数次，观察 header 与 slide 变化。再用调试器的映像列表查看同一进程内多个库的基址，理解“每映像独立随机”。</p>
+
+<h2>6. 用 atos 手工符号化一帧</h2>
+<div class="code"><div class="code-title">按镜像加载地址换算符号</div><button class="copy" type="button">复制</button><pre><code>atos -o YourApp.app/YourApp -arch arm64 -l 0x100000000 0x100004a1c
+dwarfdump --uuid YourApp.app/YourApp</code></pre></div>
+<p><code>-l</code> 必须是该映像在报告中的加载地址（相当于本次 slide 后的基址），不是首选地址。填错基址会得到看似合理但完全错误的结果。</p>
+
+<h2>7. 局限与配套措施</h2>
+<ul>
+<li>随机化只增加预测成本。存在信息泄露或可反复尝试时，保护强度下降。</li>
+<li>它不修复越界写、释放后使用等缺陷；这些需要内存安全语言、边界检查与运行时诊断。</li>
+<li>应与代码签名、沙盒、最小权限、W^X 一起使用，构成纵深防御。</li>
+</ul>
+
+<h2>8. 可验证实验</h2>
+<ol>
+<li>连续启动同一自有程序 5 次，记录映像基址与 slide，确认每次不同。</li>
+<li>制造一次崩溃，从报告中取出映像基址与崩溃地址，手工计算偏移，再用工具符号化，核对结果。</li>
+<li>故意用首选地址代替加载地址做一次符号化，记录错误结果，理解“基址用错”的典型表现。</li>
+</ol>
+
+<h2>9. 数据细节：slide 的几个性质</h2>
+<table>
+<thead><tr><th>性质</th><th>说明</th><th>分析时的含义</th></tr></thead>
+<tbody>
+<tr><td>按映像独立</td><td>每个镜像有自己的 slide</td><td>不能把一个基址套到另一个</td></tr>
+<tr><td>按页对齐</td><td>16 KB 粒度</td><td>地址低位有规律</td></tr>
+<tr><td>每次启动变化</td><td>重启后不同</td><td>静态地址不能直接下断点</td></tr>
+<tr><td>可被读取</td><td>运行时可从映像信息取得</td><td>脚本能自动换算</td></tr>
+</tbody>
+</table>
+
+<h2>10. 一次真实排查记录：符号化结果整体偏移</h2>
+<ol>
+<li><strong>现象：</strong>符号化得到的函数名都“差一点”，指向相邻函数。</li>
+<li><strong>先查基址：</strong>是否把主程序基址用到了系统库地址上。</li>
+<li><strong>再查 slide：</strong>是否用了上一次启动的值。</li>
+<li><strong>验证：</strong>用报告里的镜像 UUID 与加载地址重算一次，看是否对齐。</li>
+<li><strong>结论与限制：</strong>记录“基址用错”，并注明结论只对本次运行成立。</li>
+</ol>
+
+<h2>11. 自测</h2>
+<ol>
+<li>slide 的作用是什么？为什么每个映像的 slide 不同？</li>
+<li>为什么不能把一次运行的地址直接用于下一次运行的分析？</li>
+<li>ASLR 能防什么、不能防什么？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

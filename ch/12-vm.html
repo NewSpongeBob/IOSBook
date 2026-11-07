@@ -1,1 +1,122 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>K02 虚拟内存与映射 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">K02</span><h1>虚拟内存与映射</h1><p class="sub">地址空间、映射权限与内存生命周期</p></header><p class="lead">虚拟地址是进程视角的地址；它不等于物理地址，也不一定对应文件中的同偏移。分析内存问题要明确地址所属进程、映像和时刻。</p><h2>核心模型</h2><ul><li>进程拥有独立的虚拟地址空间视图，页表与硬件 MMU 支持地址转换与访问控制。</li><li>映射可来自可执行映像、动态库、匿名分配或共享区域；其权限与生命周期各异。</li><li>ASLR 改变映像/区域的运行时布局，提升攻击预测难度，但不是消除内存错误的替代方案。</li></ul><h2>防御实践</h2><p>优先使用内存安全语言和经过审查的库；减少不必要的可写可执行内存；对生命周期、边界和并发访问设计测试。崩溃分析记录架构、映像 UUID、符号文件和系统版本。</p><h2>自测</h2><p>解释文件偏移、虚拟地址和运行时地址为何不能混用，并说明符号化崩溃报告需要哪些匹配信息。</p><nav class="pager"><a href="./11-process.html">← 上一章</a><a href="../part/02-kernel.html">第二部目录</a><a href="./13-ipc.html">下一章：Mach IPC →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/12-vm.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K02 虚拟内存与映射 · IOSBook</title>
+<meta name="description" content="映射、驻留与压缩是三个不同的量，混用会得出错误结论">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">K02</span><h1>虚拟内存与映射</h1><p class="sub">映射、驻留与压缩是三个不同的量，混用会得出错误结论</p></header>
+
+<p class="lead">虚拟内存让每个进程看到一个连续、私有的地址空间。它不等于物理内存，也不保证“分配成功”就有可用的物理页。理解映射来源与度量口径，是排查内存问题的前提。</p>
+
+<h2>1. 三个坐标系</h2>
+<table>
+<thead><tr><th>坐标</th><th>含义</th><th>典型用途</th></tr></thead>
+<tbody>
+<tr><td>文件偏移</td><td>字节在文件中的位置</td><td>解析 Mach-O、定位段数据</td></tr>
+<tr><td>虚拟地址</td><td>映像首选布局中的地址</td><td>阅读符号与加载命令</td></tr>
+<tr><td>运行时地址</td><td>进程实际映射后的地址</td><td>调试器、崩溃报告、采样</td></tr>
+</tbody>
+</table>
+<p>三者只有在“该映像本次运行时的基址”已知时才能互相换算。崩溃报告里给出的是运行时地址与映像列表，符号化工具据此还原到函数，而不是靠人肉加减。</p>
+
+<h2>2. 映射从哪里来</h2>
+<ul>
+<li><strong>可执行映像：</strong>代码段通常只读可执行，数据段可读写，权限由段属性决定。</li>
+<li><strong>共享库：</strong>系统库大量来自共享缓存，多个进程共享同一份物理页。</li>
+<li><strong>匿名内存：</strong>堆、栈、大量数据结构；无文件后备，可被压缩或换出。</li>
+<li><strong>文件映射：</strong>与文件内容关联，可共享也可私有（写时复制）。</li>
+</ul>
+
+<figure>
+<img src="../assets/figures/vm-space.svg" alt="进程虚拟地址空间的分区与到物理内存的映射" loading="lazy">
+<figcaption>图 2-3　栈与堆从两端增长，代码与数据来自映像；虚拟页只有在触页后才对应物理页。</figcaption>
+</figure>
+
+<h2>3. 度量口径</h2>
+<table>
+<thead><tr><th>指标</th><th>含义</th><th>容易误读的地方</th></tr></thead>
+<tbody>
+<tr><td>虚拟大小</td><td>地址空间占用</td><td>可能远大于实际物理占用</td></tr>
+<tr><td>常驻大小</td><td>当前在物理内存中的页</td><td>共享页的归属取决于统计口径</td></tr>
+<tr><td>脏页</td><td>需要写回或压缩的页</td><td>更接近“真实成本”</td></tr>
+<tr><td>压缩内存</td><td>被压缩而非换出到磁盘的页</td><td>解压需要 CPU，表现为卡顿</td></tr>
+</tbody>
+</table>
+<p>系统在内存压力下会先回收可丢弃缓存、压缩匿名页，最后才终止进程。因此“内存占用高”本身不是结论，要结合增长趋势、脏页比例与响应时间判断。</p>
+
+<figure data-steps="共享只读页|首次写入|复制新页|改页表|产生脏页" data-cols="5" data-rows="1" data-geometry="24,44,136,110,16,0">
+<img src="../assets/figures/cow-steps.svg" alt="COW 五步：一次写入如何变成 16 KB 私有脏页。" loading="lazy">
+<figcaption>图 2-4　COW 五步：一次写入如何变成 16 KB 私有脏页。</figcaption>
+</figure>
+
+<h2>4. 写时复制与共享</h2>
+<p>进程创建与大量对象复制都依赖写时复制：先共享同一物理页，任一方写入时才复制。这让“复制一份数据”在未修改前几乎没有物理成本。工程含义有两点：一是不可变数据可以放心共享；二是表面上的“多个副本”未必真占多份内存，分析时要看是否发生了写入。</p>
+
+<h2>5. 安全相关</h2>
+<ul>
+<li><strong>W^X：</strong>同一页不同时可写可执行，限制“写入代码再执行”的攻击路径。</li>
+<li><strong>地址随机化：</strong>提高预测地址的成本，但不修复越界写、释放后使用等缺陷。</li>
+<li><strong>越界与释放后使用：</strong>属于内存安全缺陷，需要用安全语言、边界检查与运行时诊断工具治理。</li>
+</ul>
+
+<h2>6. 可验证实验</h2>
+<ol>
+<li>在模拟器中观察系统内存统计，并在自有应用里分配大块内存，比较分配前后的指标变化，记录哪些指标动了、哪些没动。</li>
+<li>用文件映射读取一个大文件，再用常规读入方式读取同一文件，比较常驻内存与耗时。</li>
+<li>构造一次“分配成功但触页失败”的极端场景（在受控环境中），观察错误发生在分配还是首次写入。</li>
+</ol>
+<div class="code"><div class="code-title">模拟器中的内存统计</div><button class="copy" type="button">复制</button><pre><code>xcrun simctl spawn booted vm_stat
+xcrun simctl spawn booted sysctl hw.memsize</code></pre></div>
+
+<h2>7. 三个口径：虚拟、常驻与脏页</h2><table><thead><tr><th>指标</th><th>含义</th><th>误读风险</th></tr></thead><tbody><tr><td>虚拟大小</td><td>地址空间预留</td><td>远大于实际占用</td></tr><tr><td>常驻大小</td><td>当前在物理内存的页</td><td>共享页归属有歧义</td></tr><tr><td>脏页</td><td>需要写回或压缩的页</td><td>更接近真实成本</td></tr></tbody></table><div class="callout"><strong>先问口径</strong><br>看到“占用 800 MB”先问是虚拟、常驻还是脏页；三者可能相差数倍。</div>
+<h2>8. 数据细节：三个数字的差别</h2>
+<table>
+<thead><tr><th>指标</th><th>典型关系</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td>虚拟大小</td><td>远大于常驻</td><td>看地址空间预留，不代表真实占用</td></tr>
+<tr><td>常驻大小</td><td>接近真实占用</td><td>受共享页影响，单进程归属有歧义</td></tr>
+<tr><td>脏页</td><td>最接近“新增成本”</td><td>写时复制、缓存增长都体现在这里</td></tr>
+<tr><td>页大小</td><td>16 KB</td><td>映射、脏页与保护都按页计</td></tr>
+</tbody>
+</table>
+<p>“内存涨了 200 MB”这句话必须先问口径：虚拟涨不等于占用涨，常驻涨不一定是你造成的（可能是共享缓存）。</p>
+
+<h2>9. 一次真实排查记录：内存阶梯上升却查不到泄漏</h2>
+<ol>
+<li><strong>现象：</strong>每次进入列表页，内存抬升一档且不回落。</li>
+<li><strong>先看口径：</strong>确认看的是脏页而非虚拟大小。</li>
+<li><strong>找缓存：</strong>图片/数据库缓存没有上限，页被保留而不是泄漏。</li>
+<li><strong>验证：</strong>加一个清缓存入口，观察阶梯是否消失。</li>
+<li><strong>结论与限制：</strong>记录“缓存无上限导致阶梯上升”，并注明结论不适用于对象泄漏类问题。</li>
+</ol>
+
+<div class="code"><div class="code-title">实机输出：本机虚拟内存统计（macOS）</div><button class="copy" type="button">复制</button><pre><code>Mach Virtual Memory Statistics: (page size of 16384 bytes)
+Pages free:        17402.
+Pages active:     603267.
+Pages inactive:   599780.
+Pages speculative:  2396.</code></pre></div>
+<p>读法：第一行就写明页大小 16384 字节（16 KB），后面所有数字都是<b>页数</b>而不是字节；换算要乘 16384。<code>active</code> 是当前在用，<code>inactive</code> 可被回收但还没回收，<code>free</code> 是真空闲。只看 <code>free</code> 会误判“内存不足”。</p>
+
+<h2>10. 自测</h2>
+<ol>
+<li>为什么“虚拟大小很大”不能直接推出“内存泄漏”？</li>
+<li>共享页在统计上会带来什么歧义？</li>
+<li>W^X 与 ASLR 分别防什么，各自不能防什么？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

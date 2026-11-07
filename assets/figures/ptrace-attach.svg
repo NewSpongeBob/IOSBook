@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="调试器附加目标进程的六个步骤">
+  <defs>
+    <marker id="arrowP2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">附加的六个步骤：第 1 步是权限关口</text>
+
+  <rect class="b" x="30" y="44" width="210" height="60" rx="8"/>
+  <text class="t" x="44" y="68">取任务端口</text>
+  <text class="s" x="44" y="88">task_for_pid，需权限</text>
+
+  <rect class="b" x="270" y="44" width="210" height="60" rx="8"/>
+  <text class="t" x="284" y="68">暂停线程</text>
+  <text class="s" x="284" y="88">保存寄存器现场</text>
+
+  <rect class="b" x="510" y="44" width="210" height="60" rx="8"/>
+  <text class="t" x="524" y="68">读线程状态</text>
+  <text class="s" x="524" y="88">定位当前指令地址</text>
+
+  <line x1="240" y1="74" x2="266" y2="74" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowP2)"/>
+  <line x1="480" y1="74" x2="506" y2="74" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowP2)"/>
+
+  <line x1="615" y1="104" x2="615" y2="146" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowP2)"/>
+
+  <rect class="b" x="510" y="150" width="210" height="60" rx="8"/>
+  <text class="t" x="524" y="174">写入断点</text>
+  <text class="s" x="524" y="194">arm64 上 4 字节指令</text>
+
+  <rect class="b" x="270" y="150" width="210" height="60" rx="8"/>
+  <text class="t" x="284" y="174">恢复执行</text>
+  <text class="s" x="284" y="194">等待命中或超时</text>
+
+  <rect class="b" x="30" y="150" width="210" height="60" rx="8"/>
+  <text class="t" x="44" y="174">命中上报</text>
+  <text class="s" x="44" y="194">读取栈与变量</text>
+
+  <line x1="506" y1="180" x2="484" y2="180" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowP2)"/>
+  <line x1="266" y1="180" x2="244" y2="180" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowP2)"/>
+
+  <rect x="30" y="236" width="690" height="48" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="44" y="258">拿不到任务端口，后面全部做不了：发布构建、非自有进程、受保护系统进程都在第 1 步被拒。</text>
+  <text class="s" x="44" y="276">结束时要恢复被改写的 4 字节，否则进程后续执行会异常。</text>
+</svg>

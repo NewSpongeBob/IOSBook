@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 340" width="760" height="340" role="img" aria-label="Objective-C 的类与元类结构，以及 Swift 的类型元数据">
+  <defs>
+    <marker id="arrowM2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .l{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.5px;fill:#2563eb}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">Objective-C：实例 → 类 → 元类</text>
+
+  <rect class="b" x="36" y="46" width="150" height="60" rx="8"/>
+  <text class="t" x="50" y="70">实例</text>
+  <text class="s" x="50" y="90">实例变量</text>
+
+  <rect class="b" x="286" y="46" width="190" height="60" rx="8"/>
+  <text class="t" x="300" y="70">类对象</text>
+  <text class="s" x="300" y="90">实例方法列表、协议</text>
+
+  <rect class="b" x="576" y="46" width="150" height="60" rx="8"/>
+  <text class="t" x="590" y="70">元类</text>
+  <text class="s" x="590" y="90">类方法列表</text>
+
+  <line x1="190" y1="76" x2="282" y2="76" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowM2)"/>
+  <text class="l" x="212" y="68">isa</text>
+  <line x1="480" y1="76" x2="572" y2="76" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowM2)"/>
+  <text class="l" x="502" y="68">isa</text>
+
+  <text class="s" x="286" y="126">方法查找：类 → 父类 → … → 根类</text>
+  <text class="s" x="576" y="126">类方法查找：元类 → 父元类 → …</text>
+
+  <text class="h" x="30" y="178">Swift：对象头 → 类型元数据 → 虚表 / 见证表</text>
+
+  <rect class="g" x="36" y="196" width="170" height="56" rx="8"/>
+  <text class="t" x="50" y="220">对象头</text>
+  <text class="s" x="50" y="240">类型指针 + 引用计数</text>
+
+  <rect class="g" x="300" y="196" width="180" height="56" rx="8"/>
+  <text class="t" x="314" y="220">类型元数据</text>
+  <text class="s" x="314" y="240">布局、虚表、见证表</text>
+
+  <rect class="g" x="576" y="196" width="150" height="56" rx="8"/>
+  <text class="t" x="590" y="220">函数指针</text>
+  <text class="s" x="590" y="240">间接调用</text>
+
+  <line x1="210" y1="224" x2="296" y2="224" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowM2)"/>
+  <line x1="484" y1="224" x2="572" y2="224" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowM2)"/>
+
+  <rect x="30" y="272" width="700" height="50" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="44" y="294">元数据告诉你“有什么”，不告诉你“谁在调用”；名字是线索，不是结论。</text>
+  <text class="s" x="44" y="312">对象布局会随编译器与优化变化，不能按固定偏移读字段。</text>
+</svg>

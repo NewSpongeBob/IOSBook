@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="断点命中时的进程状态变化">
+  <defs>
+    <marker id="arrowL2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.8px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">断点把“运行中”切成可检查的片段</text>
+
+  <rect x="40" y="70" width="140" height="46" rx="6" fill="#effaf5" stroke="#a9dcc9"/>
+  <text class="t" x="46" y="98">运行</text>
+
+  <rect x="188" y="70" width="150" height="46" rx="6" fill="#eef3fb" stroke="#c9d6ea"/>
+  <text class="t" x="194" y="98">命中：暂停</text>
+
+  <rect x="346" y="70" width="150" height="46" rx="6" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="t" x="352" y="98">检查状态</text>
+
+  <rect x="504" y="70" width="120" height="46" rx="6" fill="#eef3fb" stroke="#c9d6ea"/>
+  <text class="t" x="510" y="98">继续</text>
+
+  <rect x="632" y="70" width="90" height="46" rx="6" fill="#effaf5" stroke="#a9dcc9"/>
+  <text class="t" x="638" y="98">恢复</text>
+
+  <text class="s" x="40" y="140">线程被暂停，寄存器与内存可读</text>
+  <text class="s" x="346" y="140">读变量、对象、调用栈</text>
+  <text class="s" x="632" y="140">恢复原字节</text>
+
+  <line x1="180" y1="93" x2="184" y2="93" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowL2)"/>
+  <line x1="338" y1="93" x2="342" y2="93" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowL2)"/>
+  <line x1="496" y1="93" x2="500" y2="93" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowL2)"/>
+  <line x1="624" y1="93" x2="628" y2="93" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowL2)"/>
+
+  <rect x="40" y="168" width="682" height="96" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="54" y="192">暂停期间：arm64 上 <tspan font-weight="600">x0</tspan> 是第一个参数（对象方法为 self），<tspan font-weight="600">x1</tspan> 是选择子；返回地址在 <tspan font-weight="600">x30</tspan>。</text>
+  <text class="s" x="54" y="214">断点会改变时序：竞态可能消失或暴露，结论要标注“在断点状态下观察”。</text>
+  <text class="s" x="54" y="236">优化构建里变量可能被放进寄存器或被复用，<tspan font-weight="600">frame variable</tspan> 显示的值不能无条件相信。</text>
+  <text class="s" x="54" y="258">长时间暂停会触发超时或看门狗，检查完尽快继续。</text>
+</svg>

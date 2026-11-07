@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="Stalker 一次采集的四个分帧">
+  <defs>
+    <style>
+      .p{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .q{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+      .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.5px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .n{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#fff;font-weight:700}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">Stalker 采集四步：开、编、采、收</text>
+
+  <rect class="p" x="24" y="44" width="168" height="112" rx="9"/>
+  <circle cx="44" cy="64" r="10" fill="#2563eb"/><text class="n" x="44" y="68" text-anchor="middle">1</text>
+  <text class="t" x="60" y="68">follow</text>
+  <text class="s" x="38" y="92">指定线程 ID</text>
+  <text class="s" x="38" y="112">只跟一个线程</text>
+  <text class="s" x="38" y="136">跨线程要显式跟</text>
+
+  <rect class="p" x="208" y="44" width="168" height="112" rx="9"/>
+  <circle cx="228" cy="64" r="10" fill="#2563eb"/><text class="n" x="228" y="68" text-anchor="middle">2</text>
+  <text class="t" x="244" y="68">重编译基本块</text>
+  <text class="s" x="222" y="92">复制代码 + 插回调</text>
+  <text class="s" x="222" y="112">放进代码缓存</text>
+  <text class="s" x="222" y="136">只编一次，之后复用</text>
+
+  <rect class="q" x="392" y="44" width="168" height="112" rx="9"/>
+  <circle cx="412" cy="64" r="10" fill="#c26a06"/><text class="n" x="412" y="68" text-anchor="middle">3</text>
+  <text class="t" x="428" y="68">回调上报</text>
+  <text class="s" x="406" y="92">块入口 / 调用 / 返回</text>
+  <text class="s" x="406" y="112">事件越多越慢</text>
+  <text class="s" x="406" y="136">回调里别做重活</text>
+
+  <rect class="g" x="576" y="44" width="160" height="112" rx="9"/>
+  <circle cx="596" cy="64" r="10" fill="#0a8f68"/><text class="n" x="596" y="68" text-anchor="middle">4</text>
+  <text class="t" x="612" y="68">unfollow + flush</text>
+  <text class="s" x="590" y="92">先停插桩</text>
+  <text class="s" x="590" y="112">再把缓冲发回</text>
+  <text class="s" x="590" y="136">顺序反了会丢尾段</text>
+
+  <text class="s" x="24" y="190">开销取决于事件类型：块入口约 10×，调用/返回 20–50×，逐指令 50–100×。</text>
+  <text class="s" x="24" y="214">因此窗口要短：几百毫秒通常足够看清一条路径，长时间开启只会拖垮应用。</text>
+  <text class="s" x="24" y="238">第 4 步最容易被省略，表现为“前面有日志、最后一段没有”。</text>
+
+  <rect x="24" y="252" width="712" height="34" rx="6" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="38" y="274">先用“编译事件”确认覆盖到目标区域，再开调用或逐指令事件，能省掉大量无效日志。</text>
+</svg>

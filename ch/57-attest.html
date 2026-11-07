@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/57-attest.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>03 设备证明：安全隔区与 App Attest · IOSBook</title>
+<meta name="description" content="证明的不是“用户可信”，而是“这次调用来自真实设备上的正版应用”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">03</span><h1>设备证明：安全隔区与 App Attest</h1><p class="sub">证明的不是“用户可信”，而是“这次调用来自真实设备上的正版应用”</p></header>
+
+<p class="lead">设备证明解决的问题很具体：服务端如何区分“真机上的正版 App”和“脚本、模拟器、改包后的客户端”。它依赖硬件密钥，因此不需要先判断设备是否越狱。</p>
+<blockquote><strong>场景</strong>　服务端收到一个请求，附带几百字节的断言。它要在一秒内判断：这是不是那台设备、那一次安装、在那个计数器上签出来的。</blockquote>
+
+
+
+<h2>1. 三层密钥</h2>
+<table>
+<thead><tr><th>层</th><th>密钥在哪</th><th>能证明什么</th></tr></thead>
+<tbody>
+<tr><td>硬件根</td><td>芯片内固化密钥（UID 类）</td><td>设备身份不可导出、不可克隆</td></tr>
+<tr><td>安全隔区</td><td>隔离区内生成，私钥不出区</td><td>密钥操作可绑定设备与用户密码</td></tr>
+<tr><td>应用密钥</td><td>SEP 内生成，App 只拿到标识</td><td>某次安装的密钥对，可签发断言</td></tr>
+</tbody>
+</table>
+<p>关键点：私钥从未离开硬件，服务端拿到的是“Apple 为该公钥签发的凭证”，而不是设备自报的身份。</p>
+
+<h2>2. App Attest 的两步</h2>
+<ol>
+<li><strong>注册（attest）：</strong>App 生成密钥对并请求凭证。凭证里含公钥、环境（开发/生产）、应用标识，由 Apple 签名。</li>
+<li><strong>断言（assert）：</strong>之后每次敏感请求，用该密钥对“请求内容的哈希 + 计数器”签名，服务端验签并检查计数器单调递增。</li>
+</ol>
+<div class="code"><div class="code-title">Swift：生成密钥并请求凭证</div><button class="copy" type="button">复制</button><pre><code>import DeviceCheck
+import CryptoKit
+
+let service = DCAppAttestService.shared
+guard service.isSupported else { return }          // 模拟器通常为 false
+
+let keyId = try await service.generateKey()
+let clientHash = Data(SHA256.hash(data: requestBody))
+let attestation = try await service.attestKey(keyId, clientDataHash: clientHash)
+// 把 keyId 与 attestation 发给服务端校验并存档</code></pre></div>
+<p>之后的断言用 <code>generateAssertion(_:clientDataHash:)</code> 生成，服务端保存该 keyId 对应的公钥与计数器。</p>
+
+<figure>
+<img src="../assets/figures/attest-flow.svg" alt="App Attest 的注册与断言两步" loading="lazy">
+<figcaption>图 1-5　注册拿凭证、断言签请求；计数器单调递增才防得住重放。</figcaption>
+</figure>
+
+<h2>3. 服务端必须校验什么</h2>
+<table>
+<thead><tr><th>项</th><th>不校验会怎样</th></tr></thead>
+<tbody>
+<tr><td>证书链到 Apple 根</td><td>自签凭证可伪造</td></tr>
+<tr><td>应用标识与团队</td><td>别人的正版应用可冒用你的后端</td></tr>
+<tr><td>环境（开发/生产）</td><td>开发凭证可打到生产接口</td></tr>
+<tr><td>公钥与 keyId 绑定</td><td>凭证与断言可拼接</td></tr>
+<tr><td>计数器单调递增</td><td>断言可重放</td></tr>
+<tr><td>clientDataHash 与请求体一致</td><td>断言可挪用到别的请求</td></tr>
+</tbody>
+</table>
+
+<h2>4. 能防什么、不能防什么</h2>
+<table>
+<thead><tr><th>能防</th><th>不能防</th></tr></thead>
+<tbody>
+<tr><td>脚本批量注册、模拟器调用</td><td>真实设备上被控制的合法 App 调用</td></tr>
+<tr><td>断言重放（计数器）</td><td>业务越权（仍需对象级授权）</td></tr>
+<tr><td>改包后盗用后端（签名与标识绑定）</td><td>越狱本身（两套机制独立）</td></tr>
+<tr><td>伪造设备身份</td><td>用户主动放弃使用（无强制力）</td></tr>
+</tbody>
+</table>
+<p>因此设备证明是“提高伪造成本”，不是身份认证的替代品：用户是谁仍要靠账号与令牌。</p>
+
+<h2>5. 数据细节：一次断言里有什么</h2>
+<table>
+<thead><tr><th>字段</th><th>量级</th><th>作用</th></tr></thead>
+<tbody>
+<tr><td>密钥对</td><td>P-256（ECDSA）</td><td>私钥在安全隔区，公钥随凭证下发</td></tr>
+<tr><td>公钥</td><td>64 字节（x‖y）</td><td>服务端验签用</td></tr>
+<tr><td>请求摘要</td><td>SHA-256，32 字节</td><td>把断言绑定到具体请求体</td></tr>
+<tr><td>计数器</td><td>32 位无符号</td><td>单调递增，防重放</td></tr>
+<tr><td>编码</td><td>CBOR</td><td>凭证与断言都是结构化对象</td></tr>
+</tbody>
+</table>
+<p>由此得出两个实现要求：请求体的序列化必须<b>字节稳定</b>，否则同一业务请求算出不同摘要；计数器必须<b>持久化</b>，重装或换设备时要有重新注册的路径。</p>
+
+<h2>6. 一次真实排查记录：真机通过、模拟器必失败</h2>
+<ol>
+<li><strong>现象：</strong>真机一切正常，模拟器上登录流程直接中断。</li>
+<li><strong>先分类：</strong>不是网络问题——请求根本没发出，说明卡在凭证准备阶段。</li>
+<li><strong>查能力：</strong>打印 <code>isSupported</code>，模拟器返回 false，代码却按成功路径继续。</li>
+<li><strong>补降级：</strong>把设备证明做成可选增强：不支持时跳过，功能仍可用但风控等级降低。</li>
+<li><strong>结论与限制：</strong>记录“模拟器不支持设备证明”，并注明真机与模拟器的行为差异必须分别验证。</li>
+</ol>
+
+<h2>7. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td><code>isSupported</code> 为 false</td><td>模拟器或系统版本不支持</td><td>真机验证，提供降级路径</td></tr>
+<tr><td>attest 请求失败</td><td>网络、频率限制、环境不匹配</td><td>重试与退避，核对环境</td></tr>
+<tr><td>断言被服务端拒绝</td><td>计数器回退或 hash 不一致</td><td>请求体序列化是否稳定</td></tr>
+<tr><td>重装后断言失败</td><td>keyId 随安装失效</td><td>重新注册并替换旧记录</td></tr>
+<tr><td>开发环境正常、线上失败</td><td>凭证环境错配</td><td>构建配置与后台设置</td></tr>
+</tbody>
+</table>
+
+<h2>8. DeviceCheck：轻量替代</h2>
+<p>如果只需要“同一设备不重复领取”，可用 DeviceCheck 的两个按开发者隔离的比特位，写入后跨安装保留。它不含密钥与签名，因此只能做低频防滥用，不能替代 attestation。</p>
+
+<div class="callout"><strong>私钥不出区</strong><br>应用只能拿到 keyId 与断言结果，私钥始终在安全隔区内；服务端保存的是公钥与计数器，而不是任何“设备密钥”。</div>
+<h2>9. 自测</h2>
+<ol>
+<li>为什么 App Attest 的私钥不需要（也不能）上传到服务端？</li>
+<li>断言里的计数器解决什么问题？服务端要保存什么才能校验？</li>
+<li>设备证明为什么不能替代账号体系？</li>
+<li>模拟器上 <code>isSupported</code> 为 false 时，产品应如何降级？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

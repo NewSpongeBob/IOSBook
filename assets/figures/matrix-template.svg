@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 240" width="760" height="240" role="img" aria-label="版本矩阵模板">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker><style>
+  .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+  .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+  .y{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+  .n{fill:#f2f4f7;stroke:#cfd6e0;stroke-width:1.3}
+  .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+  .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+  .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+  .k{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#c26a06}
+</style></defs>
+
+  <text class="h" x="30" y="28">每行要么有证据，要么写“未验证”</text>
+
+  <rect x="26" y="48" width="700" height="34" rx="6" fill="#eef3fb" stroke="#c9d6ea"/>
+  <text class="t" x="38" y="71">系统</text>
+  <text class="t" x="180" y="71">设备组</text>
+  <text class="t" x="320" y="71">架构</text>
+  <text class="t" x="450" y="71">关键功能</text>
+  <text class="t" x="580" y="71">状态</text>
+
+  <rect x="26" y="86" width="700" height="32" rx="5" fill="#fff" stroke="#e3e8ef"/>
+  <text class="s" x="38" y="107">最低支持</text><text class="s" x="180" y="107">小内存</text><text class="s" x="320" y="107">arm64</text>
+  <text class="s" x="450" y="107">登录/同步</text><text class="s" x="580" y="107">待填</text>
+
+  <rect x="26" y="122" width="700" height="32" rx="5" fill="#fbfcfe" stroke="#e3e8ef"/>
+  <text class="s" x="38" y="143">主流</text><text class="s" x="180" y="143">主流</text><text class="s" x="320" y="143">arm64e</text>
+  <text class="s" x="450" y="143">登录/同步</text><text class="s" x="580" y="143">待填</text>
+
+  <rect x="26" y="158" width="700" height="32" rx="5" fill="#fff" stroke="#e3e8ef"/>
+  <text class="s" x="38" y="179">最新</text><text class="s" x="180" y="179">最新</text><text class="s" x="320" y="179">模拟器</text>
+  <text class="s" x="450" y="179">登录/同步</text><text class="s" x="580" y="179">待填</text>
+
+  <text class="s" x="30" y="220">删除行要记录原因；发布单引用矩阵版本号，别让“支持范围”停留在口头。</text>
+
+</svg>

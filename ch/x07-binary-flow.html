@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x07-binary-flow.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>12 从入口到功能：一次完整分析 · IOSBook</title>
+<meta name="description" content="一次完整的分析是“静态定位 → 运行时确认 → 指令级验证 → 写成可复核的结论”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">12</span><h1>从入口到功能：一次完整分析</h1><p class="sub">一次完整的分析是“静态定位 → 运行时确认 → 指令级验证 → 写成可复核的结论”</p></header>
+
+<p class="lead">把前面几讲串起来，用自己应用里的一个功能走完整流程。目标不是“找到秘密”，而是产出一份别人能照着复现的说明。</p>
+
+<h2>1. 选目标：边界清晰、有状态</h2>
+<p>建议选一个边界清晰、有网络与本地状态的功能，例如“登录后拉取列表并缓存”。它同时覆盖：入口（按钮/场景）、鉴权（令牌）、请求（URL/参数）、解析、存储与错误处理。</p>
+
+<figure>
+<img src="../assets/figures/analysis-flow.svg" alt="一次完整分析的四个阶段与各自产出" loading="lazy">
+<figcaption>图 1-19　四个阶段的输入输出：静态给候选、运行时给顺序、指令给规则、结论给可复核的证据。</figcaption>
+</figure>
+
+<h2>2. 静态定位</h2>
+<ol>
+<li>从字符串里找接口路径、错误文案、日志前缀。</li>
+<li>找到交叉引用，定位到所属函数与类。</li>
+<li>列出候选方法：请求构造、响应解析、缓存读写、错误映射。</li>
+</ol>
+<div class="code"><div class="code-title">先缩小范围</div><button class="copy" type="button">复制</button><pre><code>strings -a YourApp | grep -E "/api/|token|list" | head -20
+nm -m YourApp | grep -i "ListService\|TokenStore" | head -20</code></pre></div>
+
+<h2>3. 运行时确认</h2>
+<ol>
+<li>在候选方法上设断点，确认实际调用顺序。</li>
+<li>记录参数与返回值，标出与源码预期的差异。</li>
+<li>用插桩制造一次失败（超时、401），观察错误分支。</li>
+</ol>
+
+<h2>4. 指令级验证</h2>
+<p>当符号不足或行为与预期不符时，看反汇编：确认分支条件、错误码来源、是否走了某个被怀疑的路径。重点看“决定走哪条路”的比较与跳转，而不是逐条翻译。</p>
+
+<h2>5. 输出格式</h2>
+<div class="code"><div class="code-title">一页结论模板</div><button class="copy" type="button">复制</button><pre><code>功能：登录后拉取列表
+入口：ListViewController.viewDidLoad → ListService.load()
+调用链（按运行时确认）：load → TokenStore.current → URLSession.dataTask → decode → Cache.save
+关键判断：令牌为空时直接返回错误，不发起请求
+证据：断点截图 / 反汇编 0x100004a38 的 cbz
+限制：仅在 Debug 构建与 iOS 17.x 上验证，Release 可能内联
+后续：验证 401 分支与缓存一致性</code></pre></div>
+
+<h2>6. 常见卡点</h2>
+<table>
+<thead><tr><th>卡点</th><th>原因</th><th>处理</th></tr></thead>
+<tbody>
+<tr><td>断点打不中</td><td>方法被内联或改名</td><td>改用地址断点或从调用方反查</td></tr>
+<tr><td>看不到变量</td><td>Release 优化</td><td>用寄存器与返回值推断</td></tr>
+<tr><td>行为与源码不一致</td><td>构建产物与源码不同步</td><td>核对哈希与构建号</td></tr>
+<tr><td>日志里没有线索</td><td>隐私标注或日志级别</td><td>开发构建临时提升，注意脱敏</td></tr>
+</tbody>
+</table>
+
+<h2>7. 练习：一周完成一次完整分析</h2>
+<ol>
+<li>按模板完成一份一页结论，附三条证据。</li>
+<li>让同事只凭结论复现一次，记录对方卡住的位置并补充说明。</li>
+<li>把结论里“推断”的部分单独列出，标出需要补什么证据。</li>
+</ol>
+
+<h2>8. 阶段产出：每步一个可验证物</h2><table><thead><tr><th>阶段</th><th>产出</th><th>不通过时的表现</th></tr></thead><tbody><tr><td>静态定位</td><td>候选入口</td><td>断点打不中</td></tr><tr><td>运行时确认</td><td>调用顺序与参数</td><td>与源码预期不符</td></tr><tr><td>指令验证</td><td>业务规则</td><td>分支条件解释不通</td></tr></tbody></table><div class="callout"><strong>结论要带限制</strong><br>“在 Debug 构建、iOS 17.x 上验证”比“已验证”有用得多；没有限制的结论无法复用。</div>
+<h2>9. 一次完整分析的记录示例</h2>
+<table>
+<thead><tr><th>阶段</th><th>用到的命令</th><th>产出</th></tr></thead>
+<tbody>
+<tr><td>静态定位</td><td><code>otool -L</code>、<code>nm</code>、<code>strings</code></td><td>候选入口 3 个</td></tr>
+<tr><td>运行时确认</td><td>符号断点、调用栈</td><td>确认其中 1 个被真实调用</td></tr>
+<tr><td>指令验证</td><td>读参数与返回值</td><td>确认成功与失败两条分支</td></tr>
+<tr><td>结论整理</td><td>—</td><td>一页说明：入口、输入、分支、限制</td></tr>
+</tbody>
+</table>
+<p>记录的价值在于“别人能照着复现”，而不是“我懂了”。每个阶段都要写下命令与观察结果。</p>
+
+<h2>10. 工程权衡：什么时候收手</h2>
+<table>
+<thead><tr><th>信号</th><th>判断</th></tr></thead>
+<tbody>
+<tr><td>继续需要构造特殊环境</td><td>收益下降，先记录再评估</td></tr>
+<tr><td>连续两次假设被证伪</td><td>说明模型错了，回退到上一层</td></tr>
+<tr><td>结论已能支持决策</td><td>停止，把限制写清楚</td></tr>
+</tbody>
+</table>
+<p>分析不是越深越好：能支持当前决策的结论，就是足够的结论。</p>
+
+<h2>11. 数据细节：一次分析的时间预算</h2>
+<table>
+<thead><tr><th>阶段</th><th>耗时量级</th><th>容易超时的原因</th></tr></thead>
+<tbody>
+<tr><td>静态定位</td><td>半小时到两小时</td><td>符号缺失，靠字符串摸索</td></tr>
+<tr><td>运行时确认</td><td>十几分钟</td><td>断点打不中，反复试地址</td></tr>
+<tr><td>指令验证</td><td>半小时</td><td>优化导致读不到变量</td></tr>
+<tr><td>结论整理</td><td>二十分钟</td><td>没有及时记录，回头补</td></tr>
+</tbody>
+</table>
+<p>如果某一阶段明显超出量级，通常不是“难”，而是方法错了——停下来换线索比硬撑更快。</p>
+
+<h2>12. 自测</h2>
+<ol>
+<li>为什么结论必须写清“在哪个构建、哪个系统版本上验证”？</li>
+<li>静态定位与运行时确认各自解决什么问题？</li>
+<li>一页结论中“限制”一栏为什么不能省略？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

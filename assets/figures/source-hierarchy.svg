@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 240" width="760" height="240" role="img" aria-label="资料层级与时效标注">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker><style>
+  .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+  .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+  .y{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+  .n{fill:#f2f4f7;stroke:#cfd6e0;stroke-width:1.3}
+  .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+  .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+  .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+  .k{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#c26a06}
+</style></defs>
+
+  <text class="h" x="30" y="28">一手资料优先，但任何资料都要带版本与日期</text>
+
+  <rect class="g" x="30" y="52" width="700" height="38" rx="6"/>
+  <text class="t" x="44" y="76">官方文档与安全指南</text>
+  <text class="s" x="420" y="76">版本、弃用标记</text>
+
+  <rect class="b" x="30" y="98" width="700" height="38" rx="6"/>
+  <text class="t" x="44" y="122">开源代码</text>
+  <text class="s" x="420" y="122">设备构建含未公开组件</text>
+
+  <rect class="b" x="30" y="144" width="700" height="38" rx="6"/>
+  <text class="t" x="44" y="168">系统诊断与实测</text>
+  <text class="s" x="420" y="168">注明设备、系统、时间</text>
+
+  <rect class="n" x="30" y="190" width="700" height="34" rx="6"/>
+  <text class="t" x="44" y="213">社区文章与二手教程</text>
+  <text class="s" x="420" y="213">只作线索，必须回一手资料核对</text>
+
+</svg>

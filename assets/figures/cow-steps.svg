@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="写时复制的五步分帧">
+  <defs>
+    <style>
+      .p{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .q{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+      .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.5px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .n{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#fff;font-weight:700}
+    </style>
+  </defs>
+  <text class="h" x="30" y="26">COW 五步：共享页怎么变成私有脏页</text>
+  <rect class="p" x="24" y="44" width="136" height="110" rx="9"/>
+  <circle cx="44" cy="64" r="10" fill="#2563eb"/><text class="n" x="44" y="68" text-anchor="middle">1</text>
+  <text class="t" x="60" y="68">共享只读页</text>
+  <text class="s" x="38" y="92">多个进程映射同页</text>
+  <text class="s" x="38" y="112">页表项指向同一物理页</text>
+  <text class="s" x="38" y="136">此时没有私有内存</text>
+  <rect class="p" x="176" y="44" width="136" height="110" rx="9"/>
+  <circle cx="196" cy="64" r="10" fill="#2563eb"/><text class="n" x="196" y="68" text-anchor="middle">2</text>
+  <text class="t" x="212" y="68">首次写入</text>
+  <text class="s" x="190" y="92">触发保护异常</text>
+  <text class="s" x="190" y="112">内核接管</text>
+  <text class="s" x="190" y="136">写入方被暂停</text>
+  <rect class="q" x="328" y="44" width="136" height="110" rx="9"/>
+  <circle cx="348" cy="64" r="10" fill="#c26a06"/><text class="n" x="348" y="68" text-anchor="middle">3</text>
+  <text class="t" x="364" y="68">复制新页</text>
+  <text class="s" x="342" y="92">分配一个新物理页</text>
+  <text class="s" x="342" y="112">把原内容整页拷贝</text>
+  <text class="s" x="342" y="136">16 KB 一次</text>
+  <rect class="q" x="480" y="44" width="136" height="110" rx="9"/>
+  <circle cx="500" cy="64" r="10" fill="#c26a06"/><text class="n" x="500" y="68" text-anchor="middle">4</text>
+  <text class="t" x="516" y="68">改页表</text>
+  <text class="s" x="494" y="92">本进程指向新页</text>
+  <text class="s" x="494" y="112">权限改回可读写</text>
+  <text class="s" x="494" y="136">其他进程不受影响</text>
+  <rect class="g" x="632" y="44" width="104" height="110" rx="9"/>
+  <circle cx="652" cy="64" r="10" fill="#0a8f68"/><text class="n" x="652" y="68" text-anchor="middle">5</text>
+  <text class="t" x="668" y="68">产生脏页</text>
+  <text class="s" x="646" y="92">新页计入脏页</text>
+  <text class="s" x="646" y="112">共享收益消失</text>
+  <text class="s" x="646" y="136">改一次付一页</text>
+  <text class="s" x="24" y="188">结论：写一次就多 16 KB 私有内存；“内存虚高”常来自这里，而不是泄漏。</text>
+  <text class="s" x="24" y="210">hook 改代码页走的是同一条路径：先异常，再复制，痕迹是脏页而非“文件被改”。</text>
+  <text class="s" x="24" y="232">判断是否 COW：看脏页增长与共享页减少，而不是看虚拟大小。</text>
+  <rect x="24" y="252" width="712" height="34" rx="6" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="38" y="274">只读共享页是默认状态；任何写入都会把它变成私有页——内核行为，不是优化选项。</text>
+</svg>

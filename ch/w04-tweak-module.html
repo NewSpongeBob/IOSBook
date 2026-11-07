@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/w04-tweak-module.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>W04 tweak 模块化：入口、开关与冲突 · IOSBook</title>
+<meta name="description" content="一个入口、多份能力；注入规则管“进不进程”，模块开关管“装不装 hook”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">W04</span><h1>tweak 模块化：入口、开关与冲突</h1><p class="sub">一个入口、多份能力；注入规则管“进不进程”，模块开关管“装不装 hook”</p></header>
+
+<p class="lead">真实项目不会只写一个 hook。多个能力放在同一个包里，就需要一个统一入口负责登记与排序；而“进不进程”和“启不启用”是两件不同的事，混在一起就会出现“明明装了却没反应”。</p>
+
+<blockquote><strong>场景</strong>　你加了第二个功能，装完后第一个功能失灵了。两个模块都 hook 了同一个方法，后装的那个把先装的覆盖掉了。</blockquote>
+
+<h2>1. 两个决定要分开</h2>
+<table>
+<thead><tr><th>决定</th><th>由谁负责</th><th>写在哪</th></tr></thead>
+<tbody>
+<tr><td>这个库进不进目标进程</td><td>注入规则</td><td><code>Filter</code> 的 <code>Bundles</code> / <code>Executables</code></td></tr>
+<tr><td>进了之后装不装 hook</td><td>模块开关</td><td>配置项，构造器里读</td></tr>
+<tr><td>多个模块谁先生效</td><td>登记顺序</td><td>统一入口里的安装表</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/tweak-modules.svg" alt="tweak 模块化：多个库、统一入口与进程选择" loading="lazy">
+<figcaption>图 5-5　注入规则决定“进哪些进程”，模块开关决定“装不装”；两者写错，表现都是“没反应”。</figcaption>
+</figure>
+
+<h2>2. 统一入口长什么样</h2>
+<div class="code"><div class="code-title">构造器只做登记</div><button class="copy" type="button">复制</button><pre><code>typedef void (*Installer)(void);
+
+static const Installer kInstallers[] = {
+    installLoginHooks,
+    installNetworkHooks,
+};
+
+__attribute__((constructor))
+static void boot(void) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        for (size_t i = 0; i < sizeof kInstallers / sizeof kInstallers[0]; i++) {
+            if (moduleEnabled(i)) kInstallers[i]();   // 开关 + 顺序都在这里
+        }
+    });
+}</code></pre></div>
+<p>要点：构造器里不做重活，只把安装动作排进主队列；顺序由数组决定，开关由配置决定。</p>
+
+<h2>3. 冲突的三种形态</h2>
+<table>
+<thead><tr><th>形态</th><th>现象</th><th>处理</th></tr></thead>
+<tbody>
+<tr><td>覆盖</td><td>后装的把先装的换掉，功能“消失”</td><td>合并成一个安装点，内部串联</td></tr>
+<tr><td>递归</td><td>两个模块互相调用对方实现，栈溢出</td><td>只保留一个入口，记录而非转发</td></tr>
+<tr><td>顺序敏感</td><td>先解密后记录才拿到明文</td><td>明确声明依赖顺序</td></tr>
+</tbody>
+</table>
+
+<h2>4. 原理推演：为什么“装了没反应”要去查两层</h2>
+<p>注入发生在进程启动、模块安装发生在构造器，两者是不同阶段的两道闸门。库没进去，进程里根本看不到镜像；库进去了但开关关着，安装表里的函数不会执行。<b>把两层分开查，比反复重装有效。</b></p>
+
+<h2>5. 一次真实排查记录：第二个模块上线后第一个失灵</h2>
+<ol>
+<li><strong>现象：</strong>两个功能都装了，只有后装的那个生效。</li>
+<li><strong>先确认都在：</strong>镜像列表里能看到包，说明注入规则没问题。</li>
+<li><strong>再看安装顺序：</strong>两个模块 hook 同一方法，后装的覆盖了先装的实现。</li>
+<li><strong>改结构：</strong>把两个 hook 合并到同一安装点，先记录再转调原实现。</li>
+<li><strong>结论与限制：</strong>记录“同方法多模块覆盖”，并注明只对该安装顺序成立。</li>
+</ol>
+
+<h2>6. 自测</h2>
+<ol>
+<li>注入规则与模块开关分别决定什么？</li>
+<li>为什么构造器里建议只做登记？</li>
+<li>两个模块 hook 同一方法，哪种处理方式最稳？</li>
+<li>“装了没反应”应该按什么顺序排查？</li>
+</ol>
+
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260" width="760" height="260" role="img" aria-label="样例应用的数据位置盘点">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker><style>
+  .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+  .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+  .y{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+  .n{fill:#f2f4f7;stroke:#cfd6e0;stroke-width:1.3}
+  .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+  .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+  .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+  .k{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#c26a06}
+</style></defs>
+
+  <text class="h" x="30" y="28">先枚举副本，再判断暴露条件</text>
+
+  <rect class="b" x="26" y="52" width="170" height="46" rx="6"/>
+  <text class="t" x="40" y="74" font-size="12">容器文件</text>
+  <text class="s" x="40" y="90">Documents / Caches</text>
+
+  <rect class="b" x="208" y="52" width="170" height="46" rx="6"/>
+  <text class="t" x="222" y="74" font-size="12">偏好设置</text>
+  <text class="s" x="222" y="90">plist</text>
+
+  <rect class="b" x="390" y="52" width="170" height="46" rx="6"/>
+  <text class="t" x="404" y="74" font-size="12">钥匙串</text>
+  <text class="s" x="404" y="90">访问组 / 可访问性</text>
+
+  <rect class="b" x="572" y="52" width="166" height="46" rx="6"/>
+  <text class="t" x="586" y="74" font-size="12">日志</text>
+  <text class="s" x="586" y="90">统一日志 / 崩溃报告</text>
+
+  <rect class="y" x="26" y="116" width="712" height="52" rx="8"/>
+  <text class="s" x="40" y="138">旁路：备份、界面快照、剪贴板、分析事件——多数泄漏不发生在主链路。</text>
+  <text class="s" x="40" y="158">每处都要记：位置 / 是否命中 / 保护方式 / 清理时机 / 证据。</text>
+
+  <text class="s" x="30" y="200">判定：必要明文缓存 + 受保护目录 = 可接受；凭据进日志或偏好 = 需修复；</text>
+  <text class="s" x="30" y="222">敏感记录进入备份 = 需修复；为性能保留的明文 = 需评估。</text>
+  <text class="s" x="30" y="244">退出登录要清理数据库、缓存与钥匙串条目，而不只是内存。</text>
+
+</svg>

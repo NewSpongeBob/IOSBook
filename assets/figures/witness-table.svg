@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 280" width="760" height="280" role="img" aria-label="协议见证表与派发">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker><style>
+  .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+  .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+  .y{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+  .n{fill:#f2f4f7;stroke:#cfd6e0;stroke-width:1.3}
+  .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+  .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+  .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+  .k{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#c26a06}
+</style></defs>
+
+  <text class="h" x="30" y="28">协议值携带类型信息，通过见证表找到实现</text>
+
+  <rect class="b" x="36" y="56" width="170" height="64" rx="8"/>
+  <text class="t" x="50" y="80">协议值</text>
+  <text class="s" x="50" y="102">数据 + 类型元数据</text>
+
+  <rect class="b" x="286" y="56" width="190" height="64" rx="8"/>
+  <text class="t" x="300" y="80">见证表</text>
+  <text class="s" x="300" y="102">按类型生成，方法指针数组</text>
+
+  <rect class="b" x="556" y="56" width="170" height="64" rx="8"/>
+  <text class="t" x="570" y="80">具体实现</text>
+  <text class="s" x="570" y="102">blr 间接调用</text>
+
+  <line x1="206" y1="88" x2="282" y2="88" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ar)"/>
+  <line x1="476" y1="88" x2="552" y2="88" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ar)"/>
+
+  <rect class="y" x="36" y="152" width="690" height="82" rx="8"/>
+  <text class="s" x="50" y="176">协议扩展里的默认实现是静态派发：编译期就定死了，运行时换实现也不会生效。</text>
+  <text class="s" x="50" y="198">存在类型（any Protocol）走见证表；泛型参数在编译期特化，可能完全没有间接调用。</text>
+  <text class="s" x="50" y="220">因此“把方法改成协议调用”不一定更容易 hook，反而可能多一层间接。</text>
+
+</svg>

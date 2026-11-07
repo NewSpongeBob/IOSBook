@@ -1,1 +1,109 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="initial-scale=1"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>T04 修复、回归与报告 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">T04</span><h1>修复、回归与报告</h1><p class="sub">把发现转化为可验证修复，而非留下孤立的观察记录</p></header><p class="lead">安全结论应可复核，修复应有对应测试。报告只描述授权范围内的事实，明确影响和限制，避免包含秘密或可滥用的第三方目标细节。</p><h2>修复闭环</h2><ol><li>将观察转成最小可复现用例，保存脱敏前后状态。</li><li>定位根因和信任边界，优先修复权威端（如服务端授权）而非只隐藏 UI。</li><li>新增自动化回归测试，并覆盖相邻失败路径。</li><li>在相同环境和代表性版本上复测，比较证据。</li><li>记录残余风险、回滚方式、责任人和版本范围。</li></ol><h2>报告模板</h2><ul><li>范围与授权依据；设备/OS/App/服务端版本。</li><li>影响资产和业务后果；不确定项与替代解释。</li><li>复现条件、最小步骤和脱敏证据。</li><li>根因、修复建议、回归结果和限制。</li></ul><h2>完成标准</h2><p>另一位开发者可在相同自有实验环境理解问题、复现测试并确认修复；报告没有真实凭据、个人数据或非授权目标信息。</p><nav class="pager"><a href="./54-lab-network.html">← 上一练习</a><a href="../part/99-appendix.html">附录 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/55-lab-regression.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>T04 修复、回归与报告 · IOSBook</title>
+<meta name="description" content="修复要能被另一人复现验证，报告要能经受追问">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">T04</span><h1>修复、回归与报告</h1><p class="sub">修复要能被另一人复现验证，报告要能经受追问</p></header>
+
+<p class="lead">发现的终点不是“知道了”，而是“改好了并且能证明”。把观察转成最小用例、定位根因、修复权威端、补回归测试，缺一步都会在下次发布时复发。</p>
+
+<h2>1. 修复闭环</h2>
+<ol>
+<li><strong>最小复现：</strong>去掉无关步骤，保留能稳定触发的条件。</li>
+<li><strong>根因定位：</strong>区分“表层症状”和“缺失的判断”。例如越权读取的根因是缺少归属校验，不是客户端没隐藏按钮。</li>
+<li><strong>修权威端：</strong>服务端授权、输入校验优先；客户端只做体验适配。</li>
+<li><strong>补测试：</strong>覆盖失败路径与相邻场景，防止“修好这一个 ID”。</li>
+<li><strong>同环境复测：</strong>设备、版本、数据规模与基线一致。</li>
+<li><strong>记录残余风险：</strong>未修部分、影响范围、补偿控制。</li>
+</ol>
+
+<h2>2. 报告模板</h2>
+<table>
+<thead><tr><th>栏目</th><th>内容</th></tr></thead>
+<tbody>
+<tr><td>范围与授权</td><td>仓库、构建号、设备与系统、测试服务、禁止项</td></tr>
+<tr><td>问题描述</td><td>一句话说明“谁在什么条件下能做什么”</td></tr>
+<tr><td>影响</td><td>资产、业务后果、影响版本与用户范围</td></tr>
+<tr><td>复现步骤</td><td>编号步骤 + 预期 + 实际</td></tr>
+<tr><td>证据</td><td>脱敏截图/日志片段/时间戳</td></tr>
+<tr><td>根因</td><td>缺失的控制点，而非现象描述</td></tr>
+<tr><td>修复与回归</td><td>改动摘要、测试结果、验证环境</td></tr>
+<tr><td>残余与限制</td><td>未覆盖范围、依赖前提、后续计划</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/lab-fix-loop.svg" alt="修复与回归的闭环" loading="lazy">
+<figcaption>图 7-4　最小复现、根因、修权威端、补测试复测，最后写残余风险。</figcaption>
+</figure>
+
+<h2>3. 完成标准</h2>
+<ul>
+<li>另一位开发者按报告能复现问题，并在修复后确认消失。</li>
+<li>报告不含真实凭据、个人数据或非授权目标信息。</li>
+<li>测试用例已进入回归集，不是一次性脚本。</li>
+</ul>
+
+<h2>4. 常见返工原因</h2>
+<ol>
+<li>只修客户端表现，服务端仍可被直接调用。</li>
+<li>用例写死某个 ID，换数据就失效。</li>
+<li>复测环境与基线不同，无法比较。</li>
+<li>把推断写成结论，缺少证据支撑。</li>
+</ol>
+
+<h2>5. 练习：从发现到回归</h2>
+<ol>
+<li>挑一个前三个练习中的发现，写一份完整报告。</li>
+<li>让同事只看报告复现一次，记录对方的卡点并修改报告。</li>
+<li>把修复后的用例加入自动化回归，确认在 CI 中可运行。</li>
+</ol>
+
+<h2>6. 报告栏目：七项缺一不可</h2><table><thead><tr><th>栏目</th><th>必填内容</th></tr></thead><tbody><tr><td>范围</td><td>仓库、构建号、设备、测试服务</td></tr><tr><td>复现</td><td>编号步骤、预期、实际</td></tr><tr><td>修复</td><td>改动点、验证环境、回归结果</td></tr></tbody></table><div class="code"><div class="code-title">回归清单模板</div><button class="copy" type="button">复制</button><pre><code>- [ ] 用例已加入回归集
+- [ ] 同一环境复测通过
+- [ ] 相邻失败路径已覆盖
+- [ ] 残余风险与责任人已记录</code></pre></div>
+<div class="callout"><strong>修权威端</strong><br>越权类问题的修复点是服务端的归属校验，客户端隐藏按钮只是体验。</div>
+<h2>7. 常见错误：修复与回归</h2>
+<table>
+<thead><tr><th>错误</th><th>后果</th></tr></thead>
+<tbody>
+<tr><td>只改客户端表现</td><td>问题在服务端仍可复现</td></tr>
+<tr><td>用例写死数据 ID</td><td>换环境即失败</td></tr>
+<tr><td>复测环境与基线不同</td><td>结论不可比</td></tr>
+<tr><td>报告只写结论不写步骤</td><td>他人无法复现</td></tr>
+</tbody>
+</table>
+
+<h2>8. 报告骨架</h2>
+<div class="code"><div class="code-title">一页报告的六段</div><button class="copy" type="button">复制</button><pre><code>1 范围：对象、构建号、环境、时间窗
+2 复现：编号步骤 + 预期 / 实际
+3 证据：位置、命令、脱敏输出
+4 根因：哪一处判断缺失
+5 修复：改了哪里、为什么是权威端
+6 回归：同环境复测结果 + 残余风险</code></pre></div>
+
+<h2>9. 自测</h2>
+<ol>
+<li>“修权威端”在越权类问题中具体指什么？</li>
+<li>为什么测试用例要避免写死具体数据 ID？</li>
+<li>报告中的“残余风险”一栏为什么不能省略？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

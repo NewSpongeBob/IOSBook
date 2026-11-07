@@ -1,1 +1,76 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>A06 自测题与参考答案 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">A06</span><h1>自测题与参考答案</h1><p class="sub">用解释和边界条件检查是否建立了系统模型</p></header><h2>问题</h2><ol><li>为什么代码签名不能证明应用业务逻辑安全？</li><li>Mach task/thread 与常见进程/线程术语为什么不能简单混为一谈？</li><li>文件偏移、虚拟地址和运行时地址分别描述什么？</li><li>为什么客户端隐藏 UI 不能代替服务端对象级授权？</li><li>发现测试目标包含真实用户数据时应如何处理？</li></ol><h2>参考要点</h2><ol><li>签名关联身份与完整性，不证明逻辑正确、授权正确或后端安全。</li><li>它们属于不同层次的系统抽象；具体映射依赖平台 API 和实现，不应凭名称假定等价。</li><li>文件偏移是磁盘文件位置，虚拟地址是映像地址空间概念，运行时地址是进程实际映射后的地址；转换需结合加载信息和随机化。</li><li>客户端运行在用户可控制环境，UI 可被改变；服务端必须验证当前主体对目标资源的权限。</li><li>立即停止、隔离数据、避免复制传播，按授权和组织的数据处理/事件流程报告。</li></ol><h2>延伸方法</h2><p>为每个答案补充来源、适用版本、一个可验证的自有样例和一个可能使结论失效的边界条件。无法确认的细节应写“未知”，不要臆测。</p><p><a href="../part/99-appendix.html">← 返回附录</a></p></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/a06.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A06 自测题与参考答案 · IOSBook</title>
+<meta name="description" content="先自己写答案，再对照要点">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">A06</span><h1>自测题与参考答案</h1><p class="sub">先自己写答案，再对照要点</p></header>
+
+<p class="lead">下面的问题覆盖全书主线。参考答案只给要点，不是唯一表述；如果你的答案能说明“为什么”和“在什么条件下成立”，就已经达标。</p>
+
+<h2>1. 启动与内核</h2>
+<details><summary>Q1：为什么用户态代码无法自证启动链完整？</summary>
+<p>因为观测者与被观测对象处在同一系统内。若系统镜像或内核被替换，做检查的代码也同样被替换，“检查通过”不能作为独立证据。根信任必须落在不可被软件改写的硬件起点。</p></details>
+<details><summary>Q2：task 与 process 有什么区别？</summary>
+<p>task 是 Mach 的资源与 IPC 权限单位（地址空间、端口命名空间），process 是 BSD 的身份与 POSIX 语义单位（凭据、pid、文件描述符）。排查权限看 BSD 侧，排查内存与 IPC 看 Mach 侧。</p></details>
+<details><summary>Q3：虚拟内存的三个坐标是什么？</summary>
+<p>文件偏移、映像虚拟地址（vmaddr）、运行时地址。三者只有在知道映像本次加载基址时才能换算，且必须说明所属进程与映像。</p></details>
+
+<h2>2. 加载与二进制</h2>
+<details><summary>Q4：为什么“链接成功”不代表运行时能找到符号？</summary>
+<p>链接期检查的是声明与可见性，运行时依赖实际加载的库版本、架构、部署目标与符号导出情况。弱符号缺失、版本不匹配、库未打包都会在启动或首次调用时暴露。</p></details>
+<details><summary>Q5：为什么 ASLR 不能替代内存安全？</summary>
+<p>ASLR 只提高地址预测成本，不阻止越界写、释放后使用等缺陷；存在信息泄露或可重复尝试时保护强度下降。它属于纵深防御的一层。</p></details>
+<details><summary>Q6：符号化需要哪些匹配条件？</summary>
+<p>报告中的地址与映像加载地址、映像 UUID、对应架构的符号文件。版本号相同不足以证明匹配，UUID 才是依据。</p></details>
+
+<figure>
+<img src="../assets/figures/self-test-loop.svg" alt="自测的使用方式" loading="lazy">
+<figcaption>图 A-6　先用自己的话作答，再对照要点，最后回实验补齐。</figcaption>
+</figure>
+
+<h2>3. 权限与数据</h2>
+<details><summary>Q7：沙盒、entitlement、TCC 各管什么？</summary>
+<p>沙盒限制进程能访问哪些资源；entitlement 是签名声明的系统能力；TCC 记录用户对隐私数据访问的授权。三者授予方与检查时机不同，不能互相替代。</p></details>
+<details><summary>Q8：文件保护与钥匙串可访问性如何配合？</summary>
+<p>文件保护决定锁屏时文件能否被读；钥匙串可访问性决定凭据能否被取。常见做法是文件存密文、密钥放钥匙串，形成两层：即使文件被读到也无法解密。</p></details>
+<details><summary>Q9：为什么 cdhash 不能作为固定的防篡改常量？</summary>
+<p>它随构建内容变化，每次发版都会不同；同时它只证明磁盘产物未被改动，不能反映进程运行时的状态。</p></details>
+
+<h2>4. 应用安全与工程</h2>
+<details><summary>Q10：为什么客户端检测不能作为授权依据？</summary>
+<p>客户端运行在用户可控环境中，检测逻辑与结果都可能被观察或修改。可执行的判断标准是：假设客户端完全被控制，这个决定还能不能正确执行。不能，就必须上移到服务端。</p></details>
+<details><summary>Q11：401 与 403 的处理为什么必须分开？</summary>
+<p>401 表示身份不成立，可以尝试刷新令牌；403 表示身份有效但无权限，重试无意义。混在一起会导致刷新风暴，或在该提示权限时反复要求登录。</p></details>
+<details><summary>Q12：挂起与被终止有什么区别？</summary>
+<p>挂起时进程不执行但内存保留，系统可能在内存压力下直接终止且不回调；被终止后下次启动是全新进程，必须从持久数据恢复。</p></details>
+
+<h2>题目分布：四类各三题</h2><table><thead><tr><th>部分</th><th>题数</th><th>侧重点</th></tr></thead><tbody><tr><td>启动与内核</td><td>3</td><td>信任链、task/process、坐标</td></tr><tr><td>加载与二进制</td><td>3</td><td>符号、ASLR、符号化</td></tr><tr><td>权限与数据</td><td>3</td><td>三条边界、保护类、cdhash</td></tr><tr><td>工程与授权</td><td>3</td><td>检测、401/403、挂起</td></tr></tbody></table><div class="code"><div class="code-title">作答记录</div><button class="copy" type="button">复制</button><pre><code>题号：Q7
+我的答案：（三句以内）
+缺失的条件：
+对应实验：</code></pre></div>
+<h2>答案要点：三条合格标准</h2><table><thead><tr><th>类型</th><th>合格标准</th></tr></thead><tbody><tr><td>机制题</td><td>说出“为什么”与前提条件</td></tr><tr><td>排查题</td><td>给出先查什么、证据从哪来</td></tr><tr><td>边界题</td><td>明确“不能防什么”</td></tr></tbody></table>
+<div class="callout"><strong>先答后看</strong><br>先合上答案用自己的话写三句，再对照要点找缺失的条件；直接读答案记不住机制。</div>
+<h2>5. 怎么用这份自测</h2>
+<ol>
+<li>先合上答案，用自己的话写 3 句以内。</li>
+<li>对照要点，找出缺失的“条件”或“为什么”。</li>
+<li>把答不出的题回填到对应章节的实验里，用一次实际观察补齐。</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

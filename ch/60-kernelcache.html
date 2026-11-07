@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/60-kernelcache.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K06 kernelcache 与内核符号 · IOSBook</title>
+<meta name="description" content="内核不是单个文件，而是一整块预链接镜像；符号与地址都藏在里面">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">K06</span><h1>kernelcache 与内核符号</h1><p class="sub">内核不是单个文件，而是一整块预链接镜像；符号与地址都藏在里面</p></header>
+
+<p class="lead">kernelcache 把内核与内置扩展预链接成一个 Mach-O，再套上签名容器与压缩。分析内核行为的第一步，是把它取出来、解开、找到符号，然后才谈地址换算。</p>
+
+<h2>1. 四块组成：内核、扩展、预链接、符号</h2>
+<table>
+<thead><tr><th>组成</th><th>内容</th><th>分析价值</th></tr></thead>
+<tbody>
+<tr><td>内核段</td><td>调度、内存、IPC、文件系统</td><td>系统调用实现、锁与结构体</td></tr>
+<tr><td>内置扩展</td><td>驱动与安全组件</td><td>签名校验、策略判定</td></tr>
+<tr><td>预链接信息</td><td>各扩展加载地址与依赖</td><td>确定函数归属</td></tr>
+<tr><td>符号与字符串</td><td>可能被剥离，仅剩导出</td><td>定位入口的主要线索</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/kernelcache-structure.svg" alt="从系统镜像到 kernelcache 内部结构" loading="lazy">
+<figcaption>图 2-9　外层是签名容器与压缩载荷，内层是预链接的内核与扩展。</figcaption>
+</figure>
+
+<h2>2. 两层封装</h2>
+<table>
+<thead><tr><th>层</th><th>形态</th><th>处理方式</th></tr></thead>
+<tbody>
+<tr><td>容器</td><td>带清单与签名的镜像块</td><td>按标签定位载荷</td></tr>
+<tr><td>压缩</td><td>LZFSE 等算法</td><td>解压后得到 Mach-O</td></tr>
+<tr><td>加密</td><td>新设备上载荷受保护</td><td>只能设备内解密</td></tr>
+</tbody>
+</table>
+<p>“拿到文件”不等于“能分析”：旧设备存在公开的密钥材料，新设备通常只能在设备内解出明文。</p>
+
+<div class="callout"><strong>解不开不等于不存在</strong><br>新设备上载荷受加密保护，本地工具打不开是正常结果；这时只能改走设备内观测，而不是怀疑文件损坏。</div>
+
+<figure data-steps="固件包|定位条目|解容器|解压|找符号" data-cols="5" data-rows="1" data-geometry="26,52,130,60,20,0">
+<img src="../assets/figures/kernelcache-pipeline.svg" alt="从固件包到内核符号的提取流程" loading="lazy">
+<figcaption>图 2-10　定位、解容器、解压、识别结构、找符号——失败点大多在前三步。</figcaption>
+</figure>
+
+<h2>3. 地址换算</h2>
+<blockquote><code>内核运行时地址 = 内核首选地址 + slide</code></blockquote>
+<p>slide 每次启动不同、按页（16 KB）对齐。分析流程是：先在 kernelcache 里定位偏移，再在目标设备取得本次 slide，两者相加才能下断点。</p>
+<table>
+<thead><tr><th>场景</th><th>能否直接算地址</th><th>原因</th></tr></thead>
+<tbody>
+<tr><td>静态阅读</td><td>不需要</td><td>看的是相对偏移</td></tr>
+<tr><td>沙盒应用内</td><td>不能</td><td>读不到内核 slide</td></tr>
+<tr><td>调试环境</td><td>可以</td><td>可从调试通道取得</td></tr>
+</tbody>
+</table>
+
+<h2>4. 符号从哪来</h2>
+<table>
+<thead><tr><th>来源</th><th>能拿到什么</th><th>限制</th></tr></thead>
+<tbody>
+<tr><td>自身符号表</td><td>导出符号、部分静态符号</td><td>发布构建常被剥离</td></tr>
+<tr><td>字符串与断言</td><td>函数用途、错误信息</td><td>需要交叉引用定位</td></tr>
+<tr><td>系统调用表</td><td>入口地址映射</td><td>版本间会调整</td></tr>
+<tr><td>公开源码</td><td>结构与算法</td><td>设备构建含未公开部分</td></tr>
+</tbody>
+</table>
+
+<h2>5. 命令形态</h2>
+<div class="code"><div class="code-title">定位并粗查 kernelcache（自有固件包）</div><button class="copy" type="button">复制</button><pre><code>unzip -l firmware.ipsw | grep -i kernelcache
+unzip -p firmware.ipsw kernelcache.release.xxx &gt; kc.bin
+file kc.bin
+strings -a kc.bin | grep -i "amfi\|codesign" | head</code></pre></div>
+<p><code>file</code> 只能判断外层容器类型；解压后的产物才是 Mach-O。用字符串检索能快速判断某组件是否在内核里，但不能据此断定逻辑细节。</p>
+
+<h2>6. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>解压失败</td><td>算法或容器头识别错</td><td>文件魔数与版本</td></tr>
+<tr><td>载荷不可读</td><td>加密未解除</td><td>设备与系统版本限制</td></tr>
+<tr><td>符号为空</td><td>构建已剥离</td><td>改用字符串与交叉引用</td></tr>
+<tr><td>地址对不上</td><td>slide 取值错或镜像不匹配</td><td>核对构建与本次启动</td></tr>
+<tr><td>反汇编错乱</td><td>基址设错或把数据当代码</td><td>按段权限区分</td></tr>
+</tbody>
+</table>
+
+<h2>7. 数据细节：几个可预期的量级</h2>
+<table>
+<thead><tr><th>项</th><th>量级</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>镜像体积</td><td>数十 MB</td><td>含内核与内置扩展</td></tr>
+<tr><td>页大小</td><td>16 KB</td><td>段与 slide 都按页对齐</td></tr>
+<tr><td>内置扩展</td><td>数十个</td><td>驱动与安全组件</td></tr>
+<tr><td>符号</td><td>可能为空</td><td>发布构建常被剥离</td></tr>
+</tbody>
+</table>
+
+<h2>8. 一次真实排查记录：解压失败</h2>
+<ol>
+<li><strong>现象：</strong>从固件包取出条目后，解压工具报“未知格式”。</li>
+<li><strong>先分层：</strong>外层是签名容器，内层才是压缩载荷；直接对容器解压必然失败。</li>
+<li><strong>核对条目：</strong>确认取的是内核缓存而不是恢复镜像。</li>
+<li><strong>看版本：</strong>新设备的载荷受加密保护，本地无法解开属于预期。</li>
+<li><strong>结论与限制：</strong>记录“载荷加密或容器未拆”，并注明这不代表文件损坏。</li>
+</ol>
+
+<h2>9. 工程权衡：什么时候值得读内核</h2>
+<table>
+<thead><tr><th>问题</th><th>先看用户态</th><th>需要内核</th></tr></thead>
+<tbody>
+<tr><td>应用报权限错误</td><td>错误码与调用栈</td><td>错误来自系统策略时才需要</td></tr>
+<tr><td>签名校验失败</td><td>签名与能力</td><td>校验规则本身要看内核</td></tr>
+<tr><td>启动异常</td><td>诊断包</td><td>只有定位到内核阶段才需要</td></tr>
+</tbody>
+</table>
+<p>读内核的成本很高：解包、符号恢复、版本对齐。能用用户态证据回答的问题，不要下沉。</p>
+
+<h2>10. 自测</h2>
+<ol>
+<li>为什么 kernelcache 是“预链接”的？这对地址计算有什么影响？</li>
+<li>沙盒应用为什么读不到内核 slide？</li>
+<li>符号被剥离后，还有哪三类线索可用？</li>
+<li>“源码里这样写”与“设备上这样跑”之间差哪一步？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

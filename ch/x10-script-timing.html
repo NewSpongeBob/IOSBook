@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x10-script-timing.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>F01 脚本时机与 ObjC 桥 · IOSBook</title>
+<meta name="description" content="同一个脚本，早 200 毫秒就什么都抓不到">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">F01</span><h1>脚本时机与 ObjC 桥</h1><p class="sub">同一个脚本，早 200 毫秒就什么都抓不到</p></header>
+
+<p class="lead">脚本能不能工作，八成取决于时机。类还没注册时，方法表是空的；等你连上去，初始化早已跑完。所以要先把“什么时候有什么”弄清楚，再谈 hook 谁。</p>
+
+<h2>1. 三个时间点</h2>
+<table>
+<thead><tr><th>时间点</th><th>已可用</th><th>还不可用</th></tr></thead>
+<tbody>
+<tr><td>进程刚启动</td><td>C 函数、dyld 符号</td><td>Objective-C 类、应用自定义对象</td></tr>
+<tr><td>ObjC 运行时初始化后</td><td><code>ObjC.classes</code>、系统类</td><td>应用自己的类（可能尚未注册）</td></tr>
+<tr><td>界面与业务初始化后</td><td>应用类、单例、网络栈</td><td>已经发生过的一次性初始化</td></tr>
+</tbody>
+</table>
+<p>“脚本没反应”最常见的原因不是写错，而是执行在类注册之前。</p>
+
+<h2>2. ObjC 桥的入口</h2>
+<table>
+<thead><tr><th>接口</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td><code>ObjC.available</code></td><td>运行时是否就绪</td></tr>
+<tr><td><code>ObjC.classes</code></td><td>按类名索引已注册的类</td></tr>
+<tr><td><code>ObjC.protocols</code></td><td>协议列表</td></tr>
+<tr><td><code>cls['- method:']</code></td><td>取实例方法；类方法用 <code>'+ method'</code></td></tr>
+<tr><td><code>method.implementation</code></td><td>拿到函数地址，供 <code>Interceptor.attach</code> 使用</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/timing-window.svg" alt="脚本执行时机与运行时能力可用窗口" loading="lazy">
+<figcaption>图 3-1　类未注册时桥接对象就是空，早一步什么都抓不到。</figcaption>
+</figure>
+
+<h2>3. 参数从哪来</h2>
+<p>Objective-C 方法最终以 <code>(self, _cmd, 参数…)</code> 调用，因此在前两个位置之外，业务参数从 <code>args[2]</code> 开始：</p>
+<div class="code"><div class="code-title">挂在自有类的方法上，读取参数与返回值</div><button class="copy" type="button">复制</button><pre><code>if (ObjC.available) {
+  const cls = ObjC.classes.LoginService;
+  const method = cls &amp;&amp; cls['- requestToken:'];
+  if (method) {
+    Interceptor.attach(method.implementation, {
+      onEnter(args) {
+        this.account = new ObjC.Object(args[2]).toString();   // 第一个业务参数
+        console.log('account =', this.account);
+      },
+      onLeave(retval) {
+        console.log('token len =', new ObjC.Object(retval).toString().length);
+      }
+    });
+  }
+}</code></pre></div>
+<p>类型不对时会得到 <code>undefined</code> 或直接崩溃：对象参数用 <code>new ObjC.Object()</code> 包装，C 字符串用 <code>args[2].readUtf8String()</code>，整数直接取数值。</p>
+
+<h2>4. 时机怎么补</h2>
+<table>
+<thead><tr><th>手段</th><th>做法</th><th>适用</th></tr></thead>
+<tbody>
+<tr><td>延迟重试</td><td>轮询类是否已注册，注册后再挂</td><td>快速验证</td></tr>
+<tr><td>spawn 暂停</td><td>从进程启动前接管，早期就加载脚本</td><td>抓初始化调用</td></tr>
+<tr><td>挂在已知早期入口</td><td>先 hook 一个确定会早执行的 C 函数</td><td>定位启动顺序</td></tr>
+</tbody>
+</table>
+<div class="code"><div class="code-title">等到类出现再挂</div><button class="copy" type="button">复制</button><pre><code>const timer = setInterval(() =&gt; {
+  if (ObjC.classes.LoginService) {
+    clearInterval(timer);
+    attachLogin();
+  }
+}, 200);</code></pre></div>
+
+<h2>5. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td><code>ObjC</code> 未定义</td><td>脚本在运行时初始化前执行</td><td>延后或改用 spawn</td></tr>
+<tr><td><code>ObjC.classes.X</code> 为空</td><td>类未注册或名字拼错</td><td>列出类名核对；注意 Swift 类名带模块前缀</td></tr>
+<tr><td>方法取不到</td><td>选择子写错，或方法未暴露给 Objective-C</td><td>枚举方法列表</td></tr>
+<tr><td>参数是 <code>undefined</code></td><td>索引错位或类型不匹配</td><td>打印 <code>method.argumentTypes</code></td></tr>
+<tr><td>挂上就崩溃</td><td>在错误时机读取了已释放对象</td><td>缩短回调逻辑，减少对象包装</td></tr>
+</tbody>
+</table>
+
+<div class="callout"><strong>时机决定可见性</strong><br>类未注册时 <code>ObjC.classes.X</code> 就是空；先确认时机，再怀疑选择子拼写。</div>
+<h2>6. 工程权衡：spawn 还是 attach</h2>
+<table>
+<thead><tr><th>方式</th><th>能抓到</th><th>代价</th></tr></thead>
+<tbody>
+<tr><td>启动即暂停（spawn）</td><td>初始化、单例构造、首屏请求</td><td>要接管启动流程，卡死会拖垮应用</td></tr>
+<tr><td>运行中附加（attach）</td><td>交互后的业务路径</td><td>错过一次性初始化</td></tr>
+<tr><td>脚本内延迟</td><td>界面出现后的调用</td><td>时机靠猜，可能已错过</td></tr>
+</tbody>
+</table>
+<p>判断标准：要抓的东西是否“只发生一次且发生在启动期”。是，就用 spawn；否，attach 足够。</p>
+
+<h2>7. 自测</h2>
+<ol>
+<li>为什么 <code>ObjC.available</code> 为真时，应用自己的类仍可能不存在？</li>
+<li>Objective-C 方法的第一个业务参数为什么在 <code>args[2]</code>？</li>
+<li>“轮询等待类注册”与“spawn 暂停”各适合什么场景？</li>
+<li>参数类型读错为什么会直接崩溃？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

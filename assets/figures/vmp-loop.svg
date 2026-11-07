@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260" width="760" height="260" role="img" aria-label="虚拟机保护的解释循环结构">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6c32d0"/></marker>
+    <style>
+      .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .p{fill:#f3eefc;stroke:#d6c8f2;stroke-width:1.4}
+      .y{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#6c32d0}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">VMP 把“代码”变成“数据”，再由解释器读它</text>
+
+  <rect class="b" x="26" y="46" width="150" height="60" rx="8"/>
+  <text class="t" x="40" y="70">真实逻辑</text>
+  <text class="s" x="40" y="90">编译期被转成字节码</text>
+
+  <rect class="p" x="206" y="46" width="150" height="60" rx="8"/>
+  <text class="t" x="220" y="70">字节码</text>
+  <text class="s" x="220" y="90">常量表 + 指令流</text>
+
+  <rect class="y" x="386" y="46" width="160" height="60" rx="8"/>
+  <text class="t" x="400" y="70">解释器</text>
+  <text class="s" x="400" y="90">取指 → 解码 → 执行</text>
+
+  <rect class="b" x="576" y="46" width="160" height="60" rx="8"/>
+  <text class="t" x="590" y="70">副作用</text>
+  <text class="s" x="590" y="90">调用、内存、返回</text>
+
+  <line x1="176" y1="76" x2="202" y2="76" stroke="#6c32d0" stroke-width="1.4" marker-end="url(#ar)"/>
+  <line x1="356" y1="76" x2="382" y2="76" stroke="#6c32d0" stroke-width="1.4" marker-end="url(#ar)"/>
+  <line x1="546" y1="76" x2="572" y2="76" stroke="#6c32d0" stroke-width="1.4" marker-end="url(#ar)"/>
+
+  <rect x="206" y="120" width="530" height="56" rx="8" fill="#faf8ff" stroke="#d6c8f2"/>
+  <text class="s" x="220" y="142">解释循环：读 1 字节操作码 → 查表跳转 → 执行 → 取下一条</text>
+  <text class="s" x="220" y="162">特征：中央大 switch / 跳转表；每执行一条回到取指，状态变量贯穿始终</text>
+
+
+  <text class="s" x="30" y="206">识别顺序：找大 switch → 找操作码分发 → 找常量表 → 才谈还原。</text>
+  <text class="s" x="30" y="228">不要试图“反编译整个 VM”：先挑一个操作码（如加法或调用）看它怎么被解释。</text>
+  <text class="s" x="30" y="250">代价：解释执行通常慢一个数量级，且体积随字节码膨胀——这两点也是识别线索。</text>
+</svg>

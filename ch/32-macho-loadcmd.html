@@ -1,1 +1,175 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>B03 Mach-O 文件头与加载命令 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">B03</span><h1>Mach-O 文件头与加载命令</h1><p class="sub">把可执行映像读成结构化描述，而不是一段“地址集合”</p></header><p class="lead">Mach-O 文件由头部、加载命令和各段数据组成。加载命令描述映像类型、段映射、依赖、符号与其他属性；具体命令取决于平台、架构和构建方式。</p><h2>分析顺序</h2><ol><li>确认文件是 32/64 位、目标架构及字节序；Fat/Universal 文件还需先识别架构切片。</li><li>解析头部中的文件类型、CPU 类型、命令数量和命令区域长度。</li><li>逐条检查加载命令，区分映射段、依赖库、符号表、签名信息和版本元数据。</li><li>将虚拟地址、文件偏移和段大小放在正确坐标系中解释。</li></ol><h2>安全解析原则</h2><p>自写解析器应对文件长度、整数溢出、命令边界、字符串长度和对齐进行严格校验；畸形文件应安全拒绝，不能信任文件中声明的范围。学习可先使用 Apple 工具检查自有构建产物，再对照公开格式头文件。</p><h2>实验与记录</h2><p>为自己的最小 iOS/macOS 示例导出 Mach-O 信息，比较 Debug/Release 和不同架构切片。记录 Xcode/SDK 版本及构建设置；不要把当前构建出现的命令列表当成所有程序的固定模板。</p><p><strong>参考：</strong><a href="https://github.com/apple-oss-distributions/xnu">Apple 开源发布</a> · <a href="https://developer.apple.com/documentation/xcode">Xcode 文档</a></p><nav class="pager"><a href="../part/03-binary.html">第三部目录</a><a href="./33-dyld-dependencies.html">下一章：依赖与符号绑定 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/32-macho-loadcmd.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>16 Mach-O 加载命令 · IOSBook</title>
+<meta name="description" content="头部给出目录，加载命令逐条描述映像如何被使用">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">16</span><h1>Mach-O 加载命令</h1><p class="sub">头部给出目录，加载命令逐条描述映像如何被使用</p></header>
+
+<p class="lead">解析 Mach-O 的顺序是固定的：先读头部确认坐标系，再按命令长度逐条步进，最后才去解释段与符号。跳过前两步直接看地址，几乎必然出错。</p>
+
+<h2>1. 头部关键字段</h2>
+<table>
+<thead><tr><th>字段</th><th>作用</th><th>解读要点</th></tr></thead>
+<tbody>
+<tr><td>magic</td><td>标识 32/64 位与字节序</td><td>64 位常见值为 <code>0xfeedfacf</code></td></tr>
+<tr><td>cputype / cpusubtype</td><td>目标架构</td><td>与切片、符号文件必须一致</td></tr>
+<tr><td>filetype</td><td>可执行/动态库/包</td><td>决定加载方式与可用的命令</td></tr>
+<tr><td>ncmds / sizeofcmds</td><td>命令数量与总长度</td><td>解析时据此校验边界</td></tr>
+<tr><td>flags</td><td>属性位</td><td>如位置无关标志，影响地址计算</td></tr>
+</tbody>
+</table>
+<p>头部本身不描述任何地址。它只保证你能安全地走到加载命令区。</p>
+
+<h2>2. 常见加载命令</h2>
+<table>
+<thead><tr><th>命令</th><th>描述什么</th></tr></thead>
+<tbody>
+<tr><td>LC_SEGMENT_64</td><td>段名、虚拟地址、大小、文件偏移、初始与最大权限</td></tr>
+<tr><td>LC_LOAD_DYLIB</td><td>依赖库的安装名与版本要求</td></tr>
+<tr><td>LC_RPATH</td><td>运行时搜索路径，供 <code>@rpath</code> 解析</td></tr>
+<tr><td>LC_SYMTAB / LC_DYSYMTAB</td><td>符号表与动态符号表的位置</td></tr>
+<tr><td>LC_UUID</td><td>该映像构建的唯一标识，符号化依赖它</td></tr>
+<tr><td>LC_BUILD_VERSION</td><td>构建平台与最低系统版本</td></tr>
+<tr><td>LC_CODE_SIGNATURE</td><td>签名数据在文件中的范围</td></tr>
+<tr><td>LC_MAIN</td><td>可执行文件的入口偏移</td></tr>
+</tbody>
+</table>
+<p>命令列表不是模板：不同文件类型、工具链与构建配置会带来不同组合。看到“某命令不存在”时，先确认文件类型与构建方式，再判断是否异常。</p>
+
+<div class="code"><div class="code-title">实机输出：macOS arm64 系统二进制的一条段命令</div><button class="copy" type="button">复制</button><pre><code>Load command 1
+      cmd LC_SEGMENT_64
+  cmdsize 472
+  segname __TEXT
+   vmaddr 0x0000000100000000
+   vmsize 0x0000000000008000
+  fileoff 0
+ filesize 32768
+  maxprot 0x00000005
+ initprot 0x00000005
+   nsects 5
+    flags 0x0</code></pre></div>
+<p>读法：<code>cmdsize 472</code> 说明长度可变，不能按固定步长遍历；<code>vmaddr</code> 是首选地址而非运行时地址；<code>initprot 0x5</code> 是读+执行（0x1 读、0x2 写、0x4 执行）；<code>nsects 5</code> 表示后面还有 5 个节描述。</p>
+
+<figure>
+<img src="../assets/figures/loadcmd-walk.svg" alt="按 cmdsize 逐条步进解析加载命令" loading="lazy">
+<figcaption>图 1-24　命令区是变长数组，必须按 cmdsize 步进并校验边界。</figcaption>
+</figure>
+
+<div class="code"><div class="code-title">实机输出：构建版本命令（macOS 系统二进制，x86_64 切片）</div><button class="copy" type="button">复制</button><pre><code>/bin/ls (architecture x86_64):
+Load command 9
+      cmd LC_BUILD_VERSION
+  cmdsize 32
+ platform MACOS
+    minos 10.14
+      sdk 15.7
+   ntools 1</code></pre></div>
+<p>读法：<code>platform</code> 区分 macOS、iOS 与模拟器；<code>minos</code> 是最低系统版本，<code>sdk</code> 是构建所用 SDK。三者任意一项与依赖不匹配，都可能在启动或首次调用时暴露。</p>
+
+<h2>3. 原理推演：为什么只能按 cmdsize 步进</h2>
+<p>加载命令里有变长内容：库路径、段名、节名。头部的 <code>ncmds</code> 只告诉你“有几条”，<code>sizeofcmds</code> 只告诉你“一共多长”，没有任何一个字段能推出下一条的位置。</p>
+<p>唯一可靠的信息是每条命令自带的 <code>cmdsize</code>。<b>不读 cmdsize 就无法定位下一条</b>；这也解释了为什么自写解析器读到第二条就乱码——它假设了固定长度。</p>
+
+<h2>4. 解析时容易踩的坑</h2>
+<ul>
+<li><strong>命令长度可变：</strong>不能用固定步长遍历，必须读每条命令的 <code>cmdsize</code> 前进。</li>
+<li><strong>字符串是偏移引用：</strong>依赖名、段名通常以文件内偏移指向，越界读取会得到无意义字符串。</li>
+<li><strong>通用二进制要先选切片：</strong>Fat 文件外层不是 Mach-O，需先按架构定位切片偏移。</li>
+<li><strong>虚拟地址与文件偏移不是同一量纲：</strong>段的文件偏移通常小于虚拟地址，二者不能互换。</li>
+</ul>
+<div class="callout"><strong>安全解析</strong><br>自写解析器必须校验文件长度、命令边界、整数溢出与对齐。任何来自文件的长度字段都应按“不可信输入”处理，越界即拒绝。</div>
+
+<div class="code"><div class="code-title">实机输出：入口与唯一标识</div><button class="copy" type="button">复制</button><pre><code>       cmd LC_MAIN
+   cmdsize 24
+  entryoff 2400
+ stacksize 0
+
+     cmd LC_UUID
+ cmdsize 24
+    uuid A36186A9-943D-3974-ADCC-18821C669F95</code></pre></div>
+<p>读法：<code>entryoff</code> 是相对文件起点的入口偏移，不是虚拟地址；<code>stacksize 0</code> 表示用系统默认主线程栈；<code>LC_UUID</code> 是符号化与匹配符号文件的唯一依据——版本号相同不代表 UUID 相同。上例是系统二进制的 UUID，同一系统构建下所有机器一致，不含任何设备信息。</p>
+
+<table>
+<thead><tr><th>切片</th><th>platform</th><th>minos</th><th>sdk</th></tr></thead>
+<tbody>
+<tr><td><code>/bin/ls</code> x86_64</td><td>MACOS</td><td>10.14</td><td>15.7</td></tr>
+<tr><td><code>/bin/ls</code> arm64e</td><td>MACOS</td><td>11.0</td><td>15.7</td></tr>
+<tr><td>Calculator arm64e</td><td>MACOS</td><td>15.7</td><td>15.7</td></tr>
+</tbody>
+</table>
+<p>同一文件的切片可以有不同 <code>minos</code>；而应用包的 <code>minos</code> 就是它的最低支持系统。判断“能不能跑”要看<b>实际加载的切片</b>，不是文件名。</p>
+
+<h2>5. 最小解析示例</h2>
+<div class="code"><div class="code-title">Python：读取头部并按 cmdsize 步进（仅示意）</div><button class="copy" type="button">复制</button><pre><code>import struct
+
+data = open("YourApp", "rb").read()
+magic, cputype, cpusubtype, filetype, ncmds, sizeofcmds, flags, _ = struct.unpack_from("&lt;IiiIIIII", data, 0)
+assert magic == 0xfeedfacf, "not a 64-bit Mach-O"
+
+off = 32
+for _ in range(ncmds):
+    cmd, cmdsize = struct.unpack_from("&lt;II", data, off)
+    if cmdsize &lt; 8 or off + cmdsize &gt; len(data):
+        raise ValueError("bad load command")
+    print(hex(cmd), cmdsize)
+    off += cmdsize</code></pre></div>
+<p>示例故意省略了命令语义，只验证“能否安全走完命令区”。真实工具还需处理字节序、Fat 外层与各类命令的结构体差异。</p>
+
+<h2>6. 可验证实验</h2>
+<ol>
+<li>对自己构建的产物导出加载命令列表，标出与段、依赖、符号、签名相关的命令各有哪些。</li>
+<li>比较 Debug 与 Release 的命令差异（例如符号相关命令、优化相关标志），解释差异来源。</li>
+<li>把一个非 Mach-O 文件喂给解析器，确认它安全拒绝而不是崩溃或读出垃圾数据。</li>
+</ol>
+
+<p class="more">延伸：<a href="08-macho.html">15 Mach-O 与地址空间</a> · <a href="03-dyld.html">05 dyld 与程序加载</a> · <a href="x11-interceptor.html">F02 跳板结构</a></p>
+
+<h2>7. 一次真实排查记录：命令区被截断</h2>
+<ol>
+<li><strong>现象：</strong>自写解析器读到第 N 条命令时越界，或读出的命令名是乱码。</li>
+<li><strong>先校验长度：</strong><code>cmdsize</code> 是否小于 8，或 <code>off + cmdsize</code> 是否超过 <code>sizeofcmds</code>。</li>
+<li><strong>再校验条数：</strong>实际步进次数与 <code>ncmds</code> 是否一致。</li>
+<li><strong>看文件完整性：</strong>文件被截断或人为拼接时，命令区长度与头部声明不符。</li>
+<li><strong>结论与限制：</strong>记录“命令区越界源于长度未校验”，并注明所有来自文件的长度都要按不可信输入处理。</li>
+</ol>
+
+<h2>8. 工程权衡：自己解析还是用现成工具</h2>
+<table>
+<thead><tr><th>方式</th><th>优势</th><th>代价</th></tr></thead>
+<tbody>
+<tr><td>现成工具</td><td>快，格式细节由工具兜住</td><td>批量处理与自定义输出受限</td></tr>
+<tr><td>自写解析</td><td>可批量、可定制、可接入流水线</td><td>必须自己处理边界与异常</td></tr>
+<tr><td>混合</td><td>工具做验证，脚本做统计</td><td>需要对齐两者的口径</td></tr>
+</tbody>
+</table>
+<p>建议先用工具确认结论，再用自写脚本扩大样本量；反过来容易把解析 bug 当成“样本异常”。</p>
+
+<div class="code"><div class="code-title">实机输出：签名数据在文件中的位置</div><button class="copy" type="button">复制</button><pre><code>      cmd LC_CODE_SIGNATURE
+  cmdsize 16
+  dataoff 70240
+ datasize 18848</code></pre></div>
+<p>读法：<code>dataoff</code> 是签名数据相对文件起点的偏移，<code>datasize</code> 是长度。签名不在头部，而在文件尾部的一块数据里；改文件任何字节都会让这段摘要失配。</p>
+
+<h2>9. 自测</h2>
+<ol>
+<li>为什么必须先读头部再读命令？</li>
+<li><code>cmdsize</code> 在解析中起什么作用？忽略它会有什么后果？</li>
+<li>通用二进制与单一架构文件的解析入口有什么不同？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

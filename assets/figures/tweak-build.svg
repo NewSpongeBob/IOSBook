@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260" width="760" height="260" role="img" aria-label="从一个源文件到进程内生效的四个阶段">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <style>
+      .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+      .y{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="28">源码 → 产物 → 规则 → 生效：四步都能单独验证</text>
+
+  <rect class="b" x="26" y="52" width="160" height="70" rx="8"/>
+  <text class="t" x="40" y="78">源码</text>
+  <text class="s" x="40" y="100">一个 hook 函数</text>
+  <text class="s" x="40" y="116">一段构造器</text>
+
+  <rect class="b" x="212" y="52" width="160" height="70" rx="8"/>
+  <text class="t" x="226" y="78">产物</text>
+  <text class="s" x="226" y="100">.dylib + 规则 plist</text>
+  <text class="s" x="226" y="116">签名与架构</text>
+
+  <rect class="b" x="398" y="52" width="160" height="70" rx="8"/>
+  <text class="t" x="412" y="78">规则</text>
+  <text class="s" x="412" y="100">按 bundle / 可执行名</text>
+  <text class="s" x="412" y="116">匹配目标进程</text>
+
+  <rect class="g" x="584" y="52" width="150" height="70" rx="8"/>
+  <text class="t" x="598" y="78">生效</text>
+  <text class="s" x="598" y="100">镜像列表出现</text>
+  <text class="s" x="598" y="116">日志按预期打印</text>
+
+  <line x1="186" y1="87" x2="208" y2="87" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ar)"/>
+  <line x1="372" y1="87" x2="394" y2="87" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ar)"/>
+  <line x1="558" y1="87" x2="580" y2="87" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ar)"/>
+
+  <text class="s" x="30" y="156">四步里最容易跳过的是“规则”：库编出来了，但规则没匹配上，进程里根本看不到它。</text>
+  <text class="s" x="30" y="178">验证顺序也应对应四步：能不能编 → 有没有签名 → 规则匹配不匹配 → 进程里有没有日志。</text>
+  <text class="s" x="30" y="200">把每一步的失败表现写下来，比“重装一遍试试”有效率得多。</text>
+
+  <rect class="y" x="26" y="216" width="708" height="34" rx="6"/>
+  <text class="s" x="40" y="238">只在自有应用与自有测试设备上做；不要对他人应用打包分发。</text>
+</svg>

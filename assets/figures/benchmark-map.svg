@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="与 AndroidBook 的部级对应">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker><style>
+  .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+  .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+  .y{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+  .n{fill:#f2f4f7;stroke:#cfd6e0;stroke-width:1.3}
+  .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+  .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+  .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+  .k{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#c26a06}
+</style></defs>
+
+  <text class="h" x="30" y="28">部级对应：能对的对齐，没有对应物的显式标注</text>
+
+  <rect class="n" x="30" y="50" width="320" height="34" rx="6"/>
+  <text class="t" x="44" y="73">AndroidBook</text>
+  <rect class="n" x="410" y="50" width="320" height="34" rx="6"/>
+  <text class="t" x="424" y="73">IOSBook</text>
+
+  <text class="s" x="30" y="108">系统与检测基础（16）</text>
+  <text class="s" x="410" y="108">系统与检测基础（17）</text>
+
+  <text class="s" x="30" y="134">内核基础（8）</text>
+  <text class="s" x="410" y="134">内核基础（9）</text>
+
+  <text class="s" x="30" y="160">Frida 详解（11）</text>
+  <text class="s" x="410" y="160">动态插桩详解（5）</text>
+
+  <text class="s" x="30" y="186">KPM 内核工程（7）</text>
+  <text class="s" x="410" y="186">无（并入 K06/K08）</text>
+
+  <text class="s" x="30" y="212">LSPosed（10）</text>
+  <text class="s" x="410" y="212">框架与注入（2）</text>
+
+  <text class="s" x="30" y="238">企业壳（3）+ VMP（2）</text>
+  <text class="s" x="410" y="238">加固与混淆（2）</text>
+
+  <text class="s" x="30" y="264">训练营（3）+ 附录（5）</text>
+  <text class="s" x="410" y="264">训练营（4）+ 附录（7）</text>
+
+  <text class="s" x="30" y="292">无法 1:1 的四处（内核模块、企业壳拆解、DEX、Binder、zygote）在附录 A07 里逐条说明。</text>
+
+</svg>

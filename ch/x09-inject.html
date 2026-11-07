@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x09-inject.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>07 注入链：从进程启动到脚本执行 · IOSBook</title>
+<meta name="description" content="拿到进程、注入库、起运行时、建通道——四关都过，脚本才跑得起来">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">07</span><h1>注入链：从进程启动到脚本执行</h1><p class="sub">拿到进程、注入库、起运行时、建通道——四关都过，脚本才跑得起来</p></header>
+
+<p class="lead">注入的失败很少是“脚本写错”，多数卡在更早的环节：没有进程控制权、库加载不进去、运行时起不来、通道没建好。按阶段排查比读日志快得多。</p>
+<blockquote><strong>场景</strong>　命令行显示 connected，脚本里的日志却一行没有。多半不是脚本写错，而是它执行的时候，目标类还没被注册。</blockquote>
+
+
+
+<h2>1. 五个阶段</h2>
+<table>
+<thead><tr><th>阶段</th><th>成功标志</th><th>失败表现</th></tr></thead>
+<tbody>
+<tr><td>取得进程</td><td>拿到任务端口，线程被暂停</td><td>attach 被拒、权限不足</td></tr>
+<tr><td>加载 agent</td><td>目标进程中多出一个镜像</td><td>进程退出、镜像列表无变化</td></tr>
+<tr><td>初始化运行时</td><td>脚本引擎可用，<code>ObjC</code> 可见</td><td>连上但 API 未定义</td></tr>
+<tr><td>执行脚本</td><td>脚本按预期时机运行</td><td>无输出、时机过早</td></tr>
+<tr><td>建立通道</td><td>双向消息与 RPC 可用</td><td>命令超时</td></tr>
+</tbody>
+</table>
+
+<h2>2. 两条落地路径</h2>
+<table>
+<thead><tr><th>路径</th><th>怎么落地</th><th>权限来源</th><th>限制</th></tr></thead>
+<tbody>
+<tr><td>设备上跑 server</td><td>越狱环境下的后台服务，默认端口 27042，新会话 27043</td><td>高权限运行</td><td>可附加任意进程，但依赖越狱</td></tr>
+<tr><td>把 gadget 打进应用</td><td>重签名时增加一条动态库依赖，随包加载</td><td>应用自身签名</td><td>只影响该应用，需可调试/重签构建</td></tr>
+</tbody>
+</table>
+<p>两条路的共同前提是“允许加载额外代码”。发布签名应用两条都走不通，这正是签名机制的作用。</p>
+
+<figure>
+<img src="../assets/figures/inject-stages.svg" alt="注入的五个阶段与各自失败表现" loading="lazy">
+<figcaption>图 1-11　五个阶段各有失败形态；“脚本没反应”要按阶段定位。</figcaption>
+</figure>
+
+<h2>3. 底层做了什么</h2>
+<ol>
+<li>通过任务端口暂停目标线程，保存寄存器现场。</li>
+<li>在目标进程分配内存，写入一小段引导代码（调用 <code>dlopen</code> 的桩）。</li>
+<li>创建远程线程执行它，返回后恢复原线程。</li>
+<li>库入口启动脚本引擎，并分配一块可执行内存用于 JIT。</li>
+<li>通过本机端口建立消息通道。</li>
+</ol>
+<div class="callout"><strong>两个硬性条件</strong><br>写内存并创建线程、分配可执行内存——这两件事在 iOS 上都受“是否允许动态代码”约束，因此注入能力本质取决于签名与设备状态，而不是工具版本。</div>
+
+<h2>4. 命令形态</h2>
+<div class="code"><div class="code-title">对自有构建做附加与启动注入</div><button class="copy" type="button">复制</button><pre><code>frida -U -n YourApp -l hook.js          # 附加到已运行进程
+frida -U -f com.example.yourapp -l hook.js --no-pause   # 启动即注入
+frida-ps -U | grep -i yourapp            # 确认进程与标识</code></pre></div>
+<p><code>-f</code> 会在进程启动早期接管，适合抓初始化调用；<code>-n</code>/<code>-p</code> 附加更简单，但会错过启动阶段。</p>
+
+<h2>5. 时机选择</h2>
+<table>
+<thead><tr><th>时机</th><th>能抓到</th><th>代价</th></tr></thead>
+<tbody>
+<tr><td>启动即暂停（spawn）</td><td>初始化、单例构造、早期网络请求</td><td>容易卡死启动，需要正确恢复</td></tr>
+<tr><td>运行中附加（attach）</td><td>交互后的业务逻辑</td><td>错过一次性初始化</td></tr>
+<tr><td>脚本内延迟</td><td>界面出现后的调用</td><td>可能错过首屏数据加载</td></tr>
+</tbody>
+</table>
+
+<h2>6. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>最可能原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>attach 被拒绝</td><td>应用无调试/动态代码权限</td><td>签名能力、设备状态</td></tr>
+<tr><td>连上立即断开</td><td>agent 与系统/架构不匹配</td><td>arm64 与 arm64e、系统版本</td></tr>
+<tr><td>脚本无输出</td><td>执行早于类注册</td><td>改用 spawn 或延迟重试</td></tr>
+<tr><td>端口不通</td><td>端口被改或未监听</td><td>实际监听端口与转发</td></tr>
+<tr><td>注入后闪退</td><td>可执行内存不可用，或触发完整性校验</td><td>崩溃报告、页权限</td></tr>
+</tbody>
+</table>
+
+<p class="more">延伸：<a href="x02-static.html">09 静态侦察</a> · <a href="x10-script-timing.html">F01 脚本时机</a> · <a href="58-ptrace.html">06 ptrace 与附加</a></p>
+
+<h2>7. 数据细节：一次注入涉及多少东西</h2>
+<table>
+<thead><tr><th>对象</th><th>量级</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>远程线程</td><td>1 个</td><td>用于执行加载桩，返回后恢复原线程</td></tr>
+<tr><td>可执行内存</td><td>至少 1 页（16 KB）</td><td>引导桩与脚本引擎的 JIT 区</td></tr>
+<tr><td>通信端口</td><td>1 个</td><td>默认 27042，新会话常用 27043</td></tr>
+<tr><td>agent 库</td><td>数 MB 量级</td><td>含脚本引擎，随版本变化</td></tr>
+<tr><td>初始化耗时</td><td>数十至数百毫秒</td><td>取决于设备与库大小</td></tr>
+</tbody>
+</table>
+<p>这解释了为什么注入后应用会“卡一下”：暂停线程、映射库、启动引擎都在这一瞬间完成。</p>
+
+<h2>8. 一次真实排查记录：连上了但脚本无输出</h2>
+<ol>
+<li><strong>现象：</strong>命令行显示已连接，脚本里 <code>console.log</code> 没有任何输出。</li>
+<li><strong>先分阶段：</strong>连接成功只说明通道建立，不代表脚本已执行。</li>
+<li><strong>查时机：</strong>脚本在 <code>ObjC</code> 初始化之前运行，桥接对象为空，回调根本没挂上。</li>
+<li><strong>改法：</strong>改为启动即暂停（spawn）或延迟重试，等类注册后再安装。</li>
+<li><strong>结论与限制：</strong>记录“执行早于类注册”，并注明该结论只对当前系统版本成立。</li>
+</ol>
+
+<h2>9. 自测</h2>
+<ol>
+<li>为什么“能 attach”与“能加载脚本”是两件事？</li>
+<li>注入过程为什么必须暂停目标线程？</li>
+<li>gadget 与 server 两条路径在权限来源上有什么区别？</li>
+<li>默认端口 27042 与 27043 分别用于什么？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

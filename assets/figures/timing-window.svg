@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 280" width="760" height="280" role="img" aria-label="脚本执行时机与运行时能力可用窗口">
+  <defs>
+    <marker id="arrowTw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.8px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .g{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#0a8f68}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">同一个脚本，早 200 毫秒就什么都抓不到</text>
+
+  <rect x="196" y="74" width="500" height="92" rx="10" fill="#effaf5" stroke="#a9dcc9" stroke-dasharray="5 4"/>
+  <text class="g" x="208" y="94">ObjC 桥可用之后</text>
+
+  <line x1="50" y1="130" x2="710" y2="130" stroke="#2563eb" stroke-width="1.6" marker-end="url(#arrowTw)"/>
+
+  <circle cx="80" cy="130" r="7" fill="#2563eb"/>
+  <text class="t" x="80" y="112" text-anchor="middle">启动</text>
+  <text class="s" x="80" y="154" text-anchor="middle">只有 C 与 dyld</text>
+
+  <circle cx="210" cy="130" r="7" fill="#2563eb"/>
+  <text class="t" x="210" y="112" text-anchor="middle">ObjC 初始化</text>
+  <text class="s" x="210" y="154" text-anchor="middle">系统类可用</text>
+
+  <circle cx="355" cy="130" r="7" fill="#2563eb"/>
+  <text class="t" x="355" y="112" text-anchor="middle">应用类注册</text>
+  <text class="s" x="355" y="154" text-anchor="middle">自定义类出现</text>
+
+  <circle cx="510" cy="130" r="7" fill="#2563eb"/>
+  <text class="t" x="510" y="112" text-anchor="middle">UI 出现</text>
+  <text class="s" x="510" y="154" text-anchor="middle">业务单例就绪</text>
+
+  <circle cx="660" cy="130" r="7" fill="#2563eb"/>
+  <text class="t" x="660" y="112" text-anchor="middle">业务调用</text>
+  <text class="s" x="660" y="154" text-anchor="middle">一次性初始化已完成</text>
+
+  <rect x="30" y="196" width="700" height="62" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="44" y="220">启动即暂停（spawn）能抓初始化，但容易卡死；运行中附加（attach）简单，却错过早期调用。</text>
+  <text class="s" x="44" y="242">类未注册时 <tspan font-weight="600">ObjC.classes.X</tspan> 就是空——先确认时机，再怀疑选择子。</text>
+</svg>

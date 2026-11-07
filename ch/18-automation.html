@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/18-automation.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>18 自动化：XCUITest 与 WDA · IOSBook</title>
+<meta name="description" content="自动化只负责“把路径稳定走一遍”，不负责读内存">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">18</span><h1>自动化：XCUITest 与 WDA</h1><p class="sub">自动化只负责“把路径稳定走一遍”，不负责读内存</p></header>
+
+<p class="lead">XCUITest 与被测应用是两个进程：测试进程通过辅助功能接口点击、输入、截图，不注入、不读内存。它解决的问题是“每次都能走到同一个地方”，剩下的观测仍靠断点与日志。</p>
+
+<h2>1. 两种形态</h2>
+<table>
+<thead><tr><th>形态</th><th>怎么跑</th><th>适合</th></tr></thead>
+<tbody>
+<tr><td>XCTest UI 测试</td><td>Xcode 内置，测试进程驱动应用</td><td>本地回归、自有应用</td></tr>
+<tr><td>WebDriverAgent</td><td>设备上跑一个 HTTP 服务（默认 8100），外部脚本发请求</td><td>远程批量、跨语言脚本</td></tr>
+</tbody>
+</table>
+
+<h2>2. 能力边界</h2>
+<table>
+<thead><tr><th>能做</th><th>不能做</th></tr></thead>
+<tbody>
+<tr><td>点击、滑动、输入、截图</td><td>读对象内存、调任意方法</td></tr>
+<tr><td>断言元素与层级</td><td>绕过权限或签名限制</td></tr>
+<tr><td>稳定复现同一条路径</td><td>替代断点做调用级观测</td></tr>
+</tbody>
+</table>
+<p>所以自动化和插桩是互补关系：前者保证“每次都走到”，后者负责“到了之后看什么”。</p>
+
+<h2>3. 定位元素：标识优先于文案</h2>
+<div class="code"><div class="code-title">Swift：按标识查找并点击</div><button class="copy" type="button">复制</button><pre><code>let app = XCUIApplication()
+app.launch()
+let login = app.buttons["login.submit"]
+XCTAssertTrue(login.waitForExistence(timeout: 5))
+login.tap()</code></pre></div>
+<p>标识稳定、文案会变；层级变化会让按下标的定位失效。系统弹窗（权限、更新提示）不在应用层级里，必须单独处理。</p>
+
+<figure data-steps="写用例|启动|操作与等待|取结果" data-cols="4" data-rows="1" data-geometry="24,44,168,104,16,0">
+<img src="../assets/figures/auto-steps.svg" alt="自动化四步：写、跑、等、取" loading="lazy">
+<figcaption>图 1-26　自动化保证路径稳定；观测仍要靠断点与日志。</figcaption>
+</figure>
+
+<h2>4. 一次真实排查记录：随机失败</h2>
+<ol>
+<li><strong>现象：</strong>同一用例，十次里失败两三次。</li>
+<li><strong>先排除等待：</strong>固定 <code>sleep</code> 在慢设备上不够，在快设备上浪费。</li>
+<li><strong>改显式等待：</strong>等“元素可点击”，而不是等固定秒数。</li>
+<li><strong>再查动画：</strong>转场未结束时点击会落到空处。</li>
+<li><strong>结论与限制：</strong>记录“等待策略不当”，并注明结论只对该机型与系统版本成立。</li>
+</ol>
+
+<h2>5. 与分析工作的配合</h2>
+<table>
+<thead><tr><th>步骤</th><th>自动化做什么</th><th>你做什么</th></tr></thead>
+<tbody>
+<tr><td>触发</td><td>稳定进入目标页并下拉刷新</td><td>在固定位置下断点</td></tr>
+<tr><td>观测</td><td>保证时序一致</td><td>读参数、返回值、调用栈</td></tr>
+<tr><td>复现</td><td>一键重跑</td><td>对比两次差异</td></tr>
+</tbody>
+</table>
+
+<h2>6. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>元素找不到</td><td>标识缺失或层级变化</td><td>打印元素树补标识</td></tr>
+<tr><td>点了没反应</td><td>元素存在但不可交互</td><td>等待可点击状态</td></tr>
+<tr><td>只能模拟器跑</td><td>签名或设备限制</td><td>核对测试构建</td></tr>
+<tr><td>权限弹窗卡住</td><td>系统弹窗不在应用层级</td><td>统一处理或预置权限</td></tr>
+</tbody>
+</table>
+
+<h2>7. 数据细节：一次 UI 测试的时间构成</h2>
+<table>
+<thead><tr><th>阶段</th><th>量级</th><th>优化手段</th></tr></thead>
+<tbody>
+<tr><td>启动应用</td><td>1–3 秒</td><td>减少冷启动次数，复用会话</td></tr>
+<tr><td>等待元素</td><td>0.1–2 秒</td><td>显式等待替代固定 sleep</td></tr>
+<tr><td>操作与转场</td><td>0.3–1 秒</td><td>关闭动画，直接跳转</td></tr>
+<tr><td>断言与截图</td><td>0.1–0.5 秒</td><td>只在失败时截图</td></tr>
+</tbody>
+</table>
+<p>一次用例超过十秒，通常不是设备慢，而是等待策略写成了固定 <code>sleep</code>。</p>
+
+<div class="code"><div class="code-title">实机输出：只装了命令行工具时</div><button class="copy" type="button">复制</button><pre><code>xcode-select: error: tool 'xcodebuild' requires Xcode, but active developer directory
+'/Library/Developer/CommandLineTools' is a command line tools instance</code></pre></div>
+<p>读法：自动化依赖 <code>XCUITest</code> 与模拟器管理，这些只在完整 Xcode 里提供；只装 Command Line Tools 时，<code>xcodebuild</code> 会直接报这条错。遇到它不要怀疑脚本，先确认 <code>xcode-select -p</code> 指向。</p>
+
+<h2>8. 自测</h2>
+<ol>
+<li>为什么 XCUITest 读不到应用内存？</li>
+<li>元素定位为什么优先用标识？</li>
+<li>固定 <code>sleep</code> 与显式等待的差别在哪？</li>
+<li>自动化与插桩分别解决什么问题？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

@@ -1,9 +1,98 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>R07 Objective-C / Swift 互操作 · IOSBook</title><link rel="stylesheet" href="../style.css"></head>
-<body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">R07</span><h1>Objective-C / Swift 互操作</h1><p class="sub">跨语言边界需要显式处理类型、错误、可空性与生命周期</p></header>
-<p class="lead">Objective-C 与 Swift 可以通过受支持的互操作机制协作，但并非任意语言特性都能无损映射。模块接口、可表示性、错误桥接和对象所有权都应在 API 设计时明确。</p>
-<h2>API 边界的检查项</h2><ul><li><strong>类型可表示性：</strong>确认类型能否通过公开互操作规则暴露；泛型、值类型和特定访问级别存在约束。</li><li><strong>可空性：</strong>为 Objective-C API 正确标记 nullability，避免 Swift 调用端出现含糊隐式解包。</li><li><strong>错误：</strong>定义 NSError/throws 的转换语义，避免把失败吞掉或只返回不透明状态。</li><li><strong>并发：</strong>明确回调队列、actor 隔离和跨边界共享状态的同步规则。</li><li><strong>所有权：</strong>文档说明 delegate、闭包、观察者和资源由谁持有、何时释放。</li></ul>
-<h2>稳定接口与实现细节</h2><p>通过 Xcode 生成的接口视图和官方语言文档检查实际暴露 API。不要依赖私有 runtime 元数据、未公开符号或某一版本的对象内存布局作为应用契约。</p>
-<h2>迁移策略</h2><ol><li>先为模块划定清晰的语言边界，避免两侧重复维护同一状态。</li><li>在公共边界使用简单、明确且可测试的数据类型。</li><li>用小型跨语言测试覆盖 nil、错误、取消、生命周期和线程/actor 语义。</li><li>逐步迁移并维持兼容层，不要一次性改变调用约定和数据持久化格式。</li></ol>
-<h2>自测</h2><p>为自有模块设计一个 Objective-C 调用的 Swift API：说明可空性、错误映射、回调执行上下文和对象所有权，并用测试验证边界情况。</p>
-<nav class="pager"><a href="./40-protocol-dispatch.html">← 上一章</a><a href="../part/04-runtime.html">第四部目录</a><a href="./42-runtime-testing.html">下一章：Runtime 测试 →</a></nav></article></main></body></html>
+<html lang="zh-CN" data-root=".." data-page="ch/41-objc-swift-bridge.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>W02 互操作与框架边界 · IOSBook</title>
+<meta name="description" content="跨语言边界的四种转换，决定了哪些方法“看得见、hook 得着”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">W03</span><h1>互操作与框架边界</h1><p class="sub">跨语言边界的四种转换，决定了哪些方法“看得见、hook 得着”</p></header>
+
+<p class="lead">Objective-C 与 Swift 的互操作不是自动的：类型能不能表示、可空性怎么标、错误怎么桥接、对象归谁持有，四件事任何一件没定清楚，边界上就会出现“能编译、跑不对、hook 不到”的问题。</p>
+
+<h2>1. 四种转换</h2>
+<table>
+<thead><tr><th>转换</th><th>Swift 侧</th><th>ObjC 侧</th><th>常见问题</th></tr></thead>
+<tbody>
+<tr><td>类型可表示性</td><td>Struct/Enum/泛型</td><td>无直接对应</td><td>暴露后变成不透明对象，参数语义丢失</td></tr>
+<tr><td>可空性</td><td><code>String?</code></td><td><code>nullable</code> / <code>nonnull</code></td><td>未标注时桥接成隐式解包，运行时崩</td></tr>
+<tr><td>错误</td><td><code>throws</code></td><td><code>NSError **</code></td><td>失败被吞，或错误码丢失</td></tr>
+<tr><td>所有权</td><td>强引用/闭包捕获</td><td>delegate（弱引用）</td><td>双向强引用、回调时对象已释放</td></tr>
+</tbody>
+</table>
+
+<h2>2. 暴露的代价</h2>
+<table>
+<thead><tr><th>写法</th><th>派发方式</th><th>能否被运行时 hook</th></tr></thead>
+<tbody>
+<tr><td>纯 Swift 方法</td><td>静态或虚表</td><td>不能按选择子</td></tr>
+<tr><td><code>@objc</code></td><td>消息发送</td><td>能</td></tr>
+<tr><td><code>@objc dynamic</code></td><td>消息发送，禁止内联/去虚化</td><td>能，且稳定</td></tr>
+<tr><td><code>@objcMembers</code></td><td>整类成员暴露</td><td>能，但暴露面变大</td></tr>
+</tbody>
+</table>
+<div class="code"><div class="code-title">确认某个 Swift 方法是否暴露给运行时</div><button class="copy" type="button">复制</button><pre><code>nm -gU YourApp | grep -i "loginService" | head
+nm -gU YourApp | awk '{print $3}' | xcrun swift-demangle | grep -i LoginService | head</code></pre></div>
+
+<figure>
+<img src="../assets/figures/bridge-conversions.svg" alt="跨语言边界的四种转换" loading="lazy">
+<figcaption>图 5-4　类型、可空性、错误、所有权，任一没定清楚都会“能编译、跑不对”。</figcaption>
+</figure>
+
+<h2>3. 回调与线程</h2>
+<ul>
+<li>Objective-C block 与 Swift closure 可以桥接，但 <code>@escaping</code> 与捕获列表的语义不自动对齐。</li>
+<li>跨边界回调要写清“在哪个队列执行”，否则调用方会在错误线程改 UI。</li>
+<li>用协议回调时，delegate 通常弱引用；用闭包时容易强捕获，形成环。</li>
+</ul>
+
+<h2>4. 边界上的观测</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td><code>unrecognized selector</code></td><td>方法未暴露，或被改名</td><td><code>@objc</code> 与选择子</td></tr>
+<tr><td>参数为 nil 崩溃</td><td>可空性未标注</td><td>头文件/接口标注</td></tr>
+<tr><td>错误码总是 0</td><td>错误桥接丢失</td><td>返回路径与 <code>NSError</code></td></tr>
+<tr><td>回调后崩溃</td><td>对象已释放或线程错误</td><td>所有权与队列</td></tr>
+</tbody>
+</table>
+
+<h2>5. 设计建议</h2>
+<ol>
+<li>边界上只用简单、可表示的类型：字符串、数字、数组、明确的模型对象。</li>
+<li>需要被运行时观察的入口标 <code>@objc dynamic</code>，其余保持纯 Swift。</li>
+<li>回调明确执行队列与生命周期，文档写“谁持有谁”。</li>
+<li>为边界写一组测试：nil、错误、取消、跨线程。</li>
+</ol>
+
+<div class="callout"><strong>稳定可 hook 的写法</strong><br>需要被运行时观察的入口标 <code>@objc dynamic</code>；只标 <code>@objc</code> 仍可能被内联或去虚化。</div>
+<h2>6. 一次真实排查记录：unrecognized selector</h2>
+<ol>
+<li><strong>现象：</strong>Objective-C 侧调用 Swift 方法，运行时报找不到选择子。</li>
+<li><strong>先看暴露：</strong>方法是否标了 <code>@objc</code>，类是否继承自 NSObject。</li>
+<li><strong>再看命名：</strong>Swift 方法转成选择子时会重排参数标签。</li>
+<li><strong>验证：</strong>枚举方法列表核对实际选择子。</li>
+<li><strong>结论与限制：</strong>记录“未暴露或选择子不匹配”，并注明结论只对该声明方式成立。</li>
+</ol>
+
+<h2>7. 自测</h2>
+<ol>
+<li>为什么泛型类型跨到 Objective-C 后会“看起来能用但语义丢失”？</li>
+<li><code>@objc</code> 与 <code>@objc dynamic</code> 在可 hook 性上差在哪？</li>
+<li>闭包回调相比 delegate 更容易产生哪类问题？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

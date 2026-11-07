@@ -1,1 +1,130 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>05 代码签名与完整性 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">CHAPTER 05</span><h1>代码签名与完整性</h1><p class="sub">签名身份、代码完整性与平台信任策略</p></header><p class="lead">代码签名把代码内容与签名身份关联起来，是平台信任体系的一部分；它不是对应用逻辑正确性或服务端安全性的证明。</p><h2>学习目标</h2><ul><li>区分签名身份、签名内容完整性和运行时安全策略。</li><li>理解证书、配置文件与平台验证在发布流程中的角色。</li><li>在自有构建产物上验证签名并记录构建环境。</li></ul><h2>防御视角</h2><p>将签名验证纳入发布流水线；保护证书与构建凭据；对依赖、构建产物和发布版本建立可追溯记录。签名通过不代表应用逻辑无需安全审查。</p><nav class="pager"><a href="./04-sandbox.html">← 上一章</a><a href="../part/01-foundation.html">第一部目录</a><a href="../part/02-runtime.html">第二部目录 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/05-signature.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>17 代码签名与完整性 · IOSBook</title>
+<meta name="description" content="签名是摘要树加一份能力清单，不是给文件盖一个章">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">17</span><h1>代码签名与完整性</h1><p class="sub">签名是摘要树加一份能力清单，不是给文件盖一个章</p></header>
+
+<p class="lead">签名把代码页、资源与权限声明一起做成摘要树，再用证书链签名。看懂它由哪几块组成，才能理解为什么改一个字节就失效、为什么能力能“凭空”出现在二进制里。</p>
+
+<h2>1. 五个组成部分</h2>
+<table>
+<thead><tr><th>部分</th><th>内容</th><th>改动后果</th></tr></thead>
+<tbody>
+<tr><td>代码页哈希</td><td>按块计算的页面摘要</td><td>改指令即失效</td></tr>
+<tr><td>CodeDirectory</td><td>标识、页哈希表、特殊槽位、版本</td><td>整体摘要（CDHash）变化</td></tr>
+<tr><td>entitlements</td><td>能力清单（沙盒、访问组、推送环境）</td><td>能力与签名不匹配会拒绝启动</td></tr>
+<tr><td>requirements</td><td>“什么条件算同一身份”</td><td>影响后续校验与替换策略</td></tr>
+<tr><td>CMS 签名</td><td>对 CodeDirectory 的签名与证书链</td><td>证书失效则整链失败</td></tr>
+</tbody>
+</table>
+<p>特殊槽位通常包含 Info.plist 与要求文件；资源通过资源清单参与摘要。因此“只改 plist 不改代码”同样会破坏签名。</p>
+
+<figure>
+<img src="../assets/figures/signature-structure.svg" alt="代码签名的摘要树与证书签名关系" loading="lazy">
+<figcaption>图 1-25　先按页与槽位生成摘要，再整体签名；任何一层不一致都会在校验时暴露。</figcaption>
+</figure>
+
+<h2>2. 实机输出</h2>
+<div class="code"><div class="code-title">实机输出：查看签名摘要（macOS 系统二进制）</div><button class="copy" type="button">复制</button><pre><code>Identifier=com.apple.ls
+CodeDirectory v=20400 size=741 flags=0x0(none) hashes=18+2 location=embedded
+Hash type=sha256 size=32
+CDHash=72efae0707353da45c87a019a5ddd40bd3dc59f5</code></pre></div>
+<div class="code"><div class="code-title">实机输出：查看能力清单（截取实际输出）</div><button class="copy" type="button">复制</button><pre><code>&lt;key&gt;com.apple.security.app-sandbox&lt;/key&gt;&lt;true/&gt;
+&lt;key&gt;com.apple.security.network.client&lt;/key&gt;&lt;true/&gt;
+&lt;key&gt;com.apple.security.files.user-selected.read-write&lt;/key&gt;&lt;true/&gt;
+&lt;key&gt;com.apple.private.hid.client.event-dispatch.internal&lt;/key&gt;&lt;true/&gt;</code></pre></div>
+<p>读法：<code>v=20400</code> 是结构版本；<code>hashes=18+2</code> 是 18 个代码页槽位加 2 个特殊槽位；<code>CDHash</code> 随内容变化，不能当固定常量；能力清单里既有公开能力（沙盒、网络）也有私有能力（内部事件分发）。</p>
+
+<div class="code"><div class="code-title">实机输出：应用包的完整签名信息</div><button class="copy" type="button">复制</button><pre><code>Identifier=com.apple.calculator
+Format=app bundle with Mach-O universal (x86_64 arm64e)
+CodeDirectory v=20400 size=13037 flags=0x0(none) hashes=397+7 location=embedded
+Platform identifier=16
+CDHash=20fb09a2f83e1a538a2d13435a13345d500c2fc9
+CMSDigest=20fb09a2f83e1a538a2d13435a13345d500c2fc9b75ef9be3a1e81e13a2de328
+Authority=Software Signing</code></pre></div>
+<p>读法：<code>hashes=397+7</code> 说明页哈希有 397 条、特殊槽位 7 个（应用包比命令行工具多得多）；<code>Platform identifier=16</code> 表示平台签名；<code>CDHash</code> 是对 CodeDirectory 的摘要，而 <code>CMSDigest</code> 是签名覆盖的更完整摘要，两者前缀相同但长度不同——不要把二者混用。</p>
+
+<h2>3. 原理推演：为什么按页哈希而不是整文件哈希</h2>
+<p>可执行文件不是一次性读进内存的：页按需调入、按需丢弃。如果签名只覆盖“整个文件的哈希”，校验者就必须先把几十 MB 全读一遍才能判断一页是否可信——这会让启动变慢，也无法支持按需分页。</p>
+<p>按页生成摘要后，<b>每页可以在调入时单独校验</b>，未加载的页不必读。代价是摘要表本身要占空间（<code>hashes=397+7</code> 里那个 397 就是页数），并需要一个总摘要把这张表锚住——这就是 CodeDirectory 与 CDHash 的关系。</p>
+
+<h2>4. 三处校验</h2>
+<ol>
+<li><strong>安装/注册：</strong>签名结构完整、描述文件允许该设备与能力。</li>
+<li><strong>进程启动：</strong>可执行文件签名有效，entitlement 与签名主体一致。</li>
+<li><strong>运行期：</strong>按策略对代码页做完整性检查（并非每页每次访问都检查）。</li>
+</ol>
+
+<h2>5. CDHash 的用途与边界</h2>
+<table>
+<thead><tr><th>能用来</th><th>不能用来</th></tr></thead>
+<tbody>
+<tr><td>本地核对两个产物是否同一份</td><td>作为业务常量硬编码</td></tr>
+<tr><td>在构建归档里做索引</td><td>证明运行期未被改动</td></tr>
+<tr><td>排查“装的是不是这版”</td><td>防篡改的唯一手段</td></tr>
+</tbody>
+</table>
+
+<div class="callout"><strong>CDHash 不是常量</strong><br>它随构建内容变化，且只描述磁盘产物；把它写进客户端做“防篡改”会在每次发版失效，也看不到运行期的改动。</div>
+
+<h2>6. 一次真实排查记录：TestFlight 启动即退出</h2>
+<ol>
+<li><strong>现象：</strong>开发构建正常，分发构建一启动就退出，崩溃报告里没有业务栈。</li>
+<li><strong>先分类：</strong>无业务栈通常不是崩溃，而是被系统拒绝加载，重点看终止原因与签名信息。</li>
+<li><strong>对比能力清单：</strong>分别导出两个构建的 entitlements，逐项比对；常见差异是推送环境、钥匙串访问组、调试能力。</li>
+<li><strong>核对描述文件：</strong>后台已开启的能力，描述文件是否同步更新；未更新时构建阶段就会剥离。</li>
+<li><strong>结论与限制：</strong>记录“分发构建缺少某项能力”，并注明该结论只对当前描述文件与后台配置成立。</li>
+</ol>
+
+<h2>7. 证书与重签</h2>
+<p>开发期用开发证书与描述文件，声明设备、App ID 与能力；分发时由平台重新签名，但应用标识与团队归属仍体现在字段里。能力在后台开启但描述文件未更新，构建时会被剥离——这是“开发能跑、TestFlight 失败”的最常见原因。</p>
+
+<h2>8. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>安装失败</td><td>描述文件不含该设备或能力</td><td>描述文件与后台配置</td></tr>
+<tr><td>启动即退出</td><td>能力与签名主体不匹配</td><td>entitlements 与实际签名</td></tr>
+<tr><td>改一行配置就崩</td><td>特殊槽位参与摘要</td><td>是否改动签名覆盖的文件</td></tr>
+<tr><td>重签后行为异常</td><td>能力被剥离或环境变化</td><td>重签前后 entitlements 对比</td></tr>
+</tbody>
+</table>
+
+<p class="more">延伸：<a href="32-macho-loadcmd.html">16 Mach-O 加载命令</a> · <a href="a08-outputs.html">A08 实机输出索引</a> · <a href="03-dyld.html">05 dyld 与程序加载</a></p>
+
+<div class="code"><div class="code-title">实机输出：平台签名与开发者签名的差别</div><button class="copy" type="button">复制</button><pre><code>Authority=Software Signing
+Authority=Apple Code Signing Certification Authority
+Authority=Apple Root CA
+TeamIdentifier=not set</code></pre></div>
+<p>读法：<code>TeamIdentifier=not set</code> 说明这是<b>平台签名</b>（Apple 自签），不是开发者证书签名；三条 <code>Authority</code> 是证书链，顺序从叶到根。判断“是不是同一个开发者发的包”，看的正是 TeamIdentifier 而不是 CDHash。</p>
+
+<div class="code"><div class="code-title">实机输出：没有 entitlements 也是结论</div><button class="copy" type="button">复制</button><pre><code>Executable=/bin/ls
+warning: Specifying ':' in the path is deprecated and will not work in a future release</code></pre></div>
+<p>读法：命令只回显可执行路径，说明该二进制<b>没有 entitlements</b>。命令行工具常见这种情况；应用包则通常有沙盒、网络等能力。看到“空”不要当成命令失败，它本身就是一条结论。</p>
+
+<h2>9. 自测</h2>
+<ol>
+<li>为什么改 Info.plist 也会让签名失效？</li>
+<li><code>hashes=18+2</code> 中的“+2”指什么？</li>
+<li>CDHash 能证明什么、不能证明什么？</li>
+<li>“开发能跑、TestFlight 失败”通常先查哪里？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

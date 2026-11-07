@@ -1,1 +1,107 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>06 对象模型与消息派发 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">CHAPTER 06</span><h1>对象模型与消息派发</h1><p class="sub">用概念模型理解 Objective-C Runtime</p></header><p class="lead">Objective-C 的动态派发使对象行为不仅由静态类型决定。理解对象、类、方法元数据和消息查找之间的关系，是阅读运行时行为的基础。</p><h2>学习目标</h2><ul><li>区分对象实例、类对象、元类与方法描述信息。</li><li>理解消息发送与方法查找是运行时决策过程。</li><li>认识缓存、继承和动态特性对调试观察的影响。</li></ul><h2>验证练习</h2><p>在自己的小型 Objective-C 程序中定义继承关系和协议，比较静态声明、运行时类型信息与实际调用行为。</p><nav class="pager"><a href="../part/02-runtime.html">第二部目录</a><a href="./07-runtime-safety.html">下一章：运行时安全边界 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/06-objc.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R01 对象与消息派发 · IOSBook</title>
+<meta name="description" content="调用不是跳转，而是带着选择子的查找过程">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">R01</span><h1>对象与消息派发</h1><p class="sub">调用不是跳转，而是带着选择子的查找过程</p></header>
+
+<p class="lead">Objective-C 的方法调用在源码里写作方括号，在运行时却是一次查找：按接收者找到类，按选择子找到实现，找不到还有补救与转发。理解这条路径，才能解释“为什么 respondsToSelector 为真却崩溃”这类现象。</p>
+
+<h2>1. 对象、类与元类</h2>
+<table>
+<thead><tr><th>角色</th><th>保存什么</th><th>isa 指向</th></tr></thead>
+<tbody>
+<tr><td>实例</td><td>实例变量</td><td>它的类对象</td></tr>
+<tr><td>类对象</td><td>实例方法列表、协议、类变量</td><td>元类</td></tr>
+<tr><td>元类</td><td>类方法列表</td><td>根类的元类（链最终指向自身）</td></tr>
+</tbody>
+</table>
+<p>“实例方法存在类对象上、类方法存在元类上”是理解方法查找的关键。给类对象发消息，查的是元类的方法列表；给实例发消息，查的是类及其父类。</p>
+
+<h2>2. 一次消息发送经过什么</h2>
+<ol>
+<li><strong>快速路径：</strong>用接收者与选择子在方法缓存中查找，命中则直接调用。</li>
+<li><strong>沿继承链查找：</strong>缓存未命中时，从类开始向父类逐级查方法列表。</li>
+<li><strong>动态解析：</strong>仍未找到时，运行时给类一次机会动态提供实现（解析实例方法/类方法）。</li>
+<li><strong>转发：</strong>解析失败则进入转发流程，可把消息转给其他对象，或构造调用签名做最后处理。</li>
+<li><strong>未处理：</strong>都不接，抛出“选择子未识别”的异常。</li>
+</ol>
+<p>这条路径解释了两个常见困惑：首次调用某方法比后续慢（缓存未建立）；把方法实现交换后，旧调用点也会走新实现（查找发生在运行时）。</p>
+
+<figure>
+<img src="../assets/figures/dispatch-cache.svg" alt="消息发送的缓存与继承链查找" loading="lazy">
+<figcaption>图 4-1　先查缓存、再上溯继承链，最后才转发；缓存按类共享，所以交换是全局生效。</figcaption>
+</figure>
+
+<h2>3. 方法缓存的观察含义</h2>
+<ul>
+<li>缓存在类级别，不在调用点；同一方法被多个调用点共享。</li>
+<li>调试器里看不到“消息发送”这一帧，因为它不是普通函数调用；要看运行时行为需要断在实现或转发入口。</li>
+<li>缓存失效与重建会影响启动期性能，动态修改方法列表要谨慎。</li>
+</ul>
+
+<h2>4. 动态能力的三类用法</h2>
+<table>
+<thead><tr><th>能力</th><th>用途</th><th>代价</th></tr></thead>
+<tbody>
+<tr><td>方法交换</td><td>横切逻辑、测试替身</td><td>顺序敏感、影响全局、难以审计</td></tr>
+<tr><td>动态添加方法</td><td>按需实现可选协议</td><td>行为分散、静态分析看不到</td></tr>
+<tr><td>消息转发</td><td>代理、多播、桥接</td><td>错误被延后暴露，堆栈不直观</td></tr>
+</tbody>
+</table>
+<div class="code"><div class="code-title">查询方法实现与类型信息</div><button class="copy" type="button">复制</button><pre><code>Class cls = object_getClass(instance);          // 实际类（可能是子类或代理）
+Method m = class_getInstanceMethod(cls, @selector(doWork));
+IMP imp = method_getImplementation(m);
+const char *encoding = method_getTypeEncoding(m);
+NSLog(@"%@ %p %s", NSStringFromClass(cls), imp, encoding);</code></pre></div>
+
+<h2>5. 安全与可维护性</h2>
+<ul>
+<li>动态派发让“代码里没写”不等于“运行时不会发生”，审计要覆盖交换点与转发实现。</li>
+<li>不要依赖对象的内存布局或私有元数据作为应用契约，它们不是承诺的接口。</li>
+<li>动态能力不应被用来隐藏安全决策：把授权判断放在服务端，客户端只负责表达状态。</li>
+</ul>
+
+<h2>6. 可验证实验</h2>
+<ol>
+<li>在自有类上实现动态方法解析，打印被请求的选择子，观察“未实现的方法”如何变成可用。</li>
+<li>交换两个自有方法的实现，验证调用顺序与预期是否一致，并记录恢复方式。</li>
+<li>沿继承链打印类的父类直到根类，验证你对元类关系的理解。</li>
+</ol>
+
+<h2>7. 可观测点：缓存、继承链与转发</h2><table><thead><tr><th>阶段</th><th>观测方式</th><th>说明</th></tr></thead><tbody><tr><td>缓存命中</td><td>断点打在实现上</td><td>命中时不经过查找代码</td></tr><tr><td>沿继承链查找</td><td>打断点看父类实现</td><td>子类未实现时落到父类</td></tr><tr><td>转发</td><td>断在转发入口</td><td>方法不存在才会走到这里</td></tr></tbody></table><div class="callout"><strong>交换是全局的</strong><br>方法实现存在类对象里，换掉之后所有调用点都受影响——这也是“交换后行为变了但找不到调用点”的原因。</div>
+<h2>8. 数据细节：对象与方法的字节账</h2>
+<table>
+<thead><tr><th>结构</th><th>大小</th><th>含义</th></tr></thead>
+<tbody>
+<tr><td>对象头</td><td>16 字节</td><td>类型指针 + 引用计数相关字段</td></tr>
+<tr><td>方法项</td><td>24 字节</td><td>名称、类型、实现三个指针</td></tr>
+<tr><td>方法缓存</td><td>按类分配</td><td>命中即跳过查表</td></tr>
+</tbody>
+</table>
+<p>对象头是理解“按偏移读字段”的起点：第一个业务字段通常从第 17 个字节开始，但会被对齐规则调整。</p>
+
+<h2>9. 自测</h2>
+<ol>
+<li>类方法存放在哪里？给类对象发消息时查找起点是什么？</li>
+<li>为什么首次调用某方法通常比后续慢？</li>
+<li>方法交换为什么会影响“所有”调用点？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

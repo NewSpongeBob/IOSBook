@@ -1,1 +1,109 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>K07 系统诊断与崩溃报告 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">K07</span><h1>系统诊断与崩溃报告</h1><p class="sub">把症状、符号、环境和证据对应起来</p></header><p class="lead">崩溃报告是特定进程、映像和时刻的证据，不是完整根因。可靠诊断需匹配二进制与 dSYM、符号化调用栈、系统版本和复现条件。</p><h2>阅读顺序</h2><ol><li>先确认进程、时间、设备型号、OS 版本及报告类型。</li><li>检查异常类型、终止原因和触发线程，区分崩溃、资源终止与用户退出。</li><li>核对二进制 UUID 与 dSYM 是否匹配，再查看符号化栈和应用状态。</li><li>结合最近变更、日志和最小复现，验证根因，而非只看栈顶函数名。</li></ol><h2>崩溃与内存压力</h2><p>异常崩溃和系统资源终止的报告形态不同。不能把每次退出都归为应用崩溃，也不能仅凭某个内存数字推断系统的终止理由。分析前确认事件类别及系统提供的诊断字段。</p><h2>隐私与保留</h2><p>报告可能含路径、设备信息和用户输入。仅收集诊断所需字段，脱敏后限制访问与保留期限；用户可识别数据不要粘贴到公开 issue。</p><p><strong>参考：</strong><a href="https://developer.apple.com/documentation/xcode/analyzing-a-crash-report">Analyzing a crash report</a> · <a href="https://developer.apple.com/documentation/xcode/adding-identifiable-symbol-names-to-a-crash-report">符号化崩溃报告</a></p><nav class="pager"><a href="./29-filesystem.html">← 上一章</a><a href="./31-concurrency.html">下一章：并发正确性 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/30-diagnostics.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K05 系统诊断与追踪 · IOSBook</title>
+<meta name="description" content="报告是证据材料，读法比工具更重要">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">K05</span><h1>系统诊断与追踪</h1><p class="sub">报告是证据材料，读法比工具更重要</p></header>
+
+<p class="lead">崩溃报告不是“错误信息”，而是一份带时间、类型、线程状态与二进制信息的现场记录。会读它的人能在十分钟内缩小范围，不会读的人只能反复猜测。</p>
+
+<h2>1. 先看报告类型</h2>
+<table>
+<thead><tr><th>类型</th><th>关键字段</th><th>常见原因</th></tr></thead>
+<tbody>
+<tr><td>异常崩溃</td><td>异常类型、终止原因、触发线程回溯</td><td>空引用、越界、断言、未捕获错误</td></tr>
+<tr><td>无响应/卡顿</td><td>采样到的线程栈、主线程状态</td><td>主线程阻塞、长时间同步 I/O</td></tr>
+<tr><td>被系统终止</td><td>终止原因码、内存压力标记</td><td>内存超限、后台时间耗尽</td></tr>
+<tr><td>启动超时</td><td>启动阶段标记、耗时</td><td>初始化过重、启动期同步等待</td></tr>
+<tr><td>内核崩溃</td><td>panic 字符串、回溯</td><td>驱动或内核缺陷，用户侧无法修复</td></tr>
+</tbody>
+</table>
+<p>类型判断错了，后面的分析全部作废：把“被系统终止”当崩溃去查代码，会浪费大量时间。</p>
+
+<h2>2. 读一份报告的固定顺序</h2>
+<ol>
+<li><strong>时间与版本：</strong>系统版本、应用版本与构建号、设备型号。没有这些，结论无法复现。</li>
+<li><strong>异常与终止原因：</strong>先确定“谁结束了这个进程”。</li>
+<li><strong>触发线程的回溯：</strong>看顶部若干帧，识别是自己的代码还是系统框架。</li>
+<li><strong>所有线程：</strong>死锁与资源竞争的证据常在其它线程里。</li>
+<li><strong>二进制镜像列表：</strong>确认加载了哪些库、UUID 是否与本地符号匹配。</li>
+</ol>
+<div class="callout"><strong>不要把“崩溃在系统框架”当成系统的问题</strong><br>系统框架通常在替调用方执行非法操作。回溯往下看几帧，往往能找到真正的调用来源。</div>
+
+<figure>
+<img src="../assets/figures/diagnostics-flow.svg" alt="从事件到结论的诊断证据流" loading="lazy">
+<figcaption>图 2-8　事件、报告、符号化、结论——每一步都要能说出“凭什么”。</figcaption>
+</figure>
+
+<h2>3. 符号化需要什么</h2>
+<ul>
+<li>与该次构建完全匹配的符号文件或调试信息，按 UUID 对应；版本号相同不等于镜像相同。</li>
+<li>构建产物需要归档：发布包、符号文件、构建号、提交记录一一对应。</li>
+<li>同一份代码的不同架构、不同优化级别产物不同，不能交叉使用符号。</li>
+</ul>
+<div class="code"><div class="code-title">核对镜像 UUID 与符号文件</div><button class="copy" type="button">复制</button><pre><code>dwarfdump --uuid /path/to/YourApp.app/YourApp
+dwarfdump --uuid /path/to/YourApp.app.dSYM</code></pre></div>
+
+<h2>4. 报告里的隐私</h2>
+<p>报告可能包含文件路径、用户名、URL 参数、界面文本。对外提交或接入第三方分析前，应做脱敏并确认合规要求。内部排障同样要避免把包含真实用户数据的报告随意转发。</p>
+
+<h2>5. 可验证实验</h2>
+<ol>
+<li>在自有样例中制造一次空引用崩溃，收集报告并按上述顺序写出五分钟结论：类型、触发线程、首个自有帧、版本。</li>
+<li>制造一次主线程长时间阻塞，比较卡顿报告与崩溃报告在字段上的差异。</li>
+<li>在后台加载大量数据直至被终止，确认终止原因字段，并验证“没有崩溃回溯”不等于“代码没有问题”。</li>
+</ol>
+
+<h2>6. 排障清单</h2>
+<ul>
+<li>现象能否稳定复现？复现条件是否写清（设备、版本、数据规模）？</li>
+<li>报告类型与时间线是否一致？</li>
+<li>是否有相邻版本同样问题？回归范围是什么？</li>
+<li>修复后是否在相同条件验证，并保留前后证据？</li>
+</ul>
+
+<h2>7. 报告类型：先分类，再读栈</h2><table><thead><tr><th>类型</th><th>关键字段</th><th>常见原因</th></tr></thead><tbody><tr><td>异常崩溃</td><td>异常类型、触发线程</td><td>空指针、越界、断言</td></tr><tr><td>卡顿/无响应</td><td>主线程采样栈</td><td>主线程阻塞</td></tr><tr><td>被终止</td><td>终止原因码</td><td>看门狗、内存、持锁</td></tr></tbody></table><div class="callout"><strong>先看类型</strong><br>把“被终止”当崩溃查，会在没有异常帧的报告里空转。</div>
+<h2>8. 一次真实排查记录：符号化后函数名离谱</h2>
+<ol>
+<li><strong>现象：</strong>报告能符号化，但函数名与业务完全对不上。</li>
+<li><strong>先怀疑 UUID：</strong>符号文件必须与崩溃时的二进制 UUID 一致，版本号相同也可能不同。</li>
+<li><strong>核对 UUID：</strong>对比报告里的镜像 UUID 与本地 dSYM 的 UUID。</li>
+<li><strong>换文件重试：</strong>用归档里对应构建的符号文件重新符号化。</li>
+<li><strong>结论与限制：</strong>记录“符号文件与构建不匹配”，并注明行号仅供参考。</li>
+</ol>
+
+<h2>9. 数据细节：符号化需要什么</h2>
+<table>
+<thead><tr><th>输入</th><th>来源</th><th>缺失后果</th></tr></thead>
+<tbody>
+<tr><td>崩溃报告</td><td>设备/收集平台</td><td>无地址可查</td></tr>
+<tr><td>镜像 UUID</td><td>报告头部</td><td>无法匹配符号</td></tr>
+<tr><td>dSYM</td><td>构建归档</td><td>只能看地址</td></tr>
+<tr><td>系统符号</td><td>对应系统版本</td><td>系统帧显示为未知</td></tr>
+</tbody>
+</table>
+
+<h2>10. 自测</h2>
+<ol>
+<li>为什么“版本号一致”不足以符号化历史报告？</li>
+<li>被系统终止与异常崩溃在证据上有哪些关键差异？</li>
+<li>崩溃发生在系统框架里时，下一步应该看什么？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

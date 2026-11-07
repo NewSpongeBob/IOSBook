@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="Mach 消息投递的五步分帧">
+  <defs>
+    <style>
+      .p{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .q{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+      .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.5px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .n{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#fff;font-weight:700}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">投递五步：组消息、查权能、进内核、被取走、回释放</text>
+
+  <rect class="p" x="24" y="44" width="136" height="110" rx="9"/>
+  <circle cx="44" cy="64" r="10" fill="#2563eb"/><text class="n" x="44" y="68" text-anchor="middle">1</text>
+  <text class="t" x="60" y="68">组消息</text>
+  <text class="s" x="38" y="92">24 字节头可选填</text>
+  <text class="s" x="38" y="112">参数按约定排列</text>
+  <text class="s" x="38" y="136">端口可作描述符传递</text>
+
+  <rect class="p" x="176" y="44" width="136" height="110" rx="9"/>
+  <circle cx="196" cy="64" r="10" fill="#2563eb"/><text class="n" x="196" y="68" text-anchor="middle">2</text>
+  <text class="t" x="212" y="68">查发送权</text>
+  <text class="s" x="190" y="92">端口名只是 4 字节索引</text>
+  <text class="s" x="190" y="112">无权能即发送失败</text>
+  <text class="s" x="190" y="136">错误 INVALID_DEST</text>
+
+  <rect class="q" x="328" y="44" width="136" height="110" rx="9"/>
+  <circle cx="348" cy="64" r="10" fill="#c26a06"/><text class="n" x="348" y="68" text-anchor="middle">3</text>
+  <text class="t" x="364" y="68">进内核队列</text>
+  <text class="s" x="342" y="92">接到目标端口的队列</text>
+  <text class="s" x="342" y="112">接收方不在也能排队</text>
+  <text class="s" x="342" y="136">队列满则阻塞或失败</text>
+
+  <rect class="q" x="480" y="44" width="136" height="110" rx="9"/>
+  <circle cx="500" cy="64" r="10" fill="#c26a06"/><text class="n" x="500" y="68" text-anchor="middle">4</text>
+  <text class="t" x="516" y="68">被取走</text>
+  <text class="s" x="494" y="92">持有接收权者取消息</text>
+  <text class="s" x="494" y="112">取走后内核副本消失</text>
+  <text class="s" x="494" y="136">投递是单向的</text>
+
+  <rect class="g" x="632" y="44" width="104" height="110" rx="9"/>
+  <circle cx="652" cy="64" r="10" fill="#0a8f68"/><text class="n" x="652" y="68" text-anchor="middle">5</text>
+  <text class="t" x="668" y="68">回与释放</text>
+  <text class="s" x="646" y="92">用回复端口回一条</text>
+  <text class="s" x="646" y="112">权能用完即释放</text>
+
+  <text class="s" x="24" y="188">第 2 步是权限关口：能查到服务名，不等于持有发送权；这也是“调用被拒”最常见的位置。</text>
+  <text class="s" x="24" y="210">第 3 步解释“接收方没启动也不会丢消息”——直到队列满。</text>
+  <text class="s" x="24" y="232">第 5 步常被忽略：一次性发送权用后失效，复用会得到失效端口的错误。</text>
+
+  <rect x="24" y="252" width="712" height="34" rx="6" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="38" y="274">排查顺序：权能在不在 → 队列满没满 → 接收方是否真在取 → 端口是否已失效。</text>
+</svg>

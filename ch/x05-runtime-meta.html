@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x05-runtime-meta.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>13 Objective-C / Swift 元数据 · IOSBook</title>
+<meta name="description" content="元数据告诉你“有什么”，不告诉你“谁调用谁”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">13</span><h1>Objective-C / Swift 元数据</h1><p class="sub">元数据告诉你“有什么”，不告诉你“谁调用谁”</p></header>
+
+<p class="lead">Objective-C 与 Swift 都把类型信息放进了二进制：类、方法、协议、属性。读元数据可以快速列出能力清单，但调用关系与业务含义仍要靠运行时与反汇编确认。</p>
+<blockquote><strong>场景</strong>　你在调试器里打印一个类的字段，得到一串偏移和大小。它们描述的是内存布局，不是业务含义——两者之间还隔着一次方法调用。</blockquote>
+
+
+
+<h2>1. Objective-C 的运行时表</h2>
+<table>
+<thead><tr><th>接口</th><th>得到什么</th><th>注意</th></tr></thead>
+<tbody>
+<tr><td><code>objc_getClassList</code></td><td>全部已注册类</td><td>含系统框架的类</td></tr>
+<tr><td><code>class_copyMethodList</code></td><td>某个类的实例方法</td><td>不含父类方法</td></tr>
+<tr><td><code>class_copyProtocolList</code></td><td>类遵循的协议</td><td>协议方法需单独枚举</td></tr>
+<tr><td><code>class_copyIvarList</code></td><td>实例变量</td><td>布局不是稳定契约</td></tr>
+<tr><td><code>class_getSuperclass</code></td><td>父类链</td><td>方法查找的真实路径</td></tr>
+</tbody>
+</table>
+<div class="code"><div class="code-title">列出自有类的方法与协议（调试构建中运行）</div><button class="copy" type="button">复制</button><pre><code>Class cls = NSClassFromString(@"LoginService");
+unsigned int count = 0;
+Method *methods = class_copyMethodList(cls, &amp;count);
+for (unsigned int i = 0; i &lt; count; i++) {
+    NSLog(@"%@", NSStringFromSelector(method_getName(methods[i])));
+}
+free(methods);</code></pre></div>
+
+<h2>2. Swift 的名字与方法</h2>
+<p>Swift 符号经过修饰，名字里编码了模块、类型与参数/返回类型。把修饰名还原，是阅读 Swift 二进制的第一步。</p>
+<div class="code"><div class="code-title">批量还原符号</div><button class="copy" type="button">复制</button><pre><code>nm -gU YourApp | grep " _\$s" | awk '{print $3}' | head -20 | xcrun swift-demangle</code></pre></div>
+<ul>
+<li>修饰名以模块名开头，随后是类型与成员，参数类型也参与编码。</li>
+<li>泛型特化会生成附加符号，看起来像“重复的方法”，实际是针对具体类型的实现。</li>
+<li>只有被 Objective-C 暴露的方法才会出现在 Objective-C 的运行时表里。</li>
+</ul>
+
+<figure>
+<img src="../assets/figures/metadata-map.svg" alt="Objective-C 类与元类结构、Swift 类型元数据" loading="lazy">
+<figcaption>图 1-20　实例方法在类对象上，类方法在元类上；Swift 走类型元数据与虚表。</figcaption>
+</figure>
+
+<div class="code"><div class="code-title">实机输出：类数据段里的结构（macOS 系统应用）</div><button class="copy" type="button">复制</button><pre><code>Contents of (__DATA_CONST,__objc_classlist) section
+    isa        0x800d6ae100144670
+    superclass 0xc00db5ab00000797
+    cache      0x4010000000000794
+    vtable     0x0
+    data       0x802561f800143462 Swift class
+        instanceStart  16
+        instanceSize   152
+        baseMethods    0x0
+        baseProtocols  0x0
+        ivars          0x18000000140320</code></pre></div>
+<p>读法：<code>data</code> 指向类的只读描述（Swift class 会在标志位里标出）；<code>baseMethods 0x0</code> 说明方法列表不在只读区，运行时才复制到可写列表；<code>instanceSize 152</code> 是实例大小，含对象头。指针上的高位是 arm64e 的签名位，不能当普通地址用。</p>
+
+<h2>3. 从元数据到行为的距离</h2>
+<table>
+<thead><tr><th>元数据能回答</th><th>不能回答</th></tr></thead>
+<tbody>
+<tr><td>存在哪些类与方法</td><td>哪个方法真正被调用</td></tr>
+<tr><td>方法签名与参数类型</td><td>参数的实际取值与来源</td></tr>
+<tr><td>协议与继承关系</td><td>运行时替换后的实现</td></tr>
+<tr><td>属性名称</td><td>谁持有该对象、何时释放</td></tr>
+</tbody>
+</table>
+
+<h2>4. 在调试器里枚举</h2>
+<p>不必写代码也能看：在断点停住后，用表达式执行一段运行时调用，或直接打印对象所属类与父类链。若符号缺失，可用类名字符串反查。</p>
+<div class="code"><div class="code-title">lldb 中的快速检查</div><button class="copy" type="button">复制</button><pre><code>(lldb) po [$x0 class]
+(lldb) po [[$x0 class] superclass]
+(lldb) expr -l objc -O -- [LoginService new]</code></pre></div>
+
+<h2>5. 解读原则</h2>
+<ul>
+<li>名字是线索，不是结论：<code>uploadToken</code> 不代表真的会上传，可能是历史残留。</li>
+<li>系统框架的类会混进列表，先按模块前缀过滤。</li>
+<li>不要把对象内存布局当作接口契约，版本升级会变。</li>
+<li>元数据之外的调用关系，用断点与反汇编补。</li>
+</ul>
+
+<h2>6. 练习：枚举、定位、验证</h2>
+<ol>
+<li>枚举自有应用中某个服务类的全部方法，圈出与登录、网络相关的入口。</li>
+<li>把二进制里 20 个 Swift 符号还原成可读形式，标注哪些是泛型特化。</li>
+<li>选一个方法，用断点确认它是否真的被调用，验证你的元数据推断。</li>
+</ol>
+
+<div class="callout"><strong>名字是线索不是结论</strong><br>枚举到 <code>uploadToken</code> 不代表真的上传；要确认调用路径，仍需断点或反汇编。</div>
+<p class="more">延伸：<a href="x04-instrument.html">08 hook 原理</a> · <a href="x06-arm64.html">11 ARM64 反汇编</a> · <a href="06-objc.html">R01 对象与派发</a></p>
+
+<h2>7. 数据细节：类结构里的量级</h2>
+<table>
+<thead><tr><th>字段</th><th>含义</th><th>量级</th></tr></thead>
+<tbody>
+<tr><td><code>instanceStart</code></td><td>首个实例变量相对对象头的偏移</td><td>16 字节（对象头固定部分）</td></tr>
+<tr><td><code>instanceSize</code></td><td>实例总大小</td><td>数十至数百字节，随字段增加</td></tr>
+<tr><td><code>baseMethods</code></td><td>只读方法列表指针</td><td>8 字节指针，可能为空</td></tr>
+<tr><td>方法项</td><td>名称、类型、实现</td><td>每项 24 字节（三个指针）</td></tr>
+</tbody>
+</table>
+<p>字段大小决定了“按偏移读字段”的脆弱性：加一个属性、改一次对齐，偏移就全变。</p>
+
+<h2>8. 一次真实排查记录：枚举出来的类名是空的</h2>
+<ol>
+<li><strong>现象：</strong>枚举类列表时，业务类一个都看不到。</li>
+<li><strong>先确认时机：</strong>类尚未注册时列表里确实没有。</li>
+<li><strong>再确认命名：</strong>Swift 类在运行时可能带模块前缀，按短名查不到。</li>
+<li><strong>换查法：</strong>按协议或父类过滤，或从已注册的入口对象反查 <code>isa</code>。</li>
+<li><strong>结论与限制：</strong>记录“类名带模块前缀”，并注明结论只对该构建的模块名成立。</li>
+</ol>
+
+<h2>9. 自测</h2>
+<ol>
+<li>为什么 <code>class_copyMethodList</code> 拿不到父类方法？</li>
+<li>Swift 方法为什么可能不出现在 Objective-C 运行时表里？</li>
+<li>“存在某方法”与“该方法被调用”之间差哪几步验证？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

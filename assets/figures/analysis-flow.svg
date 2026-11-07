@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="一次完整分析的四个阶段与各自产出">
+  <defs>
+    <marker id="arrowF" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:13px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+      .o{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11.5px;fill:#0a8f68}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+    </style>
+  </defs>
+
+  <text class="h" x="20" y="30">每一步都为下一步提供输入：先缩小范围，再验证假设</text>
+
+  <rect class="b" x="20" y="48" width="165" height="86" rx="9"/>
+  <text class="t" x="102" y="76" text-anchor="middle">静态侦察</text>
+  <text class="s" x="102" y="98" text-anchor="middle">包结构、符号、字符串</text>
+  <text class="s" x="102" y="118" text-anchor="middle">otool / nm / 反汇编器</text>
+
+  <rect class="b" x="205" y="48" width="165" height="86" rx="9"/>
+  <text class="t" x="287" y="76" text-anchor="middle">运行时确认</text>
+  <text class="s" x="287" y="98" text-anchor="middle">断点、对象、调用栈</text>
+  <text class="s" x="287" y="118" text-anchor="middle">lldb / 插桩</text>
+
+  <rect class="b" x="390" y="48" width="165" height="86" rx="9"/>
+  <text class="t" x="472" y="76" text-anchor="middle">指令验证</text>
+  <text class="s" x="472" y="98" text-anchor="middle">分支条件、返回值</text>
+  <text class="s" x="472" y="118" text-anchor="middle">cbz / b.cond / bl</text>
+
+  <rect class="b" x="575" y="48" width="165" height="86" rx="9"/>
+  <text class="t" x="657" y="76" text-anchor="middle">一页结论</text>
+  <text class="s" x="657" y="98" text-anchor="middle">调用链、证据、限制</text>
+  <text class="s" x="657" y="118" text-anchor="middle">可被他人复现</text>
+
+  <line x1="185" y1="91" x2="201" y2="91" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowF)"/>
+  <line x1="370" y1="91" x2="386" y2="91" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowF)"/>
+  <line x1="555" y1="91" x2="571" y2="91" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowF)"/>
+
+  <text class="o" x="102" y="160" text-anchor="middle">产出：候选入口</text>
+  <text class="o" x="287" y="160" text-anchor="middle">产出：真实顺序与参数</text>
+  <text class="o" x="472" y="160" text-anchor="middle">产出：业务规则与失败路径</text>
+  <text class="o" x="657" y="160" text-anchor="middle">产出：可复核说明</text>
+
+  <rect x="20" y="188" width="720" height="82" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="36" y="212">每一步的结论都要标“事实 / 推断 / 未知”：</text>
+  <text class="s" x="36" y="234">静态只给你候选，运行时给你顺序，指令给你规则；三者不一致时，优先怀疑构建产物与源码不同步。</text>
+  <text class="s" x="36" y="256">不要跳过“记录限制”这一步，否则结论无法被他人复用。</text>
+</svg>

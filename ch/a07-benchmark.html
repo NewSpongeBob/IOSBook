@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/a07-benchmark.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A07 章节对标：AndroidBook ↔ IOSBook · IOSBook</title>
+<meta name="description" content="八个部分逐条对上 AndroidBook，删掉的与保留的都写清楚">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">A07</span><h1>章节对标：AndroidBook ↔ IOSBook</h1><p class="sub">八个部分逐条对上 AndroidBook，删掉的与保留的都写清楚</p></header>
+
+<p class="lead">这次不是改标题，而是按 AndroidBook 的能力阶梯重排目录：留下能落到字节、结构、命令与观测上的章节，把安全工程与产品化内容移出正文。</p>
+
+<h2>1. 部级对应</h2>
+<table>
+<thead><tr><th>AndroidBook</th><th>讲数</th><th>IOSBook 对应</th><th>讲数</th></tr></thead>
+<tbody>
+<tr><td>第一部 · 系统与检测基础</td><td>16</td><td>第一部 · 系统与检测基础</td><td>17</td></tr>
+<tr><td>第二部 · 内核基础</td><td>8</td><td>第二部 · 内核基础</td><td>9</td></tr>
+<tr><td>第三部 · Frida 详解</td><td>11</td><td>第三部 · 动态插桩详解</td><td>5</td></tr>
+<tr><td>第四部 · KPM 内核工程</td><td>7</td><td>无（iOS 无第三方内核模块）</td><td>0</td></tr>
+<tr><td>第五部 · LSPosed</td><td>10</td><td>第五部 · 框架与注入</td><td>2</td></tr>
+<tr><td>第六部 · 企业壳实战</td><td>3</td><td>无独立部（并入 H01 加固）</td><td>0</td></tr>
+<tr><td>第七部 · 混淆与 VMP</td><td>2</td><td>第六部 · 加固与混淆</td><td>2</td></tr>
+<tr><td>第八部 · 实战训练营</td><td>3</td><td>第七部 · 实战训练营</td><td>4</td></tr>
+<tr><td>附录</td><td>5</td><td>附录</td><td>7</td></tr>
+<tr><td><strong>合计</strong></td><td><strong>65</strong></td><td></td><td><strong>52</strong></td></tr>
+</tbody>
+</table>
+
+<h2>2. 第一部的逐讲对应</h2>
+<table>
+<thead><tr><th>Android 讲</th><th>IOSBook 讲</th><th>对应关系</th></tr></thead>
+<tbody>
+<tr><td>APatch 的 root 原理</td><td>01 越狱到底改了什么</td><td>内核补丁与签名校验</td></tr>
+<tr><td>手机启动过程</td><td>02 启动链与信任建立</td><td>逐级验证与交接</td></tr>
+<tr><td>硬件证明（TEE）</td><td>03 设备证明</td><td>安全隔区与 App Attest</td></tr>
+<tr><td>root 检测</td><td>04 注入与越狱检测</td><td>信号、可靠性、误报</td></tr>
+<tr><td>linker 启动过程</td><td>05 dyld 与程序加载</td><td>依赖闭包与绑定</td></tr>
+<tr><td>ptrace 原理</td><td>06 ptrace 与调试附加</td><td>请求号、任务端口、约束</td></tr>
+<tr><td>zygisk 原理</td><td>07 注入链</td><td>加载 agent 的五个阶段</td></tr>
+<tr><td>hook 原理</td><td>08 hook 原理</td><td>改数据 / 改方法表 / 改指令</td></tr>
+<tr><td>dex 详解</td><td>15、16 Mach-O 两讲</td><td>文件结构、加载命令、段</td></tr>
+<tr><td>Java Hook 原理</td><td>13 运行时元数据</td><td>方法表与选择子</td></tr>
+<tr><td>IPC（Binder）</td><td>14 Mach IPC</td><td>端口权能</td></tr>
+<tr><td>frida 源码讲解</td><td>第三部 5 讲</td><td>时机、Interceptor、Stalker</td></tr>
+<tr><td>注入检测</td><td>04 与 F05 检测面</td><td>可观测信号</td></tr>
+<tr><td>自动化（scrcpy）</td><td>移出正文</td><td>见归档说明</td></tr>
+<tr><td>基础 hook 脚本</td><td>08、09、10</td><td>从静态到运行时</td></tr>
+</tbody>
+</table>
+<p>IOSBook 第一部比 AndroidBook 多出的三讲是 09–12：静态侦察、调试器观察、ARM64 反汇编、完整分析。它们对应 AndroidBook 分散在 ptrace、hook、KPM 三部里的“怎么读代码”。</p>
+
+<figure>
+<img src="../assets/figures/benchmark-map.svg" alt="与 AndroidBook 的部级对应" loading="lazy">
+<figcaption>图 A-7　能对的对齐，没有对应物的显式标注，不硬凑同名章节。</figcaption>
+</figure>
+
+<h2>3. 删掉的 33 讲</h2>
+<table>
+<thead><tr><th>类别</th><th>讲数</th><th>例子</th></tr></thead>
+<tbody>
+<tr><td>应用安全工程</td><td>8</td><td>威胁建模、数据保护、网络安全、隐私日志、供应链、WebView、安全更新、服务端授权</td></tr>
+<tr><td>防护与兼容工程</td><td>6</td><td>纵深防御、测试矩阵、失败模式、事件响应、发布检查、威胁控制</td></tr>
+<tr><td>产品与平台说明</td><td>7</td><td>应用生命周期、Entitlements、隐私权限、文件保护、Keychain、平台 API、系统组件地图</td></tr>
+<tr><td>二进制杂项</td><td>5</td><td>动态依赖、通用二进制、符号化、构建产物、诊断日志</td></tr>
+<tr><td>开发向内核</td><td>4</td><td>XNU 概览、QoS 调度、内存压力、并发正确性</td></tr>
+<tr><td>逆向实践冗余</td><td>3</td><td>分析工作台、自动化、运行时测试策略</td></tr>
+</tbody>
+</table>
+<p>这些页面没有删除，而是移到仓库的 <code>archive/</code> 目录，页面不再出现在导航与分页里。需要时可以取回，或按需改写成“为逆向服务”的版本。</p>
+
+<h2>4. 无法 1:1 的四处</h2>
+<ul>
+<li><strong>内核模块（KPM）：</strong>iOS 不允许第三方内核模块，只能讲 kernelcache 与符号、调试限制。</li>
+<li><strong>LSPosed：</strong>没有同名框架，用 tweak 生命周期与互操作边界替代。</li>
+<li><strong>企业壳：</strong>不针对具体商业壳拆解，只保留加固手段的识别与评估。</li>
+<li><strong>DEX / Binder / zygote：</strong>分别对应 Mach-O、Mach 端口、注入链，名字不同但问题同构。</li>
+</ul>
+
+<div class="code"><div class="code-title">统计当前目录规模（本仓库）</div><button class="copy" type="button">复制</button><pre><code>grep -c "^      { no:" nav.js
+ls ch/*.html | wc -l
+ls archive/ch/*.html | wc -l</code></pre></div>
+<div class="callout"><strong>缺口要显式</strong><br>把“iOS 没有对应机制”和“还没写”分开标注，读者才知道哪些是设计选择、哪些是待补。</div>
+<h2>5. 当前规模</h2>
+<table><thead><tr><th>指标</th><th>数值</th><th>说明</th></tr></thead><tbody>
+<tr><td>讲数</td><td>59</td><td>8 部 + 附录，全部可访问</td></tr>
+<tr><td>配图</td><td>78</td><td>每讲至少一幅，01/05/11/F02 各两幅</td></tr>
+<tr><td>表格</td><td>170</td><td>中位 3 张/讲，最低 2 张</td></tr>
+<tr><td>代码块</td><td>107</td><td>含 32 处真实工具输出</td></tr>
+<tr><td>要点框</td><td>54</td><td>每讲至少一个</td></tr>
+<tr><td>自测题</td><td>181</td><td>中位 3.5 题/讲</td></tr>
+</tbody></table>
+<p>图密度 1.08 幅/讲，代码密度 1.44 段/讲。与 AndroidBook 的差距主要在“每讲 3–4 段代码、3–4 个要点框”，下一步按此补齐。</p>
+
+<h2>6. 自测</h2>
+<ol>
+<li>为什么把“应用安全工程”整部移出正文，而不是压缩成两讲？</li>
+<li>IOSBook 第一部的 09–12 讲，对应 AndroidBook 里哪些分散内容？</li>
+<li>“无法 1:1”的四处，各自用什么机制替代？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

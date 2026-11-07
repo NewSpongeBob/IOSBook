@@ -1,1 +1,108 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>R03 Swift ABI 与运行时 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">R03</span><h1>Swift ABI 与运行时概览</h1><p class="sub">区分语言语义、稳定 ABI 与编译器生成细节</p></header><p class="lead">Swift 代码的二进制表现受 ABI、模块稳定性、泛型、协议分派和优化影响。反汇编或符号观察只能说明特定工具链与构建配置下的产物。</p><h2>概念层次</h2><ul><li>语言层定义值语义、引用语义、访问控制和并发等程序行为。</li><li>ABI 涉及跨模块/二进制交互约定；模块接口与库演进另有边界。</li><li>泛型、协议见证表、优化和内联会使源代码与机器代码不呈一一对应。</li></ul><h2>兼容与安全</h2><p>发布二进制框架时明确工具链和平台支持范围；不要把私有布局或未承诺符号作为稳定接口。敏感业务授权仍应由可信服务端执行。</p><h2>自测</h2><p>对同一份自有示例改变优化级别，比较符号/调用变化，并写下哪些观察属于语言保证、哪些只是当前构建结果。</p><nav class="pager"><a href="./07-runtime-safety.html">← 上一章</a><a href="../part/04-runtime.html">第四部目录</a><a href="../part/05-appsec.html">第五部目录 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/15-swift.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R03 Swift ABI 与运行时概览 · IOSBook</title>
+<meta name="description" content="语言保证、ABI 承诺与某次构建的产物，是三件不同的事">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">R03</span><h1>Swift ABI 与运行时概览</h1><p class="sub">语言保证、ABI 承诺与某次构建的产物，是三件不同的事</p></header>
+
+<p class="lead">读 Swift 的二进制行为，最容易犯的错是把“这次构建的样子”当成“语言保证的语义”。分清语义、ABI 与优化实现，才能在升级工具链或排查崩溃时不迷失。</p>
+
+<h2>1. 三个层次</h2>
+<table>
+<thead><tr><th>层次</th><th>回答什么</th><th>变化时会发生什么</th></tr></thead>
+<tbody>
+<tr><td>语言语义</td><td>程序应表现出的行为</td><td>由语言规范与版本决定</td></tr>
+<tr><td>ABI / 模块接口</td><td>不同二进制之间如何互相调用</td><td>影响框架分发与跨版本兼容</td></tr>
+<tr><td>实现细节</td><td>某次构建生成的指令与布局</td><td>随编译器版本、优化级别、架构变化</td></tr>
+</tbody>
+</table>
+<p>“值类型一定在栈上”“协议调用一定走消息发送”这类断言，多数属于第三层，不构成语言承诺。</p>
+
+<h2>2. 派发方式</h2>
+<table>
+<thead><tr><th>方式</th><th>典型场景</th><th>特点</th></tr></thead>
+<tbody>
+<tr><td>静态派发</td><td>final 类/方法、值类型、全局函数</td><td>可内联，性能好，无运行时查找</td></tr>
+<tr><td>类虚表派发</td><td>可被继承的类方法</td><td>按类型查表，不经过 Objective-C 消息</td></tr>
+<tr><td>协议见证表</td><td>通过协议类型调用</td><td>按具体类型查见证表，保留多态</td></tr>
+<tr><td>Objective-C 消息</td><td>@objc 暴露、dynamic、与框架交互</td><td>可被交换与转发，灵活性高</td></tr>
+</tbody>
+</table>
+<p>同一个方法可能因为“是否被标记 @objc”“是否为 final”而走不同路径。看反汇编得到的是当前构建的选择，不是语言规定的唯一答案。</p>
+
+<figure>
+<img src="../assets/figures/abi-quadrant.svg" alt="Swift 四种派发方式与 ABI" loading="lazy">
+<figcaption>图 4-3　是否有运行时类型信息，决定走静态、虚表、见证表还是消息发送。</figcaption>
+</figure>
+
+<h2>3. 泛型：单态化与存在类型</h2>
+<p>泛型代码在编译期可能被针对具体类型特化（生成专用版本），也可能在运行时通过类型元数据统一处理。前者性能好但增大体积，后者灵活但有间接调用开销。工程上可通过编译选项与代码组织影响这一选择，但不应依赖具体结果做正确性判断。</p>
+
+<h2>4. ABI 与模块稳定性</h2>
+<ul>
+<li>标准库 ABI 自 Swift 5 起保持稳定，运行时不再随每个编译器版本更换。</li>
+<li>分发二进制框架时，除 ABI 外还需要模块稳定性：让不同编译器版本能读懂同一份模块接口。</li>
+<li>跨语言边界（@objc、C 互通）会引入额外的约束，例如可表示类型与命名规则。</li>
+</ul>
+<div class="callout"><strong>发布检查</strong><br>框架类产物应声明支持的 Swift 版本与最低系统版本，并在真实设备上验证“由不同工具链构建的调用方”能否正常链接与运行。</div>
+
+<h2>5. 与崩溃分析的关系</h2>
+<ul>
+<li>优化会内联与重排，崩溃栈里的函数边界与源码结构不再一一对应。</li>
+<li>某些符号只在调试信息中存在，剥离后只剩地址。</li>
+<li>@objc 暴露的方法会出现在 Objective-C 的派发路径上，栈形态与纯 Swift 调用不同。</li>
+</ul>
+
+<h2>6. 可验证实验</h2>
+<div class="code"><div class="code-title">观察派发与中间表示</div><button class="copy" type="button">复制</button><pre><code>swiftc -emit-sil Dispatch.swift | grep -E "sil_vtable|class_method|witness_method" | head -20
+swiftc -O -emit-sil Dispatch.swift | grep -c "class_method"</code></pre></div>
+<ol>
+<li>写一个可继承的类与一个 final 类，比较生成的调用形式。</li>
+<li>把方法改为通过协议调用，观察是否出现见证表相关指令。</li>
+<li>改变优化级别重复实验，记录“哪些差异来自优化、哪些来自语言规则”。</li>
+</ol>
+
+<h2>7. 数据细节：四种派发的开销</h2>
+<table>
+<thead><tr><th>派发</th><th>开销</th><th>可否内联</th></tr></thead>
+<tbody>
+<tr><td>静态</td><td>最低，可直接内联</td><td>可以</td></tr>
+<tr><td>类虚表</td><td>一次间接跳转</td><td>受限</td></tr>
+<tr><td>协议见证</td><td>查表 + 间接跳转</td><td>通常否</td></tr>
+<tr><td>消息发送</td><td>缓存查找 + 跳转</td><td>否</td></tr>
+</tbody>
+</table>
+
+<h2>8. 一次真实排查记录：按符号找不到方法</h2>
+<ol>
+<li><strong>现象：</strong>泛型方法在符号表里有多份，hook 了其中一份却不生效。</li>
+<li><strong>先确认调用：</strong>断点看实际走到哪个特化版本。</li>
+<li><strong>再确认优化：</strong>编译期是否已内联，原地址不再被调用。</li>
+<li><strong>改边界：</strong>改挂对外边界或加 <code>@objc dynamic</code>。</li>
+<li><strong>结论与限制：</strong>记录“泛型特化导致符号分裂”，并注明结论只对该类型组合成立。</li>
+</ol>
+
+<h2>9. 自测</h2>
+<ol>
+<li>为什么“我看到的反汇编”不能直接当作 ABI 承诺？</li>
+<li>类虚表派发与 Objective-C 消息派发有什么本质区别？</li>
+<li>分发二进制框架时，ABI 稳定与模块稳定各解决什么问题？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

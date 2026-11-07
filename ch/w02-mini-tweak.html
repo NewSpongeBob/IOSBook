@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/w02-mini-tweak.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>W02 写一个最小 tweak：四步走通 · IOSBook</title>
+<meta name="description" content="四步：写代码、出产物、写规则、验证生效——每步都能单独失败">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">W02</span><h1>写一个最小 tweak：四步走通</h1><p class="sub">四步：写代码、出产物、写规则、验证生效——每步都能单独失败</p></header>
+
+<p class="lead">上一讲说清了 tweak 是什么；这一讲把它做出来。目标很小：在自有应用里，让一个方法多打一行日志。四步走完，你就有了一套可以反复用的流程。</p>
+
+<blockquote><strong>场景</strong>　代码写完、编译通过、装到设备上，打开应用却什么都没发生。多数时候不是代码错，而是四步里有一环没走通——最常见的是规则没匹配上。</blockquote>
+
+<h2>1. 工程结构</h2>
+<div class="code"><div class="code-title">最小目录</div><button class="copy" type="button">复制</button><pre><code>MiniTweak/
+├── Tweak.xm          # 你的 hook 代码
+├── Makefile          # 目标进程、架构、产物名
+├── control           # 包信息（名称、版本、依赖）
+└── layout/           # 安装后落盘的位置</code></pre></div>
+<p>四个文件各管一件事：代码、构建参数、包元信息、安装布局。缺任何一个，产物都装不上或装上了不生效。</p>
+
+<h2>2. 写代码：只做一件事</h2>
+<div class="code"><div class="code-title">Tweak.xm</div><button class="copy" type="button">复制</button><pre><code>%hook LoginService
+- (NSString *)requestToken:(NSString *)account {
+    NSString *token = %orig;                       // 先拿原结果
+    NSLog(@"[MiniTweak] account=%@ len=%lu", account, (unsigned long)token.length);
+    return token;
+}
+%end</code></pre></div>
+<p>要点：先调 <code>%orig</code> 再记日志，避免影响原逻辑；只读参数与返回值，不改业务结果。</p>
+
+<h2>3. 出产物：dylib 与规则</h2>
+<div class="code"><div class="code-title">Makefile 关键项</div><button class="copy" type="button">复制</button><pre><code>TARGET := iphone:clang:latest:14.0
+ARCHS  := arm64 arm64e
+TWEAK_NAME := MiniTweak
+MiniTweak_FILES := Tweak.xm
+MiniTweak_FRAMEWORKS := Foundation UIKit
+
+include $(THEOS)/makefiles/common.mk
+include $(THEOS_MAKE_PATH)/tweak.mk</code></pre></div>
+<p>构建产物是 <code>MiniTweak.dylib</code> 加一份注入规则。<code>ARCHS</code> 必须覆盖目标设备架构；<code>TARGET</code> 决定了最低系统版本。</p>
+
+<h2>4. 写规则：只在目标进程加载</h2>
+<div class="code"><div class="code-title">注入规则</div><button class="copy" type="button">复制</button><pre><code>Filter = {
+    Bundles = (com.example.minitarget);
+};</code></pre></div>
+<p>规则写错的表现是“完全没反应”——库编得再好，没被加载就等于不存在。</p>
+
+<figure>
+<img src="../assets/figures/tweak-build.svg" alt="从一个源文件到进程内生效的四个阶段" loading="lazy">
+<figcaption>图 5-3　源码、产物、规则、生效四步，每步都有独立的失败表现。</figcaption>
+</figure>
+
+<h2>5. 验证：先确认被加载，再看日志</h2>
+<ol>
+<li>看进程的镜像列表里有没有 <code>MiniTweak.dylib</code>——没有就是规则或安装位置的问题。</li>
+<li>有镜像但没日志：判断函数是否被调用（在方法入口下断点）。</li>
+<li>有日志但值不对：检查参数类型与 <code>%orig</code> 的调用时机。</li>
+<li>崩溃：多半是构造函数里访问了尚未初始化的对象，把逻辑延后到主队列。</li>
+</ol>
+
+<h2>6. 打包与回滚</h2>
+<table>
+<thead><tr><th>动作</th><th>做什么</th><th>出问题怎么退</th></tr></thead>
+<tbody>
+<tr><td>安装</td><td>把 dylib 与规则放到注入器读取的目录</td><td>删除文件后重启进程</td></tr>
+<tr><td>更新</td><td>替换 dylib 并重启目标进程</td><td>保留上一版文件</td></tr>
+<tr><td>回滚</td><td>换回旧文件</td><td>崩溃循环时用安全模式</td></tr>
+</tbody>
+</table>
+<p>没有“卸载回调”，所以回滚靠文件替换 + 重启进程，不靠代码里的清理逻辑。</p>
+
+<h2>7. 常见错误</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>下一步</th></tr></thead>
+<tbody>
+<tr><td>编译通过，装完无反应</td><td>规则未匹配或目录不对</td><td>查镜像列表</td></tr>
+<tr><td>应用启动即崩</td><td>构造函数里做了重活</td><td>延后到主队列</td></tr>
+<tr><td>只有部分页面生效</td><td>方法在别的进程或另一实现</td><td>确认作用域与选择子</td></tr>
+<tr><td>升级应用后失效</td><td>类名或方法名变了</td><td>重新枚举方法列表</td></tr>
+</tbody>
+</table>
+<div class="callout"><strong>边界</strong><br>这套流程只用于自有应用与自有测试设备。对他人应用打包注入并分发，不在本书范围。</div>
+
+<h2>8. 自测</h2>
+<ol>
+<li>四个文件里，哪一个决定“库会不会被加载”？</li>
+<li>为什么建议先调 <code>%orig</code> 再打日志？</li>
+<li>“装完无反应”应该先查哪一步？</li>
+<li>没有卸载回调，回滚靠什么？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

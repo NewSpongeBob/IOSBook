@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/a08-outputs.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A08 实机输出索引 · IOSBook</title>
+<meta name="description" content="11 处真实输出按命令索引，方便按“我手里有什么”反查">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">A08</span><h1>实机输出索引</h1><p class="sub">11 处真实输出按命令索引，方便按“我手里有什么”反查</p></header>
+
+<p class="lead">书里的“实机输出”全部来自本机执行，标注平台与命令。这一页把它们编成索引：想知道某条命令长什么样、某个字段怎么读，从这里反查即可。</p>
+
+<h2>1. 索引：按命令分类（32 处实机输出）</h2>
+<table>
+<thead><tr><th>命令</th><th>平台 / 对象</th><th>用来看什么</th><th>讲</th></tr></thead>
+<tbody>
+<tr><td><code>codesign -dvvv</code></td><td>macOS，系统命令行工具</td><td>签名摘要、<code>hashes=18+2</code></td><td>17</td></tr>
+<tr><td><code>codesign -dvvv</code></td><td>macOS，系统应用包</td><td><code>hashes=397+7</code>、平台签名、CDHash 与 CMSDigest</td><td>17</td></tr>
+<tr><td><code>codesign -d --entitlements</code></td><td>macOS，系统应用包</td><td>能力清单（沙盒、网络、私有能力）</td><td>17</td></tr>
+<tr><td><code>otool -hv</code></td><td>macOS，arm64 二进制</td><td>文件类型、<code>ncmds/sizeofcmds</code>、PIE</td><td>15、09</td></tr>
+<tr><td><code>otool -l</code></td><td>macOS，arm64 二进制</td><td><code>LC_SEGMENT_64</code>、<code>initprot 0x5</code></td><td>16</td></tr>
+<tr><td><code>otool -o</code></td><td>macOS，系统应用包</td><td>类数据段：<code>isa/data</code>、<code>instanceSize</code></td><td>13</td></tr>
+<tr><td><code>vtool -show-build</code></td><td>macOS，两个产物</td><td><code>platform</code>、<code>minos</code>、<code>sdk</code></td><td>16</td></tr>
+<tr><td><code>dyld_info -dependents</code></td><td>macOS，arm64e 二进制</td><td>依赖清单与路径</td><td>05</td></tr>
+<tr><td><code>dyld_info -exports</code></td><td>macOS，双切片</td><td>可执行文件几乎不导出符号</td><td>05</td></tr>
+<tr><td><code>dyld_info -imports</code></td><td>macOS，arm64 二进制</td><td>导入符号及其来源库</td><td>05</td></tr>
+<tr><td><code>otool -s __TEXT __cstring</code></td><td>macOS，arm64 二进制</td><td>字符串段的小端字节布局</td><td>09</td></tr>
+<tr><td><code>strings -a</code></td><td>macOS，arm64 二进制</td><td>先吐出段名/节名，不是业务串</td><td>09</td></tr>
+<tr><td><code>vm_stat</code></td><td>macOS</td><td>页大小 16384 与各类页数</td><td>K02</td></tr>
+<tr><td><code>ps -A -o pid,ppid,comm</code></td><td>macOS</td><td>进程树与 PPID 关系</td><td>K01</td></tr>
+<tr><td><code>launchctl list</code></td><td>macOS</td><td>作业标签、PID 空缺、上次退出码</td><td>14</td></tr>
+<tr><td><code>size</code></td><td>macOS，双切片</td><td>按架构统计 text/data/bss</td><td>15</td></tr>
+<tr><td><code>lipo -detailed_info</code></td><td>macOS，双切片</td><td>fat 头、偏移与 16 KB 对齐</td><td>15</td></tr>
+<tr><td><code>codesign</code>（Team 字段）</td><td>macOS，系统应用</td><td>平台签名 <code>TeamIdentifier=not set</code></td><td>17</td></tr>
+<tr><td><code>xcodebuild -version</code></td><td>仅装 CLT 的机器</td><td>缺 Xcode 时的真实报错</td><td>18</td></tr>
+<tr><td><code>sw_vers</code></td><td>macOS</td><td>版本号与构建号必须成对记录</td><td>F05</td></tr>
+<tr><td><code>xxd -l 48</code></td><td>macOS，通用二进制</td><td>手读 fat 头：魔数、切片数、偏移</td><td>15</td></tr>
+<tr><td><code>dyld_info -fixups</code></td><td>macOS，arm64e 二进制</td><td>链式修正项与 bind 目标</td><td>05</td></tr>
+<tr><td><code>plutil -p</code></td><td>macOS，系统应用</td><td>Info.plist 的构建信息</td><td>17</td></tr>
+<tr><td><code>codesign --entitlements</code></td><td>macOS，命令行工具</td><td>无 entitlements 也是一种结论</td><td>17</td></tr>
+<tr><td><code>nm -S</code></td><td>macOS，arm64e 二进制</td><td>未定义符号没有大小列</td><td>09</td></tr>
+<tr><td><code>otool -l</code>（LC_CODE_SIGNATURE）</td><td>macOS，arm64 二进制</td><td>签名数据的偏移与长度</td><td>16</td></tr>
+<tr><td><code>nm -m</code> / <code>nm -u</code> / <code>nm -gU</code></td><td>macOS，命令行工具</td><td><code>undefined external</code>、未定义符号、导出符号</td><td>09</td></tr>
+<tr><td><code>file</code> + <code>lipo -info</code></td><td>macOS，通用二进制</td><td>两个切片（x86_64 / arm64e）</td><td>15</td></tr>
+<tr><td><code>vtool -show-build</code></td><td>macOS，双切片</td><td>同一文件两个切片的 <code>minos</code> 不同（10.14 / 11.0）</td><td>15、16</td></tr>
+<tr><td><code>otool -l</code>（弱链接）</td><td>macOS，系统应用</td><td><code>LC_LOAD_WEAK_DYLIB</code> 与符号置空</td><td>05</td></tr>
+</tbody>
+</table>
+
+<h2>1.1 按讲反查</h2>
+<table>
+<thead><tr><th>讲</th><th>命令</th><th>能确认什么</th></tr></thead>
+<tbody>
+<tr><td>05 dyld</td><td><code>dyld_info -dependents</code> / <code>-exports</code></td><td>依赖闭包与导出面</td></tr>
+<tr><td>09 静态侦察</td><td><code>nm -m</code> / <code>-u</code> / <code>-gU</code></td><td>符号来源与可见性</td></tr>
+<tr><td>13 元数据</td><td><code>otool -o</code></td><td>类结构、实例大小</td></tr>
+<tr><td>15 Mach-O</td><td><code>otool -hv</code>、<code>file</code> + <code>lipo -info</code></td><td>文件类型、架构切片</td></tr>
+<tr><td>16 加载命令</td><td><code>otool -l</code>（段 / <code>LC_MAIN</code> / <code>LC_UUID</code>）、<code>vtool -show-build</code></td><td>布局、入口、构建版本</td></tr>
+<tr><td>17 签名</td><td><code>codesign -dvvv</code>、<code>--entitlements</code></td><td>摘要结构、能力清单</td></tr>
+</tbody>
+</table>
+
+<h2>2. 采集流程</h2>
+<figure>
+<img src="../assets/figures/output-capture.svg" alt="实机输出的采集与记录流程" loading="lazy">
+<figcaption>图 A-8　运行、保存原始输出、标注平台、写读法——缺一步就不算证据。</figcaption>
+</figure>
+
+<h2>3. 记录格式</h2>
+<div class="code"><div class="code-title">一条输出的最小记录</div><button class="copy" type="button">复制</button><pre><code>命令：otool -hv /bin/ls
+平台：macOS arm64（Rosetta 下为 x86_64），命令行工具版本随 Xcode
+原始输出：MH_MAGIC_64 ARM64 … EXECUTE 20 1712 … PIE
+读法：EXECUTE 是文件类型；20/1712 是命令条数与总长；PIE 表示位置无关
+限制：不能外推到 iOS；iOS 二进制的平台字段与页大小不同</code></pre></div>
+
+<h2>3.1 字段速查</h2>
+<table>
+<thead><tr><th>字段</th><th>含义</th><th>常见误读</th></tr></thead>
+<tbody>
+<tr><td><code>hashes=A+B</code></td><td>A 个代码页槽位 + B 个特殊槽位</td><td>当成“哈希算法版本”</td></tr>
+<tr><td><code>CDHash</code></td><td>对 CodeDirectory 的摘要</td><td>当成磁盘文件哈希</td></tr>
+<tr><td><code>CMSDigest</code></td><td>签名覆盖的更完整摘要</td><td>与 CDHash 混用</td></tr>
+<tr><td><code>Platform identifier</code></td><td>平台签名标识</td><td>当成 SDK 版本</td></tr>
+<tr><td><code>minos / sdk</code></td><td>最低系统版本 / 构建 SDK</td><td>认为两者必须相同</td></tr>
+<tr><td><code>initprot 0x5</code></td><td>读 + 执行</td><td>按十进制理解</td></tr>
+</tbody>
+</table>
+
+<h2>4. 三条使用原则</h2>
+<ul>
+<li><strong>平台与版本一起记：</strong>同一条命令在 macOS 与 iOS 上结构同源，但平台字段、签名与页大小不同。</li>
+<li><strong>原始输出不删减：</strong>删掉“多余”的行，往往正好删掉了解释字段的关键。</li>
+<li><strong>结论分三层：</strong>这条输出证明了什么（事实）、你可能推出什么（推断）、还不知道什么（未知）。</li>
+</ul>
+<div class="callout"><strong>不要伪造输出</strong><br>书里所有输出都来自真实执行，缺失的部分宁可标注“待实测”，也不填一个看起来合理的结果。</div>
+
+<p class="more">延伸：<a href="05-signature.html">17 代码签名</a> · <a href="32-macho-loadcmd.html">16 加载命令</a> · <a href="x02-static.html">09 静态侦察</a></p>
+
+<h2>5. 自测</h2>
+<ol>
+<li>为什么“截图”不足以作为实机输出证据？</li>
+<li><code>codesign -dvvv</code> 的 <code>hashes=18+2</code> 与 <code>397+7</code> 差异说明了什么？</li>
+<li>把 macOS 上的输出外推到 iOS 时，哪三个字段最容易出错？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

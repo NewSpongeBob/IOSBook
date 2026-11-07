@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/56-jailbreak.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>01 越狱到底改了什么 · IOSBook</title>
+<meta name="description" content="越狱改的是四条校验路径，不是“打开一个开关”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">01</span><h1>越狱到底改了什么</h1><p class="sub">越狱改的是四条校验路径，不是“打开一个开关”</p></header>
+
+<p class="lead">越狱在机制上只有一句话：让设备接受未由 Apple 签名的代码，并让这段代码在内核与用户态都能落地。理解了它改哪几处、留下什么证据、为什么现代设备越来越难，也就理解了 iOS 信任模型的边界。</p>
+<blockquote><strong>场景</strong>　你拿到一台改过的设备，桌面上多了个从没见过的图标。真正被动的不是这个图标，而是四条校验路径里的某一环——找到是哪一环，后面所有现象才有解释。</blockquote>
+
+
+
+<h2>1. 三种形态：重启后还在不在</h2>
+<table>
+<thead><tr><th>形态</th><th>重启后</th><th>补丁位置</th><th>日常可用性</th></tr></thead>
+<tbody>
+<tr><td>不完美（tethered）</td><td>失效，需重新接电脑引导</td><td>引导期内存补丁，不落盘</td><td>低，几乎不能日常使用</td></tr>
+<tr><td>半完美（semi-tethered）</td><td>失效，需重新触发</td><td>引导期 + 用户态触发</td><td>中，每次重启要重来</td></tr>
+<tr><td>半不完美（semi-untethered）</td><td>系统可正常开机，环境需重新启用</td><td>持久化到用户态与文件系统</td><td>高，最常见形态</td></tr>
+</tbody>
+</table>
+<p>三种形态的差别不在“解锁程度”，而在<b>补丁落在内存还是落盘</b>。落盘的方案要考虑持久化位置与重启后的加载顺序；只在内存的方案则每次开机都要重放一遍。</p>
+
+<h2>2. 被改动的四条路径</h2>
+<table>
+<thead><tr><th>路径</th><th>原本行为</th><th>越狱后</th><th>改动粒度</th></tr></thead>
+<tbody>
+<tr><td>代码签名校验</td><td>只允许 Apple 或已授权证书签名的映像</td><td>放行未签名/自签名库与可执行文件</td><td>一处判定（几个字节）</td></tr>
+<tr><td>根文件系统</td><td>只读，系统卷带根哈希封印</td><td>挂载可写，或把 bootstrap 放到可写分区</td><td>一个挂载标志</td></tr>
+<tr><td>内核代码与页表</td><td>内核文本只读、指针带签名</td><td>改写判定函数或页表属性</td><td>1–2 个函数或页表项</td></tr>
+<tr><td>进程加载链</td><td>launchd 只启动已签名服务</td><td>注入或替换启动项，加载第三方守护进程</td><td>一个作业描述文件</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/jailbreak-model.svg" alt="越狱改动的四条路径与现代保护" loading="lazy">
+<figcaption>图 1-1　越狱不是开关：四条路径同时被改，现代保护决定了它必须依赖漏洞。</figcaption>
+</figure>
+
+<h2>3. 数据细节：改动到底有多大</h2>
+<p>“改内核”听起来工程浩大，实际改动的<b>字节数</b>很小，难的是“改进去”这一步：</p>
+<table>
+<thead><tr><th>对象</th><th>量级</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>一条判定分支</td><td>4–8 字节</td><td>把条件跳转改成无条件跳转，或把返回寄存器写 1</td></tr>
+<tr><td>一个页表项</td><td>8 字节</td><td>改权限位即可让只读页可写</td></tr>
+<tr><td>一次写入影响的页</td><td>16 KB</td><td>iOS arm64 页大小，写一次就产生一个私有脏页</td></tr>
+<tr><td>签名校验点</td><td>3 处</td><td>安装、加载、运行三个阶段，改一处不够</td></tr>
+<tr><td>bootstrap 目录</td><td>数百 MB 量级</td><td>包含包管理器与常用命令行工具</td></tr>
+</tbody>
+</table>
+<p>这解释了两个现象：越狱工具的体积可以很小，但准备工作很长；以及“越狱后系统变慢”往往不是补丁本身，而是持久化目录与新增加载项带来的开销。</p>
+
+<h2>4. 原理推演：为什么现代设备必须“从漏洞进入”</h2>
+<p>如果把启动链看成一组串联的判定，越狱只需要让其中一环返回“通过”。现代设备把这条路堵了三层：</p>
+<ol>
+<li><strong>改写不了：</strong>内核文本在硬件层被锁为只读（KTRR/PPPL），改代码前要先改页表，而页表本身受保护。</li>
+<li><strong>改不了数据：</strong>系统卷有根哈希封印（SSV），改文件会导致启动校验失败。</li>
+<li><strong>伪造不了跳转：</strong>指针带签名（PAC），凭空构造的跳转目标会触发异常。</li>
+</ol>
+<p>三层叠加后，正常路径只剩一条：先用漏洞取得“能改”的能力，再在窗口内完成改动。这也是为什么越狱与系统版本强绑定——补丁点随版本变化，而漏洞会被逐个修掉。</p>
+
+<h2>5. 一次真实排查记录：重启后环境消失</h2>
+<ol>
+<li><strong>现象：</strong>设备重启后，应用里的检测不再报警，工具也无法加载。</li>
+<li><strong>先分类：</strong>不是应用问题，也不是检测失效——更可能是“越狱环境没起来”。</li>
+<li><strong>查证据：</strong>确认属于哪种形态；半不完美方案重启后不会自动恢复，需要重新触发。</li>
+<li><strong>验证假设：</strong>重新触发后若一切恢复，则结论成立；若仍失败，才去看系统版本是否已超出工具支持范围。</li>
+<li><strong>结论与限制：</strong>记录为“形态为半不完美，重启需手动启用”，并注明该结论只对当前工具与系统版本成立。</li>
+</ol>
+
+<h2>6. 工程权衡：检测放在哪一层</h2>
+<table>
+<thead><tr><th>层次</th><th>能发现</th><th>成本与风险</th></tr></thead>
+<tbody>
+<tr><td>用户态自检</td><td>镜像、端口、行为异常</td><td>可被绕过；误报直接影响用户</td></tr>
+<tr><td>内核/系统服务</td><td>更底层的篡改</td><td>应用无法部署，只有平台方可用</td></tr>
+<tr><td>服务端风控</td><td>跨设备、跨时间的异常模式</td><td>需要数据积累，响应有延迟</td></tr>
+</tbody>
+</table>
+<p>应用能做的只有第一层，因此正确姿势是“自检产出信号，服务端做判定”，而不是在客户端直接拒绝服务。</p>
+
+<h2>7. 可观测证据：哪些能伪造，哪些难</h2>
+<table>
+<thead><tr><th>证据</th><th>获取方式</th><th>可靠性</th></tr></thead>
+<tbody>
+<tr><td><code>fork()</code> 是否可用</td><td>调用后检查返回值</td><td>高（行为级）</td></tr>
+<tr><td>能否加载未签名库</td><td>尝试 <code>dlopen</code> 自建库</td><td>高</td></tr>
+<tr><td>bootstrap 目录是否存在</td><td>路径探测</td><td>中（路径可改）</td></tr>
+<tr><td>包管理器类应用</td><td>URL scheme 或应用列表</td><td>低（可隐藏）</td></tr>
+<tr><td>额外 launchd 作业</td><td>进程/服务列表</td><td>中（名字可伪装）</td></tr>
+</tbody>
+</table>
+<figure>
+<img src="../assets/figures/jailbreak-evidence.svg" alt="越狱改动与对应可观测证据" loading="lazy">
+<figcaption>图 1-2　四处改动各自留下不同层级的证据；行为级比路径级更难伪造。</figcaption>
+</figure>
+<div class="code"><div class="code-title">行为级检测骨架（仅用于评估自有防护）</div><button class="copy" type="button">复制</button><pre><code>#include &lt;unistd.h&gt;
+
+bool sandboxAllowsFork(void) {
+    pid_t pid = fork();
+    if (pid == 0) { _exit(0); }
+    return pid &gt;= 0;          // 沙盒正常时通常返回 -1
+}</code></pre></div>
+
+<div class="callout"><strong>行为级证据也会误报</strong><br>能 fork、能加载未签名库说明环境被放宽，但企业设备与测试机可能同样如此；这类信号适合加权，不适合单独定罪。</div>
+
+<h2>8. 自测</h2>
+<ol>
+<li>为什么“改内核”的字节数很小，却仍然很难？</li>
+<li>半不完美方案重启后为什么需要重新触发？</li>
+<li>三层保护中，哪一层让“伪造跳转”失效？</li>
+<li>为什么客户端自检不能直接作为拒绝服务的依据？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

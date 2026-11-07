@@ -1,9 +1,35 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>R06 协议、泛型与派发边界 · IOSBook</title><link rel="stylesheet" href="../style.css"></head>
-<body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">R06</span><h1>协议、泛型与派发边界</h1><p class="sub">从抽象接口理解静态选择、动态派发和二进制约束</p></header>
+<html lang="zh-CN" data-root=".." data-page="ch/40-protocol-dispatch.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R06 协议、泛型与派发边界 · IOSBook</title>
+<meta name="description" content="从抽象接口理解静态选择、动态派发和二进制约束">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">R06</span><h1>协议、泛型与派发边界</h1><p class="sub">从抽象接口理解静态选择、动态派发和二进制约束</p></header>
 <p class="lead">“面向协议”是设计方法，不意味着所有调用都使用同一种运行时派发。Swift 的静态特化、协议见证表、类继承动态派发和 Objective-C 消息派发具有不同语义与成本。</p>
-<h2>先区分三层</h2><ul><li><strong>语言语义：</strong>源码层保证的行为，如访问控制、泛型约束和协议一致性。</li><li><strong>派发策略：</strong>编译器可能采用静态调用、见证表或类虚表等方式；优化后机器代码可能内联。</li><li><strong>ABI/实现：</strong>跨模块调用约定、元数据布局和运行库机制；只有公开承诺的部分才能作为兼容性依赖。</li></ul>
-<h2>设计取舍</h2><p>协议适合描述能力与可替换性；泛型可保留类型关系并支持专门化；类继承适合共享状态或需要动态覆盖的模型。选型应优先依据正确性、可测试性和演进需求，而非猜测某种派发“必然更快”。</p>
+<h2>1. 先区分三层：值、协议、类</h2><ul><li><strong>语言语义：</strong>源码层保证的行为，如访问控制、泛型约束和协议一致性。</li><li><strong>派发策略：</strong>编译器可能采用静态调用、见证表或类虚表等方式；优化后机器代码可能内联。</li><li><strong>ABI/实现：</strong>跨模块调用约定、元数据布局和运行库机制；只有公开承诺的部分才能作为兼容性依赖。</li></ul>
+<h2>2. 数据细节：existential 与见证表的字节账</h2>
+<table>
+<thead><tr><th>对象</th><th>大小（64 位）</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>any P</code>（P 有 class 约束）</td><td>16 字节</td><td>对象指针 + 见证表指针</td></tr>
+<tr><td><code>any P</code>（一般协议）</td><td>40 字节</td><td>3 字内联缓冲 + 元数据 + 见证表</td></tr>
+<tr><td>见证表每项</td><td>8 字节</td><td>一个函数指针，按协议声明顺序排列</td></tr>
+<tr><td>协议描述符</td><td>变长</td><td>方法、属性、关联类型的要求列表</td></tr>
+</tbody>
+</table>
+<p>由此可以推两件事：要求越多，见证表越长，调用点越多一次间接；把值类型装进 <code>any P</code> 时，超过 3 字的内容会<b>装箱到堆上</b>——这就是“协议会带来额外分配”的准确说法，而不是笼统的“协议慢”。</p>
+
+<h2>3. 设计取舍：稳定优先于彻底</h2><p>协议适合描述能力与可替换性；泛型可保留类型关系并支持专门化；类继承适合共享状态或需要动态覆盖的模型。选型应优先依据正确性、可测试性和演进需求，而非猜测某种派发“必然更快”。</p>
 <div class="code"><div class="code-title">Swift：用协议表达可测试的依赖边界</div><button class="copy" type="button">复制</button><pre><code>protocol ProfileStore {
     func profile(for id: String) async throws -&gt; Profile
 }
@@ -16,7 +42,29 @@ struct ProfileService {
     }
 }</code></pre></div>
 <p>生产实现和测试替身遵循同一协议；服务端仍负责判断调用者是否有权读取对应资料，客户端抽象不是安全授权边界。</p>
-<h2>二进制观察的边界</h2><p>反汇编结果会受优化级别、whole-module optimization、架构和工具链版本影响。观察一个构建产物只能说明该次构建，不足以推断所有 Swift 版本或未来 ABI。公开接口、稳定 ABI 和私有实现必须分别标注。</p>
-<h2>自有样例实验</h2><ol><li>分别用协议、泛型和类继承实现同一个小型格式化器。</li><li>在 Debug 与 Release 配置下比较行为、可测试性和构建产物。</li><li>记录编译器、SDK、架构与优化配置，不从单次汇编推导普遍规则。</li><li>为协议实现替换、错误路径和并发访问编写测试。</li></ol>
-<h2>自测</h2><ol><li>为什么源码层的协议调用不总能直接映射成一种固定派发方式？</li><li>什么情况下可以把 ABI 细节当作兼容性契约？</li><li>为什么客户端协议抽象不能承担服务端授权？</li></ol>
-<nav class="pager"><a href="./39-blocks-closures.html">← 上一章</a><a href="../part/04-runtime.html">第四部目录</a><a href="./41-objc-swift-bridge.html">下一章：语言互操作 →</a></nav></article></main></body></html>
+<figure>
+<img src="../assets/figures/witness-table.svg" alt="协议见证表与派发路径" loading="lazy">
+<figcaption>图 4-6　协议值携带类型信息，经见证表找到实现；协议扩展的默认实现是静态派发。</figcaption>
+</figure>
+
+<h2>4. 二进制观察的边界</h2><p>反汇编结果会受优化级别、whole-module optimization、架构和工具链版本影响。观察一个构建产物只能说明该次构建，不足以推断所有 Swift 版本或未来 ABI。公开接口、稳定 ABI 和私有实现必须分别标注。</p>
+<h2>5. 实验：让四种派发各出现一次</h2><ol><li>分别用协议、泛型和类继承实现同一个小型格式化器。</li><li>在 Debug 与 Release 配置下比较行为、可测试性和构建产物。</li><li>记录编译器、SDK、架构与优化配置，不从单次汇编推导普遍规则。</li><li>为协议实现替换、错误路径和并发访问编写测试。</li></ol>
+<h2>6. 四种派发与可 hook 性</h2><table><thead><tr><th>派发</th><th>决定因素</th><th>能否按名字 hook</th></tr></thead><tbody><tr><td>静态</td><td>final、值类型</td><td>不能</td></tr><tr><td>类虚表</td><td>可继承类</td><td>不能</td></tr><tr><td>协议见证</td><td>协议类型调用</td><td>不能</td></tr><tr><td>消息发送</td><td>@objc / dynamic</td><td>能</td></tr></tbody></table><div class="callout"><strong>找边界而不是找方法</strong><br>纯 Swift 内部调用最难 hook；把观测点放在网络、存储与 @objc 暴露的入口上，命中率最高。</div>
+<h2>7. 协议与泛型的边界</h2><table><thead><tr><th>场景</th><th>派发方式</th><th>观测难度</th></tr></thead><tbody><tr><td>协议扩展的默认实现</td><td>静态（编译期确定）</td><td>高：调用点没有间接跳转</td></tr><tr><td>存在类型调用</td><td>见证表</td><td>中：可见间接寻址</td></tr><tr><td>泛型特化</td><td>静态，每类型一份</td><td>高：符号分裂</td></tr></tbody></table>
+<h2>8. 一次真实排查记录：协议方法 hook 不中</h2>
+<ol>
+<li><strong>现象：</strong>协议方法按名字挂不上断点。</li>
+<li><strong>先看派发：</strong>调用方是协议类型还是具体类型，前者走见证表。</li>
+<li><strong>再看实现：</strong>默认实现在协议扩展里，编译期就定了。</li>
+<li><strong>换点：</strong>改挂具体类型的实现，或挂调用方。</li>
+<li><strong>结论与限制：</strong>记录“协议扩展静态派发”，并注明结论只对该调用位置成立。</li>
+</ol>
+
+<h2>9. 自测</h2><ol><li>为什么源码层的协议调用不总能直接映射成一种固定派发方式？</li><li>什么情况下可以把 ABI 细节当作兼容性契约？</li><li>为什么客户端协议抽象不能承担服务端授权？</li></ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

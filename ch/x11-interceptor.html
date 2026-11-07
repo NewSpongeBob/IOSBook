@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x11-interceptor.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>F02 Interceptor：方法级 hook 的字节实现 · IOSBook</title>
+<meta name="description" content="一次 hook 就是在入口写几条跳转指令，再把被覆盖的原文搬到跳板">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">F02</span><h1>Interceptor：方法级 hook 的字节实现</h1><p class="sub">一次 hook 就是在入口写几条跳转指令，再把被覆盖的原文搬到跳板</p></header>
+
+<p class="lead">Interceptor 不是“监听调用”，而是真的改代码：入口被替换成跳转，跳到框架分配的跳板，那里保存原指令副本与你的回调。理解这四步，崩溃与“挂上没反应”都能定位。</p>
+<blockquote><strong>场景</strong>　断点命中、参数正确，跳回之后却崩了。十有八九是入口被覆盖的字节数与跳转方案不匹配，跳回时落在半条指令上。</blockquote>
+
+
+
+<h2>1. attach 与 replace</h2>
+<table>
+<thead><tr><th>方式</th><th>改什么</th><th>原逻辑</th><th>能否改返回值</th></tr></thead>
+<tbody>
+<tr><td><code>Interceptor.attach</code></td><td>入口跳转 + 跳板回调</td><td>照常执行</td><td>可以（<code>onLeave</code> 里替换）</td></tr>
+<tr><td><code>Interceptor.replace</code></td><td>入口直接指向你的实现</td><td>不再执行</td><td>完全由你决定</td></tr>
+</tbody>
+</table>
+<p>两者都会修改代码页；区别只在跳板里是否继续执行备份的原指令。</p>
+
+<figure>
+<img src="../assets/figures/attach-vs-replace.svg" alt="attach 与 replace 的执行路径差异" loading="lazy">
+<figcaption>图 3-2　attach 保留原逻辑，replace 完全接管；两者都改入口、都留痕迹。</figcaption>
+</figure>
+
+<h2>2. 四个动作</h2>
+<ol>
+<li>把目标函数所在页改为可写（页大小 16 KB）。</li>
+<li>备份入口处将被覆盖的指令（按跳转方案占 4 / 12 / 16 字节）。</li>
+<li>写入跳转，跳到跳板。</li>
+<li>跳板恢复原指令、执行回调、跳回原函数偏移继续执行。</li>
+</ol>
+<div class="code"><div class="code-title">JavaScript：读取参数与返回值（自有应用）</div><button class="copy" type="button">复制</button><pre><code>const m = ObjC.classes.LoginService['- requestToken:'];
+Interceptor.attach(m.implementation, {
+  onEnter(args) {
+    this.account = new ObjC.Object(args[2]).toString();
+  },
+  onLeave(retval) {
+    console.log(this.account, new ObjC.Object(retval));
+  }
+});</code></pre></div>
+
+<figure>
+<img src="../assets/figures/trampoline.svg" alt="hook 的入口跳转与跳板结构" loading="lazy">
+<figcaption>图 3-3　入口换跳转、跳板还原回调再跳回——覆盖字节数由跳转方案决定。</figcaption>
+</figure>
+
+<figure data-steps="原入口|改页可写|备份并写入跳转|跳板执行|跳回" data-cols="5" data-rows="1" data-geometry="24,44,136,110,16,0">
+<img src="../assets/figures/trampoline-steps.svg" alt="跳板 hook 五步分帧" loading="lazy">
+<figcaption>图 3-4　覆盖几条就备份几条；翻车点在第 3 步的字节数，不在回调。</figcaption>
+</figure>
+
+<h2>3. 跳转方案的字节账</h2>
+<table>
+<thead><tr><th>方案</th><th>占用</th><th>范围</th><th>覆盖的原指令</th></tr></thead>
+<tbody>
+<tr><td><code>B imm26</code></td><td>4 字节</td><td>±128 MB</td><td>1 条</td></tr>
+<tr><td><code>ADRP + ADD + BR</code></td><td>12 字节</td><td>±4 GB</td><td>3 条</td></tr>
+<tr><td><code>LDR literal + BR</code>（含 8 字节地址）</td><td>16 字节</td><td>全地址空间</td><td>4 条</td></tr>
+</tbody>
+</table>
+<p>arm64 指令定长 4 字节，所以“覆盖几条”是可算的：方案占多少字节，就要备份多少字节，且必须是完整指令，不能切在半条上。</p>
+
+<h2>4. 三个致命细节</h2>
+<table>
+<thead><tr><th>细节</th><th>后果</th><th>规避</th></tr></thead>
+<tbody>
+<tr><td>覆盖长度与指令边界不齐</td><td>跳回后执行到半个指令，随机崩溃</td><td>按 4 字节对齐，保留完整指令</td></tr>
+<tr><td>其他线程正在执行被改写的指令</td><td>读到“半条指令”</td><td>安装时暂停线程或一次性写入</td></tr>
+<tr><td>arm64e 指针签名</td><td>跳转目标校验失败</td><td>依赖框架对架构的支持，别自写跳板</td></tr>
+</tbody>
+</table>
+<div class="callout"><strong>经验值</strong><br>单个模块挂 10 个点以内比较稳定；几十个点时应先找汇聚点（如统一的网络出口、统一的路由），而不是逐方法铺开。每多一个点就多一块可执行内存与一次入口改写。</div>
+
+<h2>5. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>最可能原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>挂上但不触发</td><td>调用走了内联副本或另一实现</td><td>在调用点下断点确认真实目标</td></tr>
+<tr><td>偶发崩溃</td><td>并发执行到半条指令</td><td>减少 hook、安装时暂停线程</td></tr>
+<tr><td>一挂就崩</td><td>覆盖长度算错或页权限未恢复</td><td>核对跳转方案与架构</td></tr>
+<tr><td>返回值替换无效</td><td>返回结构体或走了 <code>replace</code></td><td>确认调用约定与类型编码</td></tr>
+<tr><td>卸载后仍异常</td><td>备份指令未完整恢复</td><td>重启进程验证</td></tr>
+</tbody>
+</table>
+
+<h2>6. 能被观测到什么</h2>
+<ul>
+<li>方法实现地址落在非映像区间（跳板）。</li>
+<li>代码页变为可写，私有脏页增加一页（16 KB）。</li>
+<li>镜像列表出现额外的可执行映射。</li>
+<li>短函数（少于覆盖长度）无法安全 hook，可能直接失败。</li>
+</ul>
+
+<h2>7. 数据细节：一次 hook 的内存账</h2>
+<table>
+<thead><tr><th>项</th><th>占用</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>入口改写</td><td>4 / 12 / 16 字节</td><td>取决于跳转方案</td></tr>
+<tr><td>备份原指令</td><td>与改写等长</td><td>保存在跳板里</td></tr>
+<tr><td>跳板代码</td><td>数十字节</td><td>备份 + 回调 + 跳回</td></tr>
+<tr><td>私有脏页</td><td>16 KB / 每页</td><td>首次写入口所在页时产生</td></tr>
+</tbody>
+</table>
+<p>所以“挂一个点”的成本 ≈ 一页脏内存 + 一条新的执行路径；挂几十个点，脏页就以十为单位增长。</p>
+
+<h2>8. 自测</h2>
+<ol>
+<li>为什么 <code>attach</code> 也要改入口指令？</li>
+<li><code>B</code> 只有 ±128 MB，框架如何保证跳板可达？</li>
+<li>“覆盖长度不够”会导致哪一类崩溃？为什么？</li>
+<li>16 KB 页大小对 hook 的痕迹有什么影响？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

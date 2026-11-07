@@ -1,1 +1,104 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>A03 官方资料与源码入口 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">A03</span><h1>官方资料与源码入口</h1><p class="sub">优先使用平台文档和公开源码，并为结论记录来源与版本</p></header><h2>官方开发资料</h2><ul><li><a href="https://developer.apple.com/documentation/">Apple Developer Documentation</a>：公开 API、框架与可用性。</li><li><a href="https://developer.apple.com/documentation/security">Apple Security Documentation</a>：平台安全技术与开发者安全指导。</li><li><a href="https://developer.apple.com/documentation/xcode">Xcode Documentation</a>：构建、签名、诊断和发布工具。</li><li><a href="https://developer.apple.com/documentation/swift">Swift Documentation</a>：语言、并发与标准库文档。</li></ul><h2>公开源码</h2><ul><li><a href="https://github.com/apple-oss-distributions">Apple OSS Distributions</a>：Apple 公开发布的部分开源组件。</li><li><a href="https://github.com/apple/swift">Swift GitHub</a>：Swift 编译器、标准库和相关项目源码。</li><li><a href="https://opensource.apple.com/">Apple Open Source</a>：开源发布索引；源码版本不必等同当前设备内部实现。</li></ul><h2>来源记录规则</h2><p>记录页面/仓库 URL、访问日期、适用 OS/SDK/commit、引用段落和自己的结论。区分官方承诺、公开源码事实、实验观察和推断；若来源版本不匹配，应明确说明，不将其描述为当前设备实现的证明。</p><aside class="callout"><strong>资料边界</strong><br>公开源码只覆盖 Apple 发布的部分组件。没有公开的实现细节应标注未知，不依据传闻补齐。</aside><p><a href="../part/99-appendix.html">← 返回附录</a></p></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/a03.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A03 官方资料与源码入口 · IOSBook</title>
+<meta name="description" content="一手资料优先，版本与访问日期必须一起记">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">A03</span><h1>官方资料与源码入口</h1><p class="sub">一手资料优先，版本与访问日期必须一起记</p></header>
+
+<p class="lead">二手教程会过时，官方文档也会。资料清单的价值不在于链接本身，而在于你知道“哪类问题该查哪一来源”，以及如何标注它的时效性。</p>
+
+<h2>1. 平台安全与总览</h2>
+<table>
+<thead><tr><th>来源</th><th>适合回答</th></tr></thead>
+<tbody>
+<tr><td>Apple Platform Security 指南</td><td>启动链、安全隔区、数据保护、签名与加密体系的官方说明</td></tr>
+<tr><td>Apple 支持与安全公告</td><td>已修复问题、影响版本范围</td></tr>
+</tbody>
+</table>
+<p><a href="https://support.apple.com/guide/security/welcome/web">support.apple.com/guide/security</a></p>
+
+<h2>2. 开发文档</h2>
+<ul>
+<li><a href="https://developer.apple.com/documentation/security">Security</a>：钥匙串、证书、信任评估。</li>
+<li><a href="https://developer.apple.com/documentation/cryptokit">CryptoKit</a>：哈希、认证加密、密钥交换。</li>
+<li><a href="https://developer.apple.com/documentation/foundation">Foundation</a>：文件、URL 会话、位置与容器路径。</li>
+<li><a href="https://developer.apple.com/documentation/xcode">Xcode</a>：构建、符号化、诊断工具。</li>
+</ul>
+<p>文档页面通常标注可用版本与弃用状态，这比博客里的“某版本可用”更可靠。</p>
+
+<figure>
+<img src="../assets/figures/source-hierarchy.svg" alt="资料层级与时效标注" loading="lazy">
+<figcaption>图 A-3　一手资料优先，但任何资料都要带版本与访问日期。</figcaption>
+</figure>
+
+<h2>3. 开源与源码</h2>
+<table>
+<thead><tr><th>入口</th><th>内容</th><th>注意</th></tr></thead>
+<tbody>
+<tr><td><a href="https://github.com/apple-oss-distributions">apple-oss-distributions</a></td><td>XNU、libc、系统工具等</td><td>设备构建含未公开组件</td></tr>
+<tr><td><a href="https://opensource.apple.com">opensource.apple.com</a></td><td>历史版本源码归档</td><td>版本对应关系需自行核对</td></tr>
+</tbody>
+</table>
+<p>源码用于建立模型，不等于设备行为的逐字证明。结论应标注“源码观察”，在设备上验证后才升级为“实测”。</p>
+
+<h2>4. 工具与诊断</h2>
+<ul>
+<li><a href="https://developer.apple.com/documentation/xcode/analyzing-a-crash-report">分析崩溃报告</a>：报告字段与符号化流程。</li>
+<li>Instruments 指南：性能、内存、系统调用观察。</li>
+<li>WWDC 相关场次：设计意图与新机制说明，注意年份与系统版本。</li>
+</ul>
+
+<h2>5. 社区标准</h2>
+<p>移动应用安全验证标准、通用弱点分类等社区资料适合作为检查清单，但不能替代平台文档；引用时注明来源与版本，避免把建议当承诺。</p>
+
+<h2>6. 引用规则</h2>
+<div class="code"><div class="code-title">一条可复核的引用</div><button class="copy" type="button">复制</button><pre><code>来源：Apple Platform Security（官方指南）
+访问日期：2026-11-06
+适用版本：文档当前版本（未标注具体系统版本处已注明）
+用途：说明数据保护的密钥绑定模型
+限制：不含具体设备实现细节，设备行为需自行验证</code></pre></div>
+
+<div class="callout"><strong>源码观察不是设备事实</strong><br>公开源码用于建立模型；设备构建含未公开组件，结论要标注为“模型”，经设备观测后才升级为“事实”。</div>
+<h2>7. 来源可信度</h2>
+<table>
+<thead><tr><th>来源</th><th>可信度</th><th>必须核对</th></tr></thead>
+<tbody>
+<tr><td>官方文档</td><td>高</td><td>版本与弃用标记</td></tr>
+<tr><td>开源代码</td><td>中</td><td>设备构建是否含未公开组件</td></tr>
+<tr><td>系统诊断与实测</td><td>高</td><td>设备、系统、时间</td></tr>
+<tr><td>社区文章</td><td>低</td><td>必须回一手资料</td></tr>
+</tbody>
+</table>
+
+<h2>8. 引用要带元信息</h2>
+<div class="code"><div class="code-title">一条可核对的引用</div><button class="copy" type="button">复制</button><pre><code>标题：App Attest 服务端验证
+来源：官方文档
+版本/日期：2026-10 访问
+链接：https://developer.apple.com/...
+用于：第 03 讲“服务端必须校验什么”
+局限：未覆盖私有接口与旧系统</code></pre></div>
+
+<h2>9. 自测</h2>
+<ol>
+<li>为什么开源代码的结论不能直接当作设备事实？</li>
+<li>引用官方文档时，哪些元信息必须一起记录？</li>
+<li>社区标准在书里应如何使用？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 330" width="760" height="330" role="img" aria-label="文件偏移、vmaddr 与运行时地址的换算关系">
+  <defs>
+    <marker id="arrow3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6c32d0"/>
+    </marker>
+    <style>
+      .bar{fill:#f4f0fd;stroke:#d6c9f2;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:13px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#4b5765}
+      .l{font-family:-apple-system,"PingFang SC",sans-serif;font-size:13px;fill:#6c32d0;font-weight:600}
+      .n{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11.5px;fill:#68727f}
+    </style>
+  </defs>
+
+  <text class="l" x="30" y="52">文件偏移</text>
+  <rect class="bar" x="150" y="36" width="420" height="34" rx="6"/>
+  <text class="s" x="166" y="58">0x0 … 镜像文件大小（磁盘位置）</text>
+
+  <text class="l" x="30" y="122">vmaddr</text>
+  <rect class="bar" x="150" y="106" width="420" height="34" rx="6"/>
+  <text class="s" x="166" y="128">0x100000000 … 首选虚拟布局</text>
+
+  <text class="l" x="30" y="192">运行时地址</text>
+  <rect class="bar" x="150" y="176" width="420" height="34" rx="6"/>
+  <text class="s" x="166" y="198">0x104a3000 … 本次进程中的实际地址</text>
+
+  <line x1="360" y1="70" x2="360" y2="104" stroke="#6c32d0" stroke-width="1.5" marker-end="url(#arrow3)"/>
+  <text class="n" x="372" y="92">段的 fileoff 与 vmaddr 换算</text>
+
+  <line x1="360" y1="140" x2="360" y2="174" stroke="#6c32d0" stroke-width="1.5" marker-end="url(#arrow3)"/>
+  <text class="n" x="372" y="162">加载时加上随机 slide</text>
+
+  <rect x="30" y="236" width="700" height="66" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="48" y="262">运行时地址 = vmaddr + slide</text>
+  <text class="n" x="48" y="286">slide 每次启动不同、每个映像不同；离开“进程 + 映像 + 时刻”谈地址没有意义。</text>
+</svg>

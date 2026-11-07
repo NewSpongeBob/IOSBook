@@ -1,1 +1,133 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>04 沙盒与权限边界 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">CHAPTER 04</span><h1>沙盒与权限边界</h1><p class="sub">从应用容器、授权能力到系统资源保护</p></header><p class="lead">沙盒是纵深防御的一部分，不等于应用安全的全部。应同时考虑代码签名、权限授权、系统服务校验和服务端访问控制。</p><h2>学习目标</h2><ul><li>理解应用容器与受保护系统资源的隔离目标。</li><li>区分用户授权、应用声明与系统实际��行的策略。</li><li>建立最小权限和数据分级的设计思路。</li></ul><h2>防御检查</h2><p>在自有应用中检查敏感数据是否只存放于必要位置、权限请求是否最小化、授权撤销后功能是否正确降级，并确认服务端不会仅依赖客户端声明。</p><nav class="pager"><a href="./03-dyld.html">← 上一章</a><a href="../part/01-foundation.html">第一部目录</a><a href="./05-signature.html">下一章：代码签名 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/04-sandbox.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K09 沙盒与权限边界 · IOSBook</title>
+<meta name="description" content="沙盒管“能碰哪些路径”，能力管“能用哪些接口”，用户管“能不能碰这类数据”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">K09</span><h1>沙盒与权限边界</h1><p class="sub">沙盒管“能碰哪些路径”，能力管“能用哪些接口”，用户管“能不能碰这类数据”</p></header>
+
+<p class="lead">三条边界经常被混为一谈：沙盒限制文件与 IPC 访问，entitlement 声明系统能力，用户授权决定隐私数据能否使用。排查时先判断是哪一条拒绝的，能省掉一半时间。</p>
+
+<h2>1. 三条边界</h2>
+<table>
+<thead><tr><th>边界</th><th>由谁决定</th><th>生效时机</th><th>拒绝表现</th></tr></thead>
+<tbody>
+<tr><td>沙盒</td><td>系统在进程创建时施加</td><td>进程生命周期</td><td>路径访问失败、无法连接服务</td></tr>
+<tr><td>entitlement</td><td>签名与描述文件</td><td>启动时校验</td><td>能力不可用或返回权限错误</td></tr>
+<tr><td>用户授权</td><td>用户</td><td>首次请求后长期保存</td><td>返回“未授权/受限”，不弹窗</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/container-layout.svg" alt="应用包、数据容器、App Group 容器与钥匙串的关系" loading="lazy">
+<figcaption>图 2-13　可写的只有数据容器；App Group 与钥匙串是另外两条受签名约束的通道。</figcaption>
+</figure>
+
+<h2>2. 容器布局</h2>
+<table>
+<thead><tr><th>路径</th><th>可写</th><th>备份</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td><code>YourApp.app</code></td><td>否</td><td>随包</td><td>可执行文件与资源</td></tr>
+<tr><td><code>Documents/</code></td><td>是</td><td>是</td><td>用户数据</td></tr>
+<tr><td><code>Library/Application Support/</code></td><td>是</td><td>是</td><td>应用状态，可排除备份</td></tr>
+<tr><td><code>Library/Caches/</code></td><td>是</td><td>否</td><td>可重建缓存</td></tr>
+<tr><td><code>tmp/</code></td><td>是</td><td>否</td><td>临时文件</td></tr>
+</tbody>
+</table>
+<p>包内目录在运行期不可写，所以任何“下载资源到应用目录”的方案都落在数据容器里；缓存目录可能被系统清理，不能当唯一数据源。</p>
+
+<h2>3. 原理推演：容器路径为什么带 UUID</h2>
+<p>容器是“安装实例”的产物，不是应用的固定属性：重装、恢复、多开都会生成新实例。如果路径固定，旧实例留下的文件可能被新实例读到，或者被其他进程按名字猜到。</p>
+<p>加上 UUID 后，<b>路径本身成为一次性凭据</b>：旧路径失效、新实例无法误读，备份与迁移也能识别“这是哪一次安装”。这也是“把容器路径硬编码进代码”必然在下次安装后失效的原因——不是权限问题，是路径本身已经不存在。</p>
+
+<h2>4. 沙盒之外的通道</h2>
+<table>
+<thead><tr><th>通道</th><th>访问条件</th><th>注意</th></tr></thead>
+<tbody>
+<tr><td>App Group 容器</td><td>签名含对应 group 能力</td><td>主应用与扩展共享，其他应用仍不可见</td></tr>
+<tr><td>钥匙串</td><td>访问组匹配</td><td>与文件系统分离，卸载后可能保留</td></tr>
+<tr><td>用户选择的文件</td><td>用户通过选择器授权</td><td>拿到的是安全作用域书签，需显式开启访问</td></tr>
+<tr><td>系统服务</td><td>持有端口或通过框架调用</td><td>能力仍由服务端校验</td></tr>
+</tbody>
+</table>
+
+<figure data-steps="调用接口|查用途串|系统弹窗|用户选择|返回结果" data-cols="5" data-rows="1" data-geometry="24,44,136,110,16,0">
+<img src="../assets/figures/tcc-steps.svg" alt="TCC 五步：调用接口、查用途串、系统弹窗、用户选择、返回结果" loading="lazy">
+<figcaption>图 2-14　TCC 五步：用途串、弹窗、结果缓存，各自会怎么失败。</figcaption>
+</figure>
+
+<h2>5. 模拟器观测</h2>
+<div class="code"><div class="code-title">定位容器并查看目录</div><button class="copy" type="button">复制</button><pre><code>xcrun simctl get_app_container booted com.example.app data
+ls -la "$(xcrun simctl get_app_container booted com.example.app data)"
+du -sh "$(xcrun simctl get_app_container booted com.example.app data)/Library/Caches"</code></pre></div>
+<p>真机无法直接读容器路径；可让应用把关键路径与文件大小写进日志，或用调试构建导出。</p>
+
+<h2>6. 四种 errno：先分清是谁拒绝的</h2>
+<table>
+<thead><tr><th>错误</th><th>含义</th><th>先查</th></tr></thead>
+<tbody>
+<tr><td><code>ENOENT</code></td><td>路径不存在</td><td>目录是否创建、容器是否被清理</td></tr>
+<tr><td><code>EACCES</code></td><td>权限不足</td><td>沙盒边界、App Group 能力</td></tr>
+<tr><td><code>EPERM</code></td><td>策略拒绝</td><td>文件保护类、设备锁定状态</td></tr>
+<tr><td><code>ENOSPC</code></td><td>空间不足</td><td>缓存是否无上限增长</td></tr>
+</tbody>
+</table>
+<div class="callout"><strong>三种“拒绝”不要混</strong><br><code>EPERM</code> 是策略（锁屏/保护类），<code>EACCES</code> 是沙盒或能力，用户拒绝隐私权限则通常不返回文件错误，而是框架给“未授权”状态。</div>
+
+<h2>7. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>前台正常、后台失败</td><td>保护类要求解锁</td><td>保护类与读取时机</td></tr>
+<tr><td>写文件成功但重启丢失</td><td>写在 tmp 或缓存</td><td>目录选择</td></tr>
+<tr><td>扩展读不到共享数据</td><td>group 能力或路径不一致</td><td>签名能力与容器 URL</td></tr>
+<tr><td>换机后数据没了</td><td>排除备份或仅本机语义</td><td>备份策略</td></tr>
+</tbody>
+</table>
+
+<p class="more">延伸：<a href="29-filesystem.html">K04 文件系统与容器</a> · <a href="05-signature.html">17 代码签名</a> · <a href="x08-hardening-view.html">04 注入与越狱检测</a></p>
+
+<h2>8. 数据细节：三条边界的判定顺序</h2>
+<table>
+<thead><tr><th>顺序</th><th>检查</th><th>失败表现</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>能力是否在签名里</td><td>能力不可用，启动时即失败</td></tr>
+<tr><td>2</td><td>路径是否在沙盒允许范围</td><td><code>EACCES</code></td></tr>
+<tr><td>3</td><td>文件保护类是否允许读取</td><td><code>EPERM</code></td></tr>
+<tr><td>4</td><td>用户是否授权隐私数据</td><td>框架返回“未授权”，非文件错误</td></tr>
+</tbody>
+</table>
+
+<h2>9. 一次真实排查记录：扩展读不到共享数据</h2>
+<ol>
+<li><strong>现象：</strong>主应用能读到文件，扩展读不到。</li>
+<li><strong>先查能力：</strong>扩展的签名是否包含同一个 group。</li>
+<li><strong>再查路径：</strong>两边是否都通过容器 URL 取路径，而不是硬编码。</li>
+<li><strong>验证：</strong>打印两边的容器路径，比较前缀是否一致。</li>
+<li><strong>结论与限制：</strong>记录“group 能力或路径不一致”，并注明结论只对该构建有效。</li>
+</ol>
+
+<h2>10. 自测</h2>
+<ol>
+<li>沙盒、entitlement、用户授权各自拒绝什么？</li>
+<li>为什么扩展与主应用共享数据必须走 App Group？</li>
+<li><code>EPERM</code> 与 <code>EACCES</code> 分别对应哪种边界？</li>
+<li>缓存目录为什么不能作为唯一数据源？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

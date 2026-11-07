@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="跳板 hook 五步分帧">
+  <defs>
+    <style>
+      .p{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .q{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+      .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.5px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .n{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#fff;font-weight:700}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">跳板 hook 五步：覆盖几条指令、备份几条</text>
+
+  <rect class="p" x="24" y="44" width="136" height="110" rx="9"/>
+  <circle cx="44" cy="64" r="10" fill="#2563eb"/><text class="n" x="44" y="68" text-anchor="middle">1</text>
+  <text class="t" x="60" y="68">原入口</text>
+  <text class="s" x="38" y="92">函数前几条指令</text>
+  <text class="s" x="38" y="112">4 字节对齐</text>
+  <text class="s" x="38" y="136">页属性只读</text>
+
+  <rect class="q" x="176" y="44" width="136" height="110" rx="9"/>
+  <circle cx="196" cy="64" r="10" fill="#c26a06"/><text class="n" x="196" y="68" text-anchor="middle">2</text>
+  <text class="t" x="212" y="68">改页可写</text>
+  <text class="s" x="190" y="92">mprotect 目标页</text>
+  <text class="s" x="190" y="112">16 KB 一页</text>
+  <text class="s" x="190" y="136">产生 1 个私有脏页</text>
+
+  <rect class="q" x="328" y="44" width="136" height="110" rx="9"/>
+  <circle cx="348" cy="64" r="10" fill="#c26a06"/><text class="n" x="348" y="68" text-anchor="middle">3</text>
+  <text class="t" x="364" y="68">备份并写跳转</text>
+  <text class="s" x="342" y="92">占 4/12/16 字节</text>
+  <text class="s" x="342" y="112">备份需完整指令</text>
+  <text class="s" x="342" y="136">写入 B 或 ADRP+BR</text>
+
+  <rect class="g" x="480" y="44" width="136" height="110" rx="9"/>
+  <circle cx="500" cy="64" r="10" fill="#0a8f68"/><text class="n" x="500" y="68" text-anchor="middle">4</text>
+  <text class="t" x="516" y="68">跳板执行</text>
+  <text class="s" x="494" y="92">复原被覆盖指令</text>
+  <text class="s" x="494" y="112">调你的回调</text>
+  <text class="s" x="494" y="136">记录参数与返回值</text>
+
+  <rect class="p" x="632" y="44" width="104" height="110" rx="9"/>
+  <circle cx="652" cy="64" r="10" fill="#2563eb"/><text class="n" x="652" y="68" text-anchor="middle">5</text>
+  <text class="t" x="668" y="68">跳回</text>
+  <text class="s" x="646" y="92">回到偏移 +N</text>
+  <text class="s" x="646" y="112">继续原逻辑</text>
+
+  <text class="s" x="24" y="188">第三步是唯一容易出事的地方：覆盖长度与指令边界不齐，跳回就会落在半条指令上。</text>
+  <text class="s" x="24" y="212">第五步之后如果崩溃，优先怀疑“备份长度”与“跳回偏移”，而不是回调里的代码。</text>
+  <text class="s" x="24" y="236">收尾时要把原始字节写回，否则进程后续执行会异常。</text>
+
+  <rect x="24" y="252" width="712" height="34" rx="6" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="38" y="274">与“方法交换”对比：这里改的是代码页，痕迹是脏页 + 可执行内存，而不是方法表指针。</text>
+</svg>

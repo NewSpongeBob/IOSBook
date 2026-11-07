@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260" width="760" height="260" role="img" aria-label="Stalker 一次观察会话的时间轴">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <style>
+      .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+      .y{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .k{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.8px;fill:#c26a06}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="28">一次会话：开、采、停、收，四步都不能省</text>
+
+  <line x1="60" y1="120" x2="700" y2="120" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ar)"/>
+
+  <circle cx="110" cy="120" r="8" fill="#2563eb"/>
+  <text class="t" x="110" y="100" text-anchor="middle">follow</text>
+  <text class="s" x="110" y="146" text-anchor="middle">指定线程 ID</text>
+
+  <circle cx="290" cy="120" r="8" fill="#2563eb"/>
+  <text class="t" x="290" y="100" text-anchor="middle">采集</text>
+  <text class="s" x="290" y="146" text-anchor="middle">块入口 / 调用 / 返回</text>
+
+  <circle cx="470" cy="120" r="8" fill="#2563eb"/>
+  <text class="t" x="470" y="100" text-anchor="middle">unfollow</text>
+  <text class="s" x="470" y="146" text-anchor="middle">停止插桩</text>
+
+  <circle cx="620" cy="120" r="8" fill="#2563eb"/>
+  <text class="t" x="620" y="100" text-anchor="middle">flush</text>
+  <text class="s" x="620" y="146" text-anchor="middle">把缓冲发回</text>
+
+  <rect class="g" x="60" y="42" width="480" height="26" rx="6"/>
+  <text class="s" x="74" y="60">窗口越短越好：几百毫秒足以看清一条路径</text>
+
+  <rect class="y" x="30" y="180" width="700" height="62" rx="8"/>
+  <text class="s" x="44" y="204">顺序反了会丢数据：先 unfollow 再 flush 才能保证缓冲区里的最后一段被取回；</text>
+  <text class="s" x="44" y="224">只 unfollow 不 flush，脚本往往表现为“前面有日志、最后一段没有”。</text>
+
+</svg>

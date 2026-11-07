@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x02-static.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>09 静态侦察：从 IPA 到符号 · IOSBook</title>
+<meta name="description" content="先用命令把“文件是什么”问清楚，再谈它“做什么”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">09</span><h1>静态侦察：从 IPA 到符号</h1><p class="sub">先用命令把“文件是什么”问清楚，再谈它“做什么”</p></header>
+
+<p class="lead">静态侦察的产出应该是一张表：架构、依赖、符号、能力、可疑入口。每一条都能用一条命令验证，而不是靠印象。</p>
+
+<h2>1. 产物来源</h2>
+<table>
+<thead><tr><th>来源</th><th>拿到什么</th><th>必须记录</th></tr></thead>
+<tbody>
+<tr><td>Xcode 归档</td><td>归档包、符号文件</td><td>构建号、工具链版本</td></tr>
+<tr><td>导出的分发包</td><td>可安装包或应用包</td><td>包哈希</td></tr>
+<tr><td>构建目录</td><td>未打包的产物</td><td>与归档是否同一构建</td></tr>
+</tbody>
+</table>
+<p>先固定“分析的是哪一份产物”：没有哈希与构建号，后面的符号与地址对比都会失去意义。</p>
+
+<h2>2. 包结构：五处必须记录</h2>
+<table>
+<thead><tr><th>位置</th><th>内容</th><th>关注点</th></tr></thead>
+<tbody>
+<tr><td>主可执行文件</td><td>Mach-O</td><td>架构、加密标记、签名</td></tr>
+<tr><td><code>Frameworks/</code></td><td>内嵌框架</td><td>自有还是第三方、是否带符号</td></tr>
+<tr><td><code>PlugIns/</code></td><td>扩展</td><td>独立签名与能力</td></tr>
+<tr><td><code>Info.plist</code></td><td>配置与声明</td><td>URL scheme、后台模式、用途文案</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/static-recon.svg" alt="静态侦察的五步流水线" loading="lazy">
+<figcaption>图 1-15　每一步都有明确产出，最终收敛为一组“待验证假设”。</figcaption>
+</figure>
+
+<h2>3. 命令矩阵</h2>
+<table>
+<thead><tr><th>命令</th><th>回答什么</th><th>关键输出</th></tr></thead>
+<tbody>
+<tr><td><code>file</code></td><td>架构与类型</td><td>universal / Mach-O 64-bit</td></tr>
+<tr><td><code>otool -hv</code></td><td>文件头</td><td>filetype、ncmds、flags</td></tr>
+<tr><td><code>otool -L</code></td><td>依赖</td><td>安装名与版本约束</td></tr>
+<tr><td><code>nm -m</code></td><td>符号与可见性</td><td>undefined/external/non-external</td></tr>
+<tr><td><code>codesign -dvvv</code></td><td>签名与标识</td><td>Identifier、CDHash、Team</td></tr>
+</tbody>
+</table>
+
+<h2>4. 实机输出与读法</h2>
+<div class="code"><div class="code-title">实机输出：文件头（macOS arm64 系统二进制）</div><button class="copy" type="button">复制</button><pre><code>MH_MAGIC_64  ARM64  E USR00  EXECUTE  20  1712  NOUNDEFS DYLDLINK TWOLEVEL PIE</code></pre></div>
+<p>读法：<code>EXECUTE</code> 是文件类型；<code>20</code> 与 <code>1712</code> 是加载命令条数与总长度；<code>PIE</code> 表示位置无关，运行期基址随机；<code>TWOLEVEL</code> 是两级命名空间，符号绑定到具体库。</p>
+<div class="code"><div class="code-title">实机输出：未定义符号（来自系统库）</div><button class="copy" type="button">复制</button><pre><code>/bin/ls (for architecture x86_64):
+    (undefined) external __DefaultRuneLocale (from libSystem)
+    (undefined) external ___assert_rtn (from libSystem)
+    (undefined) external ___error (from libSystem)</code></pre></div>
+<p>读法：<code>undefined external</code> 是“我这里没有实现，运行时从 libSystem 取”。这类符号是正常现象，不代表缺失缺陷；只有运行时找不到实现才报 <code>Symbol not found</code>。</p>
+
+<div class="callout"><strong>未定义符号是常态</strong><br>动态链接程序必然带 <code>undefined external</code>，它们由依赖库在运行时提供；只有解析失败才是问题。</div>
+
+<div class="code"><div class="code-title">实机输出：只列未定义符号</div><button class="copy" type="button">复制</button><pre><code>/bin/ls (for architecture x86_64):
+__DefaultRuneLocale
+___assert_rtn
+___bzero
+___error</code></pre></div>
+<p><code>nm -u</code> 只给名字，不带来源；配合 <code>nm -m</code> 才能看到 <code>(from libSystem)</code> 这类归属信息。排查“符号找不到”时，先确认它在依赖的库里是否存在导出。</p>
+
+<div class="code"><div class="code-title">实机输出：只列导出符号（-g 且已定义）</div><button class="copy" type="button">复制</button><pre><code>/usr/bin/ssh (for architecture x86_64):
+0000000100000000 T __mh_execute_header
+/usr/bin/ssh (for architecture arm64e):
+0000000100000000 T __mh_execute_header</code></pre></div>
+<p>可执行文件几乎不导出符号——主程序的能力都在内部调用里。找入口要靠未定义符号、字符串与调试信息，而不是“导出列表”。</p>
+
+<h2>5. 符号与名字</h2>
+<table>
+<thead><tr><th>符号形态</th><th>含义</th><th>分析价值</th></tr></thead>
+<tbody>
+<tr><td><code>_OBJC_CLASS_$_Xxx</code></td><td>Objective-C 类</td><td>类名可直接用于断点</td></tr>
+<tr><td><code>-[Xxx method:]</code></td><td>实例方法</td><td>选择子即 hook 入口</td></tr>
+<tr><td><code>$s...</code></td><td>Swift 修饰名</td><td>demangle 后得到模块与签名</td></tr>
+<tr><td>无符号</td><td>已剥离</td><td>改用字符串与交叉引用</td></tr>
+</tbody>
+</table>
+<div class="code"><div class="code-title">还原 Swift 符号</div><button class="copy" type="button">复制</button><pre><code>nm -gU YourApp | awk '{print $3}' | grep '^_\$s' | head -20 | xcrun swift-demangle</code></pre></div>
+
+<div class="code"><div class="code-title">实机输出：字符串段的原始字节</div><button class="copy" type="button">复制</button><pre><code>Contents of (__TEXT,__cstring) section
+00000001000048e5	6e696200 00736c2f 78696e55 33303032</code></pre></div>
+<p>读法：每 4 字节按小端显示。第一组 <code>6e696200</code> 按字节还原是 <code>00 62 69 6e</code>（<code>\0bin</code>），第二组 <code>00736c2f</code> 是 <code>2f 6c 73 00</code>（<code>/ls\0</code>）。直接按 ASCII 读会得到乱序字符，这是很多人第一次看 <code>otool -s</code> 时的困惑。</p>
+
+<h2>6. 常见误读</h2>
+<ul>
+<li><strong>“有未定义符号就是有问题”：</strong>动态链接程序本来就有。</li>
+<li><strong>“strings 命中就代表有该功能”：</strong>可能来自资源或日志模板。</li>
+<li><strong>“没符号等于被混淆”：</strong>发布构建剥离符号是常规操作。</li>
+<li><strong>“依赖里有就等于被调用”：</strong>弱链接与间接依赖都会出现在列表里。</li>
+</ul>
+
+<h2>7. 一次真实排查记录：符号全无</h2>
+<ol>
+<li><strong>现象：</strong><code>nm</code> 输出只有几十个符号，几乎找不到业务函数。</li>
+<li><strong>先判断：</strong>是“被剥离”还是“看错了切片”；通用二进制要按架构分别看。</li>
+<li><strong>换线索：</strong>用字符串检索接口路径与错误文案，再找引用该字符串的函数。</li>
+<li><strong>交叉验证：</strong>在运行时对候选地址下断点，确认它真的被调用。</li>
+<li><strong>结论与限制：</strong>记录“发布构建已剥离符号”，并注明候选入口来自字符串推断，未经运行确认前属于推断。</li>
+</ol>
+
+<h2>8. 工程权衡：先静态还是先动态</h2>
+<table>
+<thead><tr><th>顺序</th><th>收益</th><th>风险</th></tr></thead>
+<tbody>
+<tr><td>先静态后动态</td><td>范围收敛，断点打得准</td><td>静态看不懂时容易久拖</td></tr>
+<tr><td>先动态后静态</td><td>快速看到真实调用</td><td>缺少模型，容易只看到碎片</td></tr>
+<tr><td>交替推进</td><td>每步都有验证</td><td>需要严格记录，否则反复</td></tr>
+</tbody>
+</table>
+<p>推荐“静态给候选、动态做确认、再回到静态读细节”的交替节奏，而不是一次性把静态做完。</p>
+
+<div class="code"><div class="code-title">实机输出：strings 的前几行</div><button class="copy" type="button">复制</button><pre><code>__PAGEZERO
+__TEXT
+__text
+__TEXT
+__stubs</code></pre></div>
+<p>读法：在 Mach-O 上直接 <code>strings</code>，最先吐出来的是<b>段名与节名</b>，不是业务字符串。要筛业务线索，先跳过头部几 KB，或配合 <code>grep</code> 过滤可打印且像 URL / 错误的行。</p>
+
+<div class="code"><div class="code-title">实机输出：带大小的符号表（-S）</div><button class="copy" type="button">复制</button><pre><code>/usr/bin/ssh (for architecture x86_64):
+                                  U _AES_encrypt
+                                  U _AES_set_encrypt_key</code></pre></div>
+<p>读法：<code>U</code> 表示未定义，<b>没有大小列</b>——大小只有在符号定义处才有。因此 <code>nm -S</code> 对“找函数长度”无效，要长度得看反汇编或 DWARF。</p>
+
+<h2>9. 自测</h2>
+<ol>
+<li>为什么要先记录产物哈希，再谈符号与地址？</li>
+<li><code>undefined external</code> 在什么情况下是正常的？</li>
+<li>Swift 符号为什么要 demangle，它编码了哪些信息？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

@@ -1,1 +1,100 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>A05 安全审查清单 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">A05</span><h1>安全审查清单</h1><p class="sub">以问题驱动审查；清单不能替代威胁建模和代码审查</p></header><h2>身份与授权</h2><ul><li>敏感操作是否由服务端验证身份、资源归属和权限？</li><li>登出、过期、撤销和账户切换是否能使旧会话失效？</li><li>客户端是否错误地把隐藏按钮、设备标识或本地标志当成授权？</li></ul><h2>数据与隐私</h2><ul><li>每类敏感数据是否有目的、最小采集和删除期限？</li><li>凭据是否采用合适的平台存储与访问控制，日志是否脱敏？</li><li>锁屏、备份、恢复、崩溃和分析路径是否纳入检查？</li></ul><h2>平台与构建</h2><ul><li>能力和 API 是否公开、获准且在目标 OS 范围受支持？</li><li>依赖、构建脚本、签名凭据和发布产物是否可追溯？</li><li>错误与离线状态是否安全降级，关键版本是否回归？</li></ul><h2>研究与交付</h2><ul><li>测试是否有明确书面授权，使用隔离环境和虚构数据？</li><li>报告是否区分事实、推断和未知，且不泄露敏感材料？</li><li>修复是否有自动化测试、版本范围和回滚方案？</li></ul><p>每项标记：通过 / 不适用 / 待处理，并附证据、负责人和复查日期。</p><p><a href="../part/99-appendix.html">← 返回附录</a></p></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/a05.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A05 安全审查清单 · IOSBook</title>
+<meta name="description" content="清单用来提问，不用来打勾">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">A05</span><h1>安全审查清单</h1><p class="sub">清单用来提问，不用来打勾</p></header>
+
+<p class="lead">一份好的审查清单不是在末尾留一串勾，而是让每个问题都指向“证据在哪”。下面按六个面组织，适合在需求评审与发布前各过一遍。</p>
+
+<h2>1. 身份与授权</h2>
+<ul>
+<li>每个敏感接口是否在服务端校验主体、资源归属与动作？</li>
+<li>401 与 403 的处理是否区分？是否存在刷新风暴？</li>
+<li>注销、改密、设备丢失时令牌是否在服务端失效？</li>
+<li>客户端是否缓存了授权结论？权限变化后多久生效？</li>
+</ul>
+
+<h2>2. 数据与隐私</h2>
+<ul>
+<li>敏感数据存在哪里？是否进入备份、日志、快照、剪贴板？</li>
+<li>钥匙串条目的可访问性是否与业务流程匹配？</li>
+<li>日志是否采用字段白名单？标识是否脱敏？</li>
+<li>权限请求是否在合理时机、用途说明是否具体？被拒后的降级是否可用？</li>
+</ul>
+
+<figure>
+<img src="../assets/figures/six-areas.svg" alt="安全审查的六个面" loading="lazy">
+<figcaption>图 A-5　六个面各至少一个问题，答案要指向证据而不是打勾。</figcaption>
+</figure>
+
+<h2>3. 网络与传输</h2>
+<ul>
+<li>是否使用系统信任评估？是否存在“接受任意证书”的分支？</li>
+<li>证书固定是否有轮换与回退方案？</li>
+<li>令牌是否出现在 URL、日志或分析事件中？</li>
+<li>重试是否幂等？超时与限流策略是否明确？</li>
+</ul>
+
+<h2>4. 平台能力与配置</h2>
+<ul>
+<li>entitlement 集合是否与功能一一对应？发布包是否残留调试能力？</li>
+<li>远程配置是否校验类型、范围与完整性？是否有安全默认值？</li>
+<li>WebView 是否有域名白名单、桥接是否最小化？</li>
+<li>通知与角标是否泄露敏感内容？</li>
+</ul>
+
+<h2>5. 构建与供应链</h2>
+<ul>
+<li>依赖是否锁定版本、记录来源与哈希？</li>
+<li>构建插件与 CI 组件的权限是否最小化？</li>
+<li>产物、符号与提交 SHA 是否成组归档？</li>
+<li>是否存在个人机器重签生产包的情况？</li>
+</ul>
+
+<h2>6. 运营与响应</h2>
+<ul>
+<li>关键指标是否有基线与阈值？</li>
+<li>回滚触发条件是否写进发布单？</li>
+<li>事件联系人、渠道与证据保管规则是否就绪？</li>
+<li>最近一次演练是什么时候，改进项是否闭环？</li>
+</ul>
+
+<h2>7. 使用建议：按证据等级排序</h2>
+<div class="callout"><strong>两遍法</strong><br>第一遍只标记“有证据”的项；第二遍针对未标记项决定“补证据 / 接受风险 / 改设计”，并记录责任人与期限。</div>
+
+<h2>8. 证据等级：实测优先于源码，源码优先于推断</h2><table><thead><tr><th>等级</th><th>例子</th><th>可采信程度</th></tr></thead><tbody><tr><td>实测</td><td>自有设备上的复现记录</td><td>高</td></tr><tr><td>源码观察</td><td>开源实现</td><td>中</td></tr><tr><td>推断</td><td>由行为反推</td><td>低，需标注</td></tr></tbody></table><div class="code"><div class="code-title">清单项格式</div><button class="copy" type="button">复制</button><pre><code>- [ ] 项：服务端校验资源归属
+  证据：用例 R-07，截图 2026-11-06
+  责任人：—</code></pre></div>
+<h2>9. 六个面：每面一个问题</h2><table><thead><tr><th>面</th><th>最少要回答的问题</th></tr></thead><tbody><tr><td>身份与授权</td><td>服务端是否校验资源归属？</td></tr><tr><td>数据与隐私</td><td>敏感数据会进日志/备份/快照吗？</td></tr><tr><td>网络</td><td>是否有“接受任意证书”的分支？</td></tr><tr><td>平台能力</td><td>发布包是否残留调试能力？</td></tr><tr><td>构建与供应链</td><td>依赖是否锁定来源与哈希？</td></tr><tr><td>运营与响应</td><td>回滚阈值与联系人是否就绪？</td></tr></tbody></table>
+<h2>10. 填写示例</h2>
+<div class="code"><div class="code-title">一条可复核的清单项</div><button class="copy" type="button">复制</button><pre><code>- [ ] 服务端校验资源归属
+  证据：用例 R-07 返回 403（附请求 ID）
+  环境：测试服务 / 账号 A / 资源属于 B
+  限制：仅覆盖读取接口，未覆盖导出
+  责任人：—</code></pre></div>
+
+<h2>11. 自测</h2>
+<ol>
+<li>为什么清单要求“证据”而不是“是否完成”？</li>
+<li>六个面中，哪一面最容易被忽略？为什么？</li>
+<li>未通过项的处理有哪几种合理结局？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 240" width="760" height="240" role="img" aria-label="网络与授权用例矩阵">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker><style>
+  .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+  .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+  .y{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+  .n{fill:#f2f4f7;stroke:#cfd6e0;stroke-width:1.3}
+  .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+  .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+  .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+  .k{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#c26a06}
+</style></defs>
+
+  <text class="h" x="30" y="28">每条用例只改一个变量，记录客户端与服务端两侧表现</text>
+
+  <rect x="26" y="48" width="220" height="40" rx="6" fill="#eef3fb" stroke="#c9d6ea"/>
+  <text class="t" x="38" y="73">用例</text>
+  <text class="t" x="270" y="73">预期状态</text>
+  <text class="t" x="470" y="73">客户端动作</text>
+
+  <rect x="26" y="92" width="708" height="34" rx="5" fill="#fff" stroke="#e3e8ef"/>
+  <text class="s" x="38" y="114">过期令牌</text>
+  <text class="s" x="270" y="114">401</text>
+  <text class="s" x="470" y="114">刷新一次，失败回登录</text>
+
+  <rect x="26" y="130" width="708" height="34" rx="5" fill="#fbfcfe" stroke="#e3e8ef"/>
+  <text class="s" x="38" y="152">越权读取</text>
+  <text class="s" x="270" y="152">403 / 404</text>
+  <text class="s" x="470" y="152">不重试，提示</text>
+
+  <rect x="26" y="168" width="708" height="34" rx="5" fill="#fff" stroke="#e3e8ef"/>
+  <text class="s" x="38" y="190">重复提交</text>
+  <text class="s" x="270" y="190">200（仅一次生效）</text>
+  <text class="s" x="470" y="190">幂等键，防重复</text>
+
+  <text class="s" x="30" y="228">403 重试只会放大日志与限流；429 才该退避。错误响应不要泄露资源是否存在。</text>
+
+</svg>

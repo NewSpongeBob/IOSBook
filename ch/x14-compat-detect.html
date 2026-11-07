@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x14-compat-detect.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>F05 兼容与检测面 · IOSBook</title>
+<meta name="description" content="能跑起来只是第一步，能解释“为什么这台不行”才算会用">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">F05</span><h1>兼容与检测面</h1><p class="sub">能跑起来只是第一步，能解释“为什么这台不行”才算会用</p></header>
+
+<p class="lead">插桩工具对系统版本、架构与签名状态很敏感。同一份脚本，在不同设备上可能一个正常、一个直接崩溃；防御方看的也主要是这几类差异。</p>
+
+<h2>1. 兼容矩阵</h2>
+<table>
+<thead><tr><th>维度</th><th>影响</th><th>排查方式</th></tr></thead>
+<tbody>
+<tr><td>系统版本</td><td>运行时结构、加载器行为、内存布局</td><td>固定版本复现，逐版本对比</td></tr>
+<tr><td>架构</td><td>arm64 与 arm64e 的签名/跳转校验不同</td><td>确认设备架构与工具支持</td></tr>
+<tr><td>签名状态</td><td>决定能否加载额外代码</td><td>调试能力与设备状态</td></tr>
+<tr><td>工具版本</td><td>agent 与宿主协议需匹配</td><td>两端版本对齐</td></tr>
+</tbody>
+</table>
+
+<h2>2. 典型不兼容</h2>
+<ul>
+<li><strong>加载器变化：</strong>新系统改了镜像布局，旧的注入偏移失效。</li>
+<li><strong>指针认证：</strong>伪造跳转目标被拒，表现为异常而不是“没效果”。</li>
+<li><strong>端口冲突：</strong>默认端口被占用或已被改，连接超时。</li>
+<li><strong>应用加固：</strong>完整性校验或反调试让进程在注入后立刻退出。</li>
+</ul>
+
+<figure>
+<img src="../assets/figures/compat-matrix.svg" alt="系统版本与架构组成的兼容矩阵" loading="lazy">
+<figcaption>图 3-9　每格要么有证据，要么明确写“未验证”。</figcaption>
+</figure>
+
+<h2>3. 检测面：可改的与难改的</h2>
+<table>
+<thead><tr><th>信号</th><th>怎么被发现</th><th>可靠性</th></tr></thead>
+<tbody>
+<tr><td>监听端口</td><td>扫描本机端口，常见 27042 / 27043</td><td>中：端口可改</td></tr>
+<tr><td>额外线程</td><td>线程列表出现非应用创建的线程</td><td>中：线程名可伪装</td></tr>
+<tr><td>模块列表</td><td>镜像中出现未随包分发的库</td><td>高：需真实加载</td></tr>
+<tr><td>可执行映射</td><td>出现未签名的可执行内存段</td><td>高</td></tr>
+<tr><td>环境变量</td><td>启动参数中出现注入变量</td><td>中</td></tr>
+<tr><td>时序异常</td><td>关键路径耗时显著变长</td><td>低：易误报</td></tr>
+</tbody>
+</table>
+<div class="callout"><strong>先看“能不能”，再看“像不像”</strong><br>“端口在监听”只能说明有服务；“模块列表里多了一个库”才能说明代码被加载。判断可靠性时优先看后者。</div>
+
+<h2>4. 命令形态</h2>
+<div class="code"><div class="code-title">确认工具与设备的匹配情况</div><button class="copy" type="button">复制</button><pre><code>frida --version                 # 本机工具版本
+frida-ps -U                     # 列出设备上的进程（能列出说明通道可用）
+frida-ps -Uai | grep -i yourapp # 只看自己的应用
+lsof -nP -iTCP:27042 -sTCP:LISTEN   # 端口是否被占用</code></pre></div>
+
+<h2>5. 评估自己的防护</h2>
+<ol>
+<li>列出你能观测的信号，标注每条的证据来源。</li>
+<li>在正常设备上跑一遍，统计误报——这是最容易被忽略的成本。</li>
+<li>假设某条信号失效，看是否还有其它层能兜住。</li>
+<li>把结论写进发布检查，而不是停留在“我们加了检测”。</li>
+</ol>
+
+<h2>6. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>某版本必崩</td><td>运行时结构变化</td><td>按版本二分，缩到具体 API</td></tr>
+<tr><td>某机型失效</td><td>架构差异（arm64e）</td><td>核对架构与工具支持</td></tr>
+<tr><td>注入后应用退出</td><td>完整性或调试检测</td><td>崩溃报告、检测分支</td></tr>
+<tr><td>连接超时</td><td>端口被占用或转发错误</td><td>实际监听端口</td></tr>
+<tr><td>脚本语法通过但不执行</td><td>运行时版本不支持该 API</td><td>工具与 agent 版本</td></tr>
+</tbody>
+</table>
+
+<h2>7. 数据细节：兼容矩阵有多大</h2>
+<table>
+<thead><tr><th>维度</th><th>取值</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>系统版本</td><td>最低支持 / 主流 / 最新</td><td>至少三档</td></tr>
+<tr><td>架构</td><td>arm64 / arm64e</td><td>指针签名差异</td></tr>
+<tr><td>环境</td><td>真机 / 模拟器</td><td>模拟器无真实签名与 SEP</td></tr>
+<tr><td>合计</td><td>约 12 格</td><td>全测成本高，需按风险裁剪</td></tr>
+</tbody>
+</table>
+<p>裁剪原则：功能强相关（签名、内存、注入）的格子必须测；与平台无关的纯业务逻辑可合并。</p>
+
+<h2>8. 一次真实排查记录：某系统版本必崩</h2>
+<ol>
+<li><strong>现象：</strong>同一份脚本，最新系统正常，次新系统一注入就崩。</li>
+<li><strong>先切片：</strong>按“系统版本 × 架构”二分，确认是版本相关还是机型相关。</li>
+<li><strong>缩到调用：</strong>在崩溃前最后一个成功回调处停下，看下一个调用的参数。</li>
+<li><strong>换路径：</strong>该版本可能改了运行时结构，改用不依赖内部布局的接口。</li>
+<li><strong>结论与限制：</strong>记录“该版本结构变化”，并注明结论只对该版本区间成立。</li>
+</ol>
+
+<div class="code"><div class="code-title">实机输出：记录环境所需的最小信息</div><button class="copy" type="button">复制</button><pre><code>ProductName:		macOS
+ProductVersion:		15.7.5
+BuildVersion:		24G624</code></pre></div>
+<p>读法：兼容结论必须带<b>版本号 + 构建号</b>。<code>15.7.5</code> 是市场营销版本，<code>24G624</code> 才是构建标识；只写前者，两台机器可能不是同一构建。</p>
+
+<h2>9. 自测</h2>
+<ol>
+<li>为什么“端口扫描”这类信号可靠性偏低？</li>
+<li>arm64e 的指针认证会让失败表现成什么形态？</li>
+<li>评估检测时为什么必须统计误报？</li>
+<li>兼容矩阵里为什么要单独列“工具版本”？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

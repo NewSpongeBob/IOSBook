@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x15-tweak.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>W01 tweak 是什么：组成、加载与原理 · IOSBook</title>
+<meta name="description" content="tweak 就是“被注入的动态库 + 注入规则”，其余都是细节">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">W01</span><h1>tweak 是什么：组成、加载与原理</h1><p class="sub">tweak 就是“被注入的动态库 + 注入规则”，其余都是细节</p></header>
+
+<p class="lead">如果只记一句：<b>tweak 是一个动态库，由越狱环境的注入器在目标进程启动时加载进来，在里面改方法实现。</b>它不是什么特殊格式，就是一个 <code>.dylib</code>，加一份“注入到谁”的规则。</p>
+
+<blockquote><strong>场景</strong>　你想让某个应用在请求令牌时多打一行日志。改源码要重新打包分发，而 tweak 的做法是：写一个几十行的动态库，告诉注入器“只在目标进程里加载它”，进程一启动，方法就被换掉了。</blockquote>
+
+<h2>1. 三个组成部分</h2>
+<table>
+<thead><tr><th>组成</th><th>是什么</th><th>没有它会怎样</th></tr></thead>
+<tbody>
+<tr><td>动态库（<code>.dylib</code>）</td><td>你的代码，构造时装 hook</td><td>没有逻辑可执行</td></tr>
+<tr><td>注入规则（filter plist）</td><td>按 bundle / 可执行名 / 类名匹配进程</td><td>不知道加载到哪个进程</td></tr>
+<tr><td>注入器</td><td>越狱环境提供的加载框架</td><td>库永远不会被载入</td></tr>
+</tbody>
+</table>
+<p>三者的关系是“内容 + 范围 + 搬运”。日常说的“装一个 tweak”，实际是把前两者打成包，交给第三者在运行时搬运。</p>
+
+<h2>2. 它是怎么进到进程里的</h2>
+<ol>
+<li>目标进程 <code>exec</code>，加载器开始工作。</li>
+<li>注入器在进程启动早期介入，读取注入规则。</li>
+<li>规则匹配当前进程，命中则 <code>dlopen</code> 你的库。</li>
+<li>库的构造函数执行（早于应用 <code>main</code>）。</li>
+<li>构造函数里安装 hook：改方法表或指令入口。</li>
+<li>进程正常运行，命中 hook 时走你的实现；退出时没有卸载回调。</li>
+</ol>
+
+<figure>
+<img src="../assets/figures/tweak-timeline.svg" alt="tweak 在进程生命周期中的注入与生效窗口" loading="lazy">
+<figcaption>图 5-1　构造函数早于 <code>main</code>；窗口之外（加载前、退出后）什么都做不了。</figcaption>
+</figure>
+
+<figure data-steps="写代码|出产物|写规则|注入器加载|生效" data-cols="5" data-rows="1" data-geometry="24,44,136,112,16,0">
+<img src="../assets/figures/tweak-steps.svg" alt="tweak 从源码到生效的五步分帧" loading="lazy">
+<figcaption>图 5-2　内容、范围、搬运、安装、生效；验证顺序与五步一一对应。</figcaption>
+</figure>
+
+<h2>3. Logos 只是语法糖</h2>
+<p>很多教程用 <code>%hook</code> 写法，看起来像新语言，其实编译后就是方法交换。两种写法等价：</p>
+<div class="code"><div class="code-title">Logos 写法（Tweak.xm）</div><button class="copy" type="button">复制</button><pre><code>%hook LoginService
+- (NSString *)requestToken:(NSString *)account {
+    NSLog(@"[tweak] account=%@", account);
+    return %orig;                      // 调用原实现
+}
+%end</code></pre></div>
+<div class="code"><div class="code-title">等价的 Objective-C 写法</div><button class="copy" type="button">复制</button><pre><code>static IMP gOrig = NULL;
+
+NSString *LoggedRequest(LoginService *self, SEL _cmd, NSString *account) {
+    NSLog(@"[tweak] account=%@", account);
+    return ((NSString *(*)(id, SEL, NSString *))gOrig)(self, _cmd, account);
+}
+
+// 构造函数里：
+Method m = class_getInstanceMethod(NSClassFromString(@"LoginService"),
+                                   @selector(requestToken:));
+gOrig = method_getImplementation(m);
+method_setImplementation(m, (IMP)LoggedRequest);</code></pre></div>
+<p>看懂第二段，就明白 <code>%orig</code> 只是“保存原实现的函数指针，再调用它”。<code>%hook</code> 帮你生成了这些样板。</p>
+
+<h2>4. 注入规则长什么样</h2>
+<div class="code"><div class="code-title">filter plist（示意）</div><button class="copy" type="button">复制</button><pre><code>Filter = {
+    Bundles = (com.example.target);      // 按 bundle id 匹配
+    Executables = ("TargetApp");         // 或按可执行名
+    Classes = ("LoginService");          // 仅当该进程加载了此类
+};</code></pre></div>
+<p>三个键可以组合：<code>Bundles</code> 限定应用，<code>Executables</code> 覆盖非 App 进程，<code>Classes</code> 做“加载了才注入”的懒匹配。</p>
+
+<h2>5. 不越狱也能练：把它当成“自己的动态框架”</h2>
+<p>机制里只有“谁把库加载进来”这一环依赖越狱。在自己的工程里，你可以直接加一个动态框架，在构造函数里做同样的事：</p>
+<div class="code"><div class="code-title">自有工程中的等价练习</div><button class="copy" type="button">复制</button><pre><code>// 1) 新建 Dynamic Framework 目标，加入主 App
+// 2) 在框架里写：
+__attribute__((constructor))
+static void install(void) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        Class cls = NSClassFromString(@"LoginService");
+        Method m = cls ? class_getInstanceMethod(cls, @selector(requestToken:)) : NULL;
+        if (m) method_setImplementation(m, (IMP)LoggedRequest);
+    });
+}</code></pre></div>
+<p>这就是“tweak 的全部原理”，只是加载者是应用自己而不是注入器。先在这里跑通，再去越狱设备上只是换了个搬运工。</p>
+
+<h2>6. 作用域：注入的进程集合</h2>
+<table>
+<thead><tr><th>范围</th><th>怎么实现</th><th>风险</th></tr></thead>
+<tbody>
+<tr><td>单个应用</td><td><code>Bundles</code> 指定一个 id</td><td>低</td></tr>
+<tr><td>多个应用</td><td>列出多个 id 或按可执行名</td><td>随应用版本变化而失效</td></tr>
+<tr><td>主屏进程</td><td>注入界面进程</td><td>崩溃导致界面重启</td></tr>
+<tr><td>守护进程</td><td>按可执行名匹配</td><td>影响面最大，最难恢复</td></tr>
+</tbody>
+</table>
+
+<h2>7. 配置与跨进程</h2>
+<ul>
+<li>配置放偏好设置，各进程各自读取；改完必须重启目标进程才生效。</li>
+<li>进程间没有共享内存，同步靠文件或通知。</li>
+<li>同进程里多个 tweak 可能 hook 同一方法，顺序不确定，表现为“有时生效”。</li>
+</ul>
+<div class="callout"><strong>没有“卸载”这回事</strong><br>进程退出即结束，不存在安全卸载回调。依赖退出清理的逻辑都不成立；要清理就在显式时机做。</div>
+
+<h2>8. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>完全没反应</td><td>规则没匹配上，库根本没加载</td><td>进程里能否看到该镜像</td></tr>
+<tr><td>改了配置没反应</td><td>目标进程未重启</td><td>进程是否重新加载</td></tr>
+<tr><td>构造函数里崩溃</td><td>访问了未初始化的应用对象</td><td>延后到主队列或首次使用</td></tr>
+<tr><td>偶发不生效</td><td>多 tweak 冲突或加载顺序</td><td>减少 hook，隔离验证</td></tr>
+<tr><td>主屏反复重启</td><td>注入界面进程后崩溃</td><td>缩小作用域到单应用</td></tr>
+</tbody>
+</table>
+
+<h2>9. 自测</h2>
+<ol>
+<li>tweak 的三个组成部分分别解决什么问题？</li>
+<li><code>%orig</code> 在底层对应什么操作？</li>
+<li>为什么“不越狱也能练”？差别只在哪一环？</li>
+<li>改了配置却只有部分界面生效，最可能的原因是什么？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

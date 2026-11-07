@@ -1,1 +1,95 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="initial-scale=1"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>T03 自建测试服务网络验证 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">T03</span><h1>自建测试服务网络安全验证</h1><p class="sub">在本地或专用测试环境验证客户端与服务端协作</p></header><p class="lead">使用自己拥有的测试 App 和测试服务，专用虚构账户与数据。不得把本练习用于第三方服务、生产环境或未授权网络。</p><h2>建立测试服务</h2><p>实现最小的登录态和一项只读业务接口。服务端应验证会话、对象归属和输入 schema；客户端使用公开网络 API，通过 TLS 访问仅供实验的端点。</p><h2>测试矩阵</h2><ol><li>有效测试凭据、缺失凭据、过期凭据和已撤销会话。</li><li>无权限对象、无效参数、重复请求和速率限制响应。</li><li>网络离线、超时、服务端错误、证书配置错误等失败路径。</li><li>确认客户端错误提示不泄露令牌、内部堆栈或不必要服务细节。</li></ol><h2>验收</h2><p>服务端对未授权请求拒绝敏感操作；重复请求不会造成非预期副作用；网络错误可安全恢复；日志只保留虚构数据和必要审计字段。</p><nav class="pager"><a href="./53-lab-data.html">← 上一练习</a><a href="./55-lab-regression.html">下一练习 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/54-lab-network.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>T03 网络与授权验证 · IOSBook</title>
+<meta name="description" content="用一个自己写的服务，验证“客户端说了不算”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">T03</span><h1>网络与授权验证</h1><p class="sub">用一个自己写的服务，验证“客户端说了不算”</p></header>
+
+<p class="lead">这个练习的重点不是拦截流量，而是验证服务端是否真的独立做判断。自建测试服务的最大价值，是你可以按需制造“未授权”“过期”“越权”三种状态。</p>
+
+<h2>1. 建立测试服务</h2>
+<p>最小接口设计：</p>
+<table>
+<thead><tr><th>接口</th><th>行为</th><th>用于验证</th></tr></thead>
+<tbody>
+<tr><td>登录</td><td>签发短期令牌与刷新凭据</td><td>会话生命周期</td></tr>
+<tr><td>读取记录</td><td>按记录 ID 返回，校验归属</td><td>对象级授权</td></tr>
+<tr><td>更新记录</td><td>校验归属与字段范围</td><td>输入校验、幂等</td></tr>
+<tr><td>管理接口</td><td>仅管理角色可调用</td><td>功能级授权</td></tr>
+</tbody>
+</table>
+<p>服务端要有结构化日志（不含令牌原文），并记录“主体、动作、资源、结果”，方便复盘。</p>
+
+<h2>2. 测试矩阵</h2>
+<table>
+<thead><tr><th>用例</th><th>构造方式</th><th>预期</th></tr></thead>
+<tbody>
+<tr><td>无令牌</td><td>去掉认证头</td><td>401，不含业务数据</td></tr>
+<tr><td>过期令牌</td><td>服务端缩短有效期</td><td>401，客户端能刷新或回到登录</td></tr>
+<tr><td>越权读取</td><td>A 的令牌请求 B 的记录 ID</td><td>403 或 404，不泄露存在性</td></tr>
+<tr><td>越权更新</td><td>A 更新 B 的记录</td><td>拒绝，数据未改变</td></tr>
+<tr><td>字段越界</td><td>提交超长字符串/非法枚举</td><td>400，服务端拒绝</td></tr>
+<tr><td>重复提交</td><td>同一幂等键提交两次</td><td>只生效一次</td></tr>
+<tr><td>限流</td><td>短时间大量请求</td><td>429，客户端退避</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/lab-net-matrix.svg" alt="网络与授权用例矩阵" loading="lazy">
+<figcaption>图 7-3　每条用例只改一个变量，分别记录客户端与服务端表现。</figcaption>
+</figure>
+
+<h2>3. 执行要点</h2>
+<ul>
+<li>每个用例只改一个变量，记录请求、响应与客户端表现。</li>
+<li>确认客户端在 403 时不重试、在 401 时只刷新一次。</li>
+<li>检查错误响应是否泄露内部结构（堆栈、SQL、内部路径）。</li>
+<li>所有测试账号与数据为虚构，测试结束清理。</li>
+</ul>
+
+<h2>4. 交付物：用例结果表</h2>
+<ol>
+<li>用例结果表：用例、预期、实际、证据、结论。</li>
+<li>发现清单：按影响排序，标注“客户端可缓解”与“必须服务端修复”。</li>
+<li>修复建议：优先服务端授权与输入校验，其次客户端体验优化。</li>
+</ol>
+
+<h2>5. 响应码处理</h2><table><thead><tr><th>状态</th><th>含义</th><th>客户端动作</th></tr></thead><tbody><tr><td>401</td><td>身份失效</td><td>刷新一次，失败回登录</td></tr><tr><td>403</td><td>权限不足</td><td>不重试，提示</td></tr><tr><td>429</td><td>限流</td><td>退避后重试</td></tr></tbody></table><div class="code"><div class="code-title">用 curl 复现三类响应（自有测试服务）</div><button class="copy" type="button">复制</button><pre><code>curl -i http://127.0.0.1:8080/records/1
+curl -i -H "Authorization: Bearer expired" http://127.0.0.1:8080/records/1
+curl -i -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/records/2</code></pre></div>
+<div class="callout"><strong>403 不重试</strong><br>权限不足时重试只会放大日志与限流；401 才值得刷新一次，且要防止刷新风暴。</div>
+<h2>6. 常见错误：网络用例</h2>
+<table>
+<thead><tr><th>错误</th><th>后果</th></tr></thead>
+<tbody>
+<tr><td>对 403 做重试</td><td>放大日志与限流，问题更明显</td></tr>
+<tr><td>只测成功路径</td><td>失败分支的错误处理无人验证</td></tr>
+<tr><td>用同一账号测越权</td><td>无法区分“有权”与“校验缺失”</td></tr>
+<tr><td>忽略 401 刷新循环</td><td>令牌失效时形成刷新风暴</td></tr>
+</tbody>
+</table>
+
+<h2>7. 自测</h2>
+<ol>
+<li>为什么越权读取应返回 404 或统一错误，而不是详细说明？</li>
+<li>客户端在 403 时重试会造成什么后果？</li>
+<li>幂等键与限流分别解决哪类问题？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

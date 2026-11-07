@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x16-hardening.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H01 加固结构与代价 · IOSBook</title>
+<meta name="description" content="加固买的是时间，代价是可维护性与崩溃分析能力">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">H01</span><h1>加固结构与代价</h1><p class="sub">加固买的是时间，代价是可维护性与崩溃分析能力</p></header>
+
+<p class="lead">判断一项加固值不值，只看三件事：挡住了什么具体动作、误伤了多少正常用户、让崩溃分析难了多少。三项都能量化，讨论才不会落到“更安全”这种空话。</p>
+
+<h2>1. 七类手段</h2>
+<table>
+<thead><tr><th>手段</th><th>作用</th><th>分析者看到的特征</th></tr></thead>
+<tbody>
+<tr><td>符号剥离</td><td>去掉函数名与调试信息</td><td>符号表近空，字符串仍在</td></tr>
+<tr><td>字符串加密</td><td>隐藏接口与提示</td><td>解密桩 + 常量数组</td></tr>
+<tr><td>名称混淆</td><td>类名方法名随机化</td><td>符号有但语义不可读</td></tr>
+<tr><td>控制流平坦化</td><td>打散分支</td><td>大循环 + 状态分派</td></tr>
+<tr><td>反调试</td><td>阻碍附加</td><td>启动早期查询调试状态</td></tr>
+<tr><td>完整性校验</td><td>发现代码被改</td><td>读自身文件、算哈希、比对</td></tr>
+<tr><td>环境检测</td><td>识别异常设备</td><td>路径、scheme、进程探测</td></tr>
+</tbody>
+</table>
+
+<h2>2. 代价：维护、误报与分析成本</h2>
+<table>
+<thead><tr><th>手段</th><th>维护成本</th><th>崩溃分析影响</th><th>误报风险</th></tr></thead>
+<tbody>
+<tr><td>符号剥离</td><td>低</td><td>高（只剩偏移）</td><td>无</td></tr>
+<tr><td>字符串加密</td><td>中</td><td>中（日志不可读）</td><td>无</td></tr>
+<tr><td>平坦化</td><td>高</td><td>高（行号失真）</td><td>无</td></tr>
+<tr><td>反调试</td><td>中</td><td>中（调试构建需例外）</td><td>中</td></tr>
+<tr><td>完整性校验</td><td>中</td><td>高（误判直接退出）</td><td>高</td></tr>
+<tr><td>环境检测</td><td>中</td><td>低</td><td>高</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/hardening-tradeoff.svg" alt="加固手段的强度与成本权衡" loading="lazy">
+<figcaption>图 6-1　越靠右上防护越强、维护越贵；评估要同时看强度、误报与崩溃分析成本。</figcaption>
+</figure>
+
+<h2>3. 观测特征</h2>
+<div class="code"><div class="code-title">分析者看到的解密桩（示意）</div><button class="copy" type="button">复制</button><pre><code>static void decode(char *buf, size_t len, uint8_t key) {
+    for (size_t i = 0; i &lt; len; i++) buf[i] ^= key;
+}
+// 调用点：常量数组 + 长度 + 密钥；部分实现返回前清零</code></pre></div>
+<p>这类桩有两个可抓的特征：被调用次数极多、参数里带常量地址。抓住调用点就能批量还原字符串，算法本身并不重要。</p>
+
+<h2>4. 评估流程</h2>
+<ol>
+<li>列出每项手段能挡住的具体动作（不是“提高安全性”）。</li>
+<li>测正常用户路径上的误报，尤其企业设备与测试机。</li>
+<li>评估失效后果：某一项被绕过，剩下还能做什么。</li>
+<li>记录崩溃分析成本：符号化难度、行号可靠性。</li>
+</ol>
+<div class="callout"><strong>常见误区</strong><br>把“检测到异常”当成“拒绝服务”。更稳妥的分级是：上报 → 限制高风险操作 → 才考虑阻断。</div>
+
+<h2>5. 强度与可维护性</h2>
+<table>
+<thead><tr><th>组合</th><th>防护强度</th><th>维护负担</th><th>建议</th></tr></thead>
+<tbody>
+<tr><td>仅符号剥离</td><td>低</td><td>无</td><td>发布默认</td></tr>
+<tr><td>字符串加密 + 环境检测</td><td>中</td><td>中</td><td>多数应用够用</td></tr>
+<tr><td>再加平坦化</td><td>中高</td><td>高</td><td>只对核心算法局部使用</td></tr>
+<tr><td>全量虚拟机保护</td><td>高</td><td>很高</td><td>仅高价值算法，且需专项维护</td></tr>
+</tbody>
+</table>
+
+<h2>6. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>线上崩溃无法定位</td><td>符号剥离 + 平坦化</td><td>保留符号归档、按 UUID 匹配</td></tr>
+<tr><td>正常用户被拦</td><td>环境检测误报</td><td>分级响应、白名单</td></tr>
+<tr><td>更新后大面积崩溃</td><td>完整性校验与热修冲突</td><td>校验范围与更新流程</td></tr>
+<tr><td>加固后性能下降</td><td>解密/校验在热路径</td><td>缓存结果、移出主线程</td></tr>
+</tbody>
+</table>
+
+<h2>7. 数据细节：加固的强度梯度</h2>
+<table>
+<thead><tr><th>组合</th><th>对抗成本</th><th>维护成本</th></tr></thead>
+<tbody>
+<tr><td>符号剥离</td><td>低</td><td>无</td></tr>
+<tr><td>字符串加密 + 环境检测</td><td>中</td><td>中</td></tr>
+<tr><td>再加控制流平坦化</td><td>中高</td><td>高</td></tr>
+<tr><td>虚拟机保护</td><td>高</td><td>很高</td></tr>
+</tbody>
+</table>
+
+<h2>8. 一次真实排查记录：线上崩溃无法定位</h2>
+<ol>
+<li><strong>现象：</strong>崩溃报告只有地址，没有函数名。</li>
+<li><strong>先查符号：</strong>符号文件是否归档，UUID 是否匹配。</li>
+<li><strong>再看加固：</strong>平坦化会让行号失真，回溯可信度下降。</li>
+<li><strong>补证据：</strong>在关键路径埋点，用日志替代栈。</li>
+<li><strong>结论与限制：</strong>记录“加固导致可观测性下降”，并注明这是可预期的代价。</li>
+</ol>
+
+<h2>9. 自测</h2>
+<ol>
+<li>为什么“符号剥离”对崩溃分析的影响比对逆向更大？</li>
+<li>字符串解密桩的两个可抓特征是什么？</li>
+<li>完整性校验为什么容易误报？</li>
+<li>“检测到异常就退出”有什么问题？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

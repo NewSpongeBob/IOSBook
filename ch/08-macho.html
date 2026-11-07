@@ -1,1 +1,142 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>08 Mach-O 与虚拟地址空间 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">CHAPTER 08</span><h1>Mach-O 与虚拟地址空间</h1><p class="sub">可执行文件结构、映射与地址随机化的基础概念</p></header><p class="lead">Mach-O 描述可执行文件及其组成。离线文件偏移、虚拟地址和进程运行时地址是不同概念，分析时必须明确所处坐标系。</p><h2>学习目标</h2><ul><li>认识 Mach-O 文件头、加载命令与段/节的组织方式。</li><li>区分文件偏移、首选虚拟地址与运行时映射地址。</li><li>理解 ASLR 的防御目的及其对调试和崩溃分析的影响。</li></ul><h2>安全实践</h2><p>使用 Apple 官方开发工具检查自己构建的二进制，比较构建设置和符号信息；发布前检查调试信息、依赖来源与构建可追溯性。</p><nav class="pager"><a href="../part/03-binary.html">第三部目录</a><a href="../part/04-appsec.html">第四部目录 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/08-macho.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>15 Mach-O 与虚拟地址空间 · IOSBook</title>
+<meta name="description" content="文件里是布局描述，内存里是按页映射的结果">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">15</span><h1>Mach-O 与虚拟地址空间</h1><p class="sub">文件里是布局描述，内存里是按页映射的结果</p></header>
+
+<p class="lead">Mach-O 既是磁盘上的文件格式，也是加载器据以建立内存映射的说明书。读它时要同时看两个世界：文件里连续的字节，与进程里按页对齐、权限各异的映射。</p>
+<blockquote><strong>场景</strong>　同一个文件，用 file 看是一行，用 otool 看是几百行。段、节、加载命令、签名，全压在这一个文件的不同偏移上。</blockquote>
+
+
+
+<h2>1. 三层结构</h2>
+<table>
+<thead><tr><th>区</th><th>内容</th><th>加载后</th></tr></thead>
+<tbody>
+<tr><td>头部</td><td>魔数、CPU 类型、文件类型、命令数量</td><td>加载器读取，不映射为可执行代码</td></tr>
+<tr><td>加载命令</td><td>段描述、依赖、符号表位置、签名位置、入口</td><td>加载器按命令建立映射与绑定</td></tr>
+<tr><td>段数据</td><td>代码、常量、可写数据、链接信息</td><td>按段权限映射为只读/可执行/可读写</td></tr>
+</tbody>
+</table>
+<p>三段关系是“目录 → 条目 → 内容”：头部告诉你条目有多长，命令告诉你内容在哪、以什么权限映射，段数据本身不解释自己。</p>
+
+<h2>2. 段与节：权限由段决定</h2>
+<ul>
+<li><code>__TEXT</code>：代码与只读常量，通常映射为可读可执行、不可写。</li>
+<li><code>__DATA</code>：已初始化的可写数据；<code>__DATA_CONST</code> 一类段在绑定完成后转为只读，减少可写面。</li>
+<li><code>__LINKEDIT</code>：符号表、重定位信息、签名等链接元数据，供加载器与工具使用。</li>
+</ul>
+<p>段名是粗粒度权限单位，节（section）是段内的细分。权限由段决定：同一段内的节共享映射属性，这也是“把敏感常量放错段导致可写”的根源。</p>
+
+<figure>
+<img src="../assets/figures/macho-layout.svg" alt="Mach-O 文件布局与内存映射关系示意图" loading="lazy">
+<figcaption>图 1-23　左侧是文件中的连续布局，右侧是映射后的段与权限；虚线表示“按页建立映射”，不是复制。</figcaption>
+</figure>
+
+<h2>3. 三个坐标系</h2>
+<table>
+<thead><tr><th>坐标</th><th>由谁定义</th><th>什么时候有效</th></tr></thead>
+<tbody>
+<tr><td>文件偏移</td><td>文件布局</td><td>离线分析时</td></tr>
+<tr><td>虚拟地址（vmaddr）</td><td>Mach-O 首选布局</td><td>符号、反汇编显示</td></tr>
+<tr><td>运行时地址</td><td>本次映射的实际基址</td><td>调试、崩溃报告、采样</td></tr>
+</tbody>
+</table>
+<p>三者的换算关系在 K07 详述。这里先记住一条：<strong>任何地址在说出“哪个进程、哪次运行、哪个映像”之前都没有意义</strong>。</p>
+
+<div class="code"><div class="code-title">实机输出：一个文件里的两个切片</div><button class="copy" type="button">复制</button><pre><code>/usr/bin/ssh: Mach-O universal binary with 2 architectures:
+  [x86_64:Mach-O 64-bit executable x86_64] [arm64e:Mach-O 64-bit executable arm64e]
+Architectures in the fat file: /usr/bin/ssh are: x86_64 arm64e</code></pre></div>
+<p>读法：外层是 fat 头，内部每个切片都是完整 Mach-O（各自的头、命令、段与签名）。因此符号与 UUID 必须按切片匹配，不能拿一个切片的符号去符号化另一个。</p>
+
+<div class="code"><div class="code-title">实机输出：同一文件两个切片的构建字段</div><button class="copy" type="button">复制</button><pre><code>/bin/ls (architecture x86_64):  minos 10.14  sdk 15.7  tool LD 1167.3
+/bin/ls (architecture arm64e): minos 11.0   sdk 15.7  tool LD 1167.3</code></pre></div>
+<p>读法：两个切片的 <code>sdk</code> 相同，但 <code>minos</code> 不同（10.14 与 11.0）。这说明“最低支持版本”是<b>按切片</b>记录的，不是按文件；判断兼容性时必须先确定实际加载的是哪个切片。</p>
+
+<h2>4. 为什么按页映射</h2>
+<p>内存保护以页为单位，文件映射也按页对齐。这带来两个可见后果：段在文件中的偏移与大小受对齐约束，段之间可能出现填充；一个段的最小内存开销是一页，即使逻辑上只有几十字节。分析体积与内存占用时要考虑对齐，而不是简单相加。</p>
+
+<h2>5. 可验证实验</h2>
+<div class="code"><div class="code-title">查看自有产物的段与权限</div><button class="copy" type="button">复制</button><pre><code>otool -hv /path/to/YourApp.app/YourApp
+otool -l /path/to/YourApp.app/YourApp | grep -E "segname|initprot|maxprot" | head -20
+size -m /path/to/YourApp.app/YourApp</code></pre></div>
+<ol>
+<li>列出各段的初始权限与最大权限，找出哪些段可写。</li>
+<li>把一处常量从可写段移到只读段，比较产物体积与运行行为。</li>
+<li>解释：为什么 <code>__TEXT</code> 段的大小通常不是页大小的整数倍，但映射后占用是页的整数倍？</li>
+</ol>
+
+<h2>6. 安全含义</h2>
+<ul>
+<li>段权限是运行时的第一道约束：代码段不可写，显著提高“改写指令”类攻击的成本。</li>
+<li>可写且可执行的映射是被刻意避免的状态；需要生成代码的场景必须走平台提供的机制。</li>
+<li>签名覆盖段内容，改动段数据会导致校验失败，这也是“补丁式修改”难以持久的原因。</li>
+</ul>
+
+<h2>7. 段权限与攻击面</h2><table><thead><tr><th>段</th><th>权限</th><th>被改写的后果</th></tr></thead><tbody><tr><td>__TEXT</td><td>r-x</td><td>破坏签名，需要 mprotect</td></tr><tr><td>__DATA_CONST</td><td>启动后可读写，之后只读</td><td>绑定完成后改写会失败</td></tr><tr><td>__DATA</td><td>rw-</td><td>可改数据，痕迹最少</td></tr></tbody></table><div class="callout"><strong>权限即成本</strong><br>改数据的成本最低，改代码页最高；防护设计应优先盯住“可写且可执行”的异常组合。</div>
+<h2>8. 数据细节：一个真实段的地址与大小</h2>
+<table>
+<thead><tr><th>字段</th><th>实测值</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>vmaddr</code></td><td><code>0x100000000</code></td><td>首选地址，不是运行时地址</td></tr>
+<tr><td><code>vmsize</code></td><td><code>0x8000</code>（32 KB）</td><td>两页，按 16 KB 对齐</td></tr>
+<tr><td><code>filesize</code></td><td><code>32768</code></td><td>与 vmsize 相同，说明无零填充</td></tr>
+<tr><td><code>initprot</code></td><td><code>0x5</code></td><td>读 + 执行</td></tr>
+<tr><td><code>nsects</code></td><td>5</td><td>段内还有五个节</td></tr>
+</tbody>
+</table>
+<p>这些字段直接决定“能不能改”：读+执行的段改一个字节都要先改页权限，而只读数据段连权限都改不了。</p>
+
+<h2>9. 一次真实排查记录：写只读页崩溃</h2>
+<ol>
+<li><strong>现象：</strong>运行到某处必崩，异常是写入时权限失败。</li>
+<li><strong>先看异常码：</strong><code>KERN_PROTECTION_FAILURE</code> 表示地址有效但权限不足。</li>
+<li><strong>定位段：</strong>用崩溃地址反查所属段，通常是 <code>__TEXT</code> 或已转只读的 <code>__DATA_CONST</code>。</li>
+<li><strong>找原因：</strong>把常量或不可变数据放在了会被写入的路径上。</li>
+<li><strong>结论与限制：</strong>记录“写入只读段”，并注明结论只对该构建的段布局成立。</li>
+</ol>
+
+<div class="code"><div class="code-title">实机输出：按架构统计段大小</div><button class="copy" type="button">复制</button><pre><code>   text	   data	    bss	    dec	    hex	filename
+  18211	   1400	    528	  20139	   4eab	i386:x86-64 (ex /bin/ls)
+  18356	   1368	    520	  20244	   4f14	aarch64 (ex /bin/ls)</code></pre></div>
+<p>读法：<code>text/data/bss</code> 是按属性归并后的三类，不等于段名；两个切片分别统计，<code>dec</code> 是合计。<code>text</code> 明显大于文件里 <code>__text</code> 节时，说明把只读常量也算进去了。</p>
+
+<div class="code"><div class="code-title">实机输出：通用二进制的 fat 头</div><button class="copy" type="button">复制</button><pre><code>Fat header in: /usr/bin/ssh
+fat_magic 0xcafebabe
+nfat_arch 2
+architecture x86_64
+    offset 16384
+    size 767056
+    align 2^14 (16384)</code></pre></div>
+<p>读法：<code>0xcafebabe</code> 是 32 位 fat 魔数（64 位头是 <code>0xcafebabf</code>）；<code>nfat_arch 2</code> 表示两个切片；<code>offset 16384</code> 说明数据段<b>按 16 KB 对齐</b>，而不是紧接着头部——这是签名与页映射都对 16 KB 敏感的直接原因。</p>
+
+<div class="code"><div class="code-title">实机输出：fat 头的原始字节</div><button class="copy" type="button">复制</button><pre><code>00000000: cafe babe 0000 0002 0100 0007 0000 0003
+00000010: 0000 4000 0000 bbf0 0000 000e 0100 000c
+00000020: 8000 0002 0001 0000 0001 5c00 0000 000e</code></pre></div>
+<p>读法：<code>cafe babe</code> 是 fat 魔数，紧跟的 <code>0000 0002</code> 是切片数；<code>0100 0007</code> 是 CPU 类型（x86_64），<code>0000 4000</code> 是偏移 16384、<code>0000 bbf0</code> 是大端表示的大小。整段 48 字节就把“这是什么文件、几个切片、在哪”说完了。</p>
+
+<h2>10. 自测</h2>
+<ol>
+<li>头部、加载命令、段数据各自回答什么问题？</li>
+<li>为什么“文件偏移 + 段起始地址”不能直接当成运行时指针？</li>
+<li>段权限对攻击面有什么影响？为什么可写可执行是危险状态？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

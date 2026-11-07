@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="VMP 解释循环五步分帧">
+  <defs>
+    <style>
+      .p{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .q{fill:#f3eefc;stroke:#d6c8f2;stroke-width:1.4}
+      .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.5px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#6c32d0}
+      .n{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#fff;font-weight:700}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">五步看一条字节码：取、解、执、更新、回跳</text>
+
+  <rect class="p" x="24" y="44" width="136" height="110" rx="9"/>
+  <circle cx="44" cy="64" r="10" fill="#6c32d0"/><text class="n" x="44" y="68" text-anchor="middle">1</text>
+  <text class="t" x="60" y="68">取指</text>
+  <text class="s" x="38" y="92">pc 指向字节码</text>
+  <text class="s" x="38" y="112">读 1 字节操作码</text>
+  <text class="s" x="38" y="136">pc 先自增</text>
+
+  <rect class="p" x="176" y="44" width="136" height="110" rx="9"/>
+  <circle cx="196" cy="64" r="10" fill="#6c32d0"/><text class="n" x="196" y="68" text-anchor="middle">2</text>
+  <text class="t" x="212" y="68">解码</text>
+  <text class="s" x="190" y="92">跳转表映射</text>
+  <text class="s" x="190" y="112">操作码 → 处理函数</text>
+  <text class="s" x="190" y="136">越界即非法指令</text>
+
+  <rect class="q" x="328" y="44" width="136" height="110" rx="9"/>
+  <circle cx="348" cy="64" r="10" fill="#8a54d8"/><text class="n" x="348" y="68" text-anchor="middle">3</text>
+  <text class="t" x="364" y="68">执行</text>
+  <text class="s" x="342" y="92">读写虚拟寄存器</text>
+  <text class="s" x="342" y="112">可能访问虚拟栈</text>
+  <text class="s" x="342" y="136">这是唯一干实事的一步</text>
+
+  <rect class="q" x="480" y="44" width="136" height="110" rx="9"/>
+  <circle cx="500" cy="64" r="10" fill="#8a54d8"/><text class="n" x="500" y="68" text-anchor="middle">4</text>
+  <text class="t" x="516" y="68">更新上下文</text>
+  <text class="s" x="494" y="92">写回标志位</text>
+  <text class="s" x="494" y="112">pc 指向下一条</text>
+  <text class="s" x="494" y="136">出错时只改了一半</text>
+
+  <rect class="g" x="632" y="44" width="104" height="110" rx="9"/>
+  <circle cx="652" cy="64" r="10" fill="#0a8f68"/><text class="n" x="652" y="68" text-anchor="middle">5</text>
+  <text class="t" x="668" y="68">回跳</text>
+  <text class="s" x="646" y="92">回到第 1 步</text>
+  <text class="s" x="646" y="112">遇 EXIT 才退出</text>
+
+  <text class="s" x="24" y="188">分析时最值钱的是第 2 步：跳转表把“操作码”与“处理函数”对上，一张表就是半本指令集。</text>
+  <text class="s" x="24" y="210">第 4 步是排错线索：解释器崩溃常发生在“寄存器已改、pc 未更新”的窗口里。</text>
+  <text class="s" x="24" y="232">不要一次还原全部指令：先挑加法/比较/调用三条，够读懂一个短函数。</text>
+
+  <rect x="24" y="252" width="712" height="34" rx="6" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="38" y="274">这五步会循环成千上万次；单条指令看不出业务，连续几步才能看出“它在算什么”。</text>
+</svg>

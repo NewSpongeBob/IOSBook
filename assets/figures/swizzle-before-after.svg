@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="方法交换前后的调用路径">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker><style>
+  .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+  .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+  .y{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+  .n{fill:#f2f4f7;stroke:#cfd6e0;stroke-width:1.3}
+  .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+  .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+  .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+  .k{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.8px;fill:#c26a06}
+</style></defs>
+
+  <text class="h" x="30" y="28">交换只改方法表里的实现指针，调用点一个字节都不动</text>
+
+  <text class="t" x="30" y="62">交换前</text>
+  <rect class="b" x="120" y="46" width="150" height="46" rx="7"/>
+  <text class="s" x="134" y="74">调用点 requestToken:</text>
+  <rect class="b" x="330" y="46" width="180" height="46" rx="7"/>
+  <text class="s" x="344" y="74">原实现 IMP_A</text>
+  <rect class="n" x="570" y="46" width="160" height="46" rx="7"/>
+  <text class="s" x="584" y="74">返回令牌</text>
+
+  <line x1="270" y1="69" x2="326" y2="69" stroke="#2563eb" stroke-width="1.3" marker-end="url(#ar)"/>
+  <line x1="510" y1="69" x2="566" y2="69" stroke="#2563eb" stroke-width="1.3" marker-end="url(#ar)"/>
+
+  <text class="t" x="30" y="152">交换后</text>
+  <rect class="b" x="120" y="136" width="150" height="46" rx="7"/>
+  <text class="s" x="134" y="164">同一调用点</text>
+  <rect class="y" x="330" y="136" width="180" height="46" rx="7"/>
+  <text class="s" x="344" y="164">新实现 IMP_B（观察）</text>
+  <rect class="g" x="570" y="136" width="160" height="46" rx="7"/>
+  <text class="s" x="584" y="164">再调 IMP_A</text>
+
+  <line x1="270" y1="159" x2="326" y2="159" stroke="#2563eb" stroke-width="1.3" marker-end="url(#ar)"/>
+  <line x1="510" y1="159" x2="566" y2="159" stroke="#2563eb" stroke-width="1.3" marker-end="url(#ar)"/>
+
+  <text class="s" x="30" y="216">两种写法都能观察：IMP_B 里记录参数后转调 IMP_A，或直接替换成记录逻辑再手动调用原实现。</text>
+  <text class="s" x="30" y="238">痕迹只有一处：方法表里 IMP 指向的地址与符号地址不一致；代码页没有被写。</text>
+  <text class="s" x="30" y="260">所以“方法交换不留可执行内存”与“指令 hook 必然留脏页”是两件事，别混用。</text>
+
+</svg>

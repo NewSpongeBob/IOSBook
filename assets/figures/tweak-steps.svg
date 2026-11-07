@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="tweak 从源码到生效的五步分帧">
+  <defs>
+    <style>
+      .p{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .q{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+      .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.5px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .n{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#fff;font-weight:700}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">tweak 五步：内容、范围、搬运、安装、生效</text>
+
+  <rect class="p" x="24" y="44" width="136" height="112" rx="9"/>
+  <circle cx="44" cy="64" r="10" fill="#2563eb"/><text class="n" x="44" y="68" text-anchor="middle">1</text>
+  <text class="t" x="60" y="68">写代码</text>
+  <text class="s" x="38" y="92">一个 hook 函数</text>
+  <text class="s" x="38" y="112">先 %orig 再记日志</text>
+  <text class="s" x="38" y="136">不改变业务结果</text>
+
+  <rect class="p" x="176" y="44" width="136" height="112" rx="9"/>
+  <circle cx="196" cy="64" r="10" fill="#2563eb"/><text class="n" x="196" y="68" text-anchor="middle">2</text>
+  <text class="t" x="212" y="68">出产物</text>
+  <text class="s" x="190" y="92">编译成 .dylib</text>
+  <text class="s" x="190" y="112">架构要覆盖设备</text>
+  <text class="s" x="190" y="136">签名不能少</text>
+
+  <rect class="q" x="328" y="44" width="136" height="112" rx="9"/>
+  <circle cx="348" cy="64" r="10" fill="#c26a06"/><text class="n" x="348" y="68" text-anchor="middle">3</text>
+  <text class="t" x="364" y="68">写规则</text>
+  <text class="s" x="342" y="92">Bundles 指定应用</text>
+  <text class="s" x="342" y="112">Executables 覆盖进程</text>
+  <text class="s" x="342" y="136">写错 → 完全不加载</text>
+
+  <rect class="q" x="480" y="44" width="136" height="112" rx="9"/>
+  <circle cx="500" cy="64" r="10" fill="#c26a06"/><text class="n" x="500" y="68" text-anchor="middle">4</text>
+  <text class="t" x="516" y="68">注入器加载</text>
+  <text class="s" x="494" y="92">进程启动时匹配</text>
+  <text class="s" x="494" y="112">dlopen 你的库</text>
+  <text class="s" x="494" y="136">构造函数先跑</text>
+
+  <rect class="g" x="632" y="44" width="104" height="112" rx="9"/>
+  <circle cx="652" cy="64" r="10" fill="#0a8f68"/><text class="n" x="652" y="68" text-anchor="middle">5</text>
+  <text class="t" x="668" y="68">生效</text>
+  <text class="s" x="646" y="92">方法被换掉</text>
+  <text class="s" x="646" y="112">日志出现</text>
+
+  <text class="s" x="24" y="190">验证顺序与五步一一对应：能编译 → 有产物 → 规则匹配 → 镜像被加载 → 日志出现。</text>
+  <text class="s" x="24" y="214">最常见的失败是第 3 步：库编得再好，规则没命中就等于不存在。</text>
+  <text class="s" x="24" y="238">没有卸载回调：回滚靠替换文件 + 重启目标进程，不靠代码里的清理逻辑。</text>
+
+  <rect x="24" y="252" width="712" height="34" rx="6" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="38" y="274">不越狱也能练：把同一段代码放进自有工程的动态框架，差别只在第 4 步换成了“应用自己加载”。</text>
+</svg>

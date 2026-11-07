@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 220" width="760" height="220" role="img" aria-label="壳的四类特征">
+<defs><style>
+  .p{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+  .q{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+  .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+  .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#1c2533;font-weight:600}
+  .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.5px;fill:#68727f}
+  .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+  .n{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#fff;font-weight:700}
+</style></defs>
+<text class="h" x="30" y="26">壳的四类特征：先分类，再决定怎么读</text>
+<rect class="p" x="24" y="44" width="168" height="104" rx="9"/>
+<circle cx="44" cy="64" r="10" fill="#2563eb"/><text class="n" x="44" y="68" text-anchor="middle">1</text>
+<text class="t" x="60" y="68">符号</text>
+<text class="s" x="38" y="92">符号表近空</text>
+<text class="s" x="38" y="114">靠字符串与交叉引用</text>
+<rect class="p" x="208" y="44" width="168" height="104" rx="9"/>
+<circle cx="228" cy="64" r="10" fill="#2563eb"/><text class="n" x="228" y="68" text-anchor="middle">2</text>
+<text class="t" x="244" y="68">字符串</text>
+<text class="s" x="222" y="92">集中解密桩</text>
+<text class="s" x="222" y="114">抓调用点还原</text>
+<rect class="q" x="392" y="44" width="168" height="104" rx="9"/>
+<circle cx="412" cy="64" r="10" fill="#c26a06"/><text class="n" x="412" y="68" text-anchor="middle">3</text>
+<text class="t" x="428" y="68">控制流</text>
+<text class="s" x="406" y="92">大循环 + 状态分派</text>
+<text class="s" x="406" y="114">只拆关键分支</text>
+<rect class="g" x="576" y="44" width="168" height="104" rx="9"/>
+<circle cx="596" cy="64" r="10" fill="#0a8f68"/><text class="n" x="596" y="68" text-anchor="middle">4</text>
+<text class="t" x="612" y="68">运行时校验</text>
+<text class="s" x="590" y="92">读自身、算哈希</text>
+<text class="s" x="590" y="114">会主动退出</text>
+<rect x="24" y="168" width="712" height="34" rx="6" fill="#fff9ec" stroke="#f0d9a8"/>
+<text class="s" x="38" y="190">先问“要回答什么问题”，再决定要不要碰控制流。</text>
+</svg>

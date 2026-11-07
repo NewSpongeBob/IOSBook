@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260" width="760" height="260" role="img" aria-label="从事件到结论的诊断证据流">
+  <defs>
+    <marker id="arrowDg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.8px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">证据链：每一步都能被追问“凭什么”</text>
+
+  <rect class="b" x="26" y="46" width="158" height="72" rx="8"/>
+  <text class="t" x="40" y="70">事件</text>
+  <text class="s" x="40" y="90">崩溃 / 卡顿 / 被终止</text>
+  <text class="s" x="40" y="108">时间、版本、设备</text>
+
+  <rect class="b" x="212" y="46" width="158" height="72" rx="8"/>
+  <text class="t" x="226" y="70">报告</text>
+  <text class="s" x="226" y="90">类型、异常码、线程</text>
+  <text class="s" x="226" y="108">映像列表、UUID</text>
+
+  <rect class="b" x="398" y="46" width="158" height="72" rx="8"/>
+  <text class="t" x="412" y="70">符号化</text>
+  <text class="s" x="412" y="90">UUID 与符号文件匹配</text>
+  <text class="s" x="412" y="108">函数、偏移、行号</text>
+
+  <rect class="g" x="584" y="46" width="150" height="72" rx="8"/>
+  <text class="t" x="598" y="70">结论</text>
+  <text class="s" x="598" y="90">事实 / 推断 / 未知</text>
+  <text class="s" x="598" y="108">适用范围</text>
+
+  <line x1="184" y1="82" x2="208" y2="82" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowDg)"/>
+  <line x1="370" y1="82" x2="394" y2="82" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowDg)"/>
+  <line x1="556" y1="82" x2="580" y2="82" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowDg)"/>
+
+  <rect x="26" y="150" width="708" height="86" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="40" y="174">两个常见断点：</text>
+  <text class="s" x="40" y="196">1）报告类型没分清——把“被系统终止”当崩溃，于是找不到异常帧；</text>
+  <text class="s" x="40" y="216">2）UUID 不匹配——用最新构建的符号去符号化旧报告，结果看似合理但函数全错。</text>
+</svg>

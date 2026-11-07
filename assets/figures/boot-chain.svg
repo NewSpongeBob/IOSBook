@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 250" width="760" height="250" role="img" aria-label="启动链的五级验证关系">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .box{fill:#f7f9fd;stroke:#c9d6ea;stroke-width:1.5;rx:10}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:14px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11.5px;fill:#68727f}
+      .a{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#2563eb}
+    </style>
+  </defs>
+
+  <text class="a" x="380" y="30" text-anchor="middle">每一级验证下一级：根信任在硬件，向上逐段交接</text>
+
+  <rect class="box" x="16" y="60" width="132" height="78" rx="10"/>
+  <text class="t" x="82" y="92" text-anchor="middle">硬件根信任</text>
+  <text class="s" x="82" y="114" text-anchor="middle">固化代码与公钥</text>
+
+  <rect class="box" x="165" y="60" width="132" height="78" rx="10"/>
+  <text class="t" x="231" y="92" text-anchor="middle">系统镜像</text>
+  <text class="s" x="231" y="114" text-anchor="middle">签名与启动策略</text>
+
+  <rect class="box" x="314" y="60" width="132" height="78" rx="10"/>
+  <text class="t" x="380" y="92" text-anchor="middle">内核 XNU</text>
+  <text class="s" x="380" y="114" text-anchor="middle">地址空间与驱动</text>
+
+  <rect class="box" x="463" y="60" width="132" height="78" rx="10"/>
+  <text class="t" x="529" y="92" text-anchor="middle">launchd 服务</text>
+  <text class="s" x="529" y="114" text-anchor="middle">守护进程与沙盒</text>
+
+  <rect class="box" x="612" y="60" width="132" height="78" rx="10"/>
+  <text class="t" x="678" y="92" text-anchor="middle">应用进程</text>
+  <text class="s" x="678" y="114" text-anchor="middle">签名与能力校验</text>
+
+  <line x1="148" y1="99" x2="163" y2="99" stroke="#2563eb" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <line x1="297" y1="99" x2="312" y2="99" stroke="#2563eb" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <line x1="446" y1="99" x2="461" y2="99" stroke="#2563eb" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <line x1="595" y1="99" x2="610" y2="99" stroke="#2563eb" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <rect x="16" y="168" width="728" height="60" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="32" y="192">沙盒、代码签名与隐私授权在最后两级生效；应用内的一切观测都发生在这条链之内，</text>
+  <text class="s" x="32" y="212">因此无法用它证明前面几级未被替换。</text>
+</svg>

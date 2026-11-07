@@ -1,1 +1,94 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>A02 术语与实验记录模板 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">A02</span><h1>术语与实验记录模板</h1><p class="sub">统一术语和记录格式，让观察可复核、结论有边界</p></header><h2>术语速览</h2><ul><li><strong>XNU：</strong>Apple 操作系统内核，包含 Mach 与 BSD 等组成。</li><li><strong>Mach task：</strong>Mach 对资源/地址空间关联实体的抽象；不要简单等同于所有 API 中的“进程”。</li><li><strong>Mach-O：</strong>Apple 平台可执行文件与动态库的二进制格式。</li><li><strong>dyld：</strong>动态链接器，负责构造进程映像中的动态依赖关系。</li><li><strong>Entitlements：</strong>签名关联的能力声明；实际授权还受平台策略与运行环境约束。</li><li><strong>ABI：</strong>二进制组件之间的调用与布局约定，需区分稳定承诺与实现细节。</li></ul><h2>实验记录模板</h2><ul><li>授权范围与目标所有者：</li><li>设备型号 / OS 版本 / build：</li><li>Xcode / SDK / 编译器 / 工具版本：</li><li>样例应用 commit / 构建配置：</li><li>假设与预期：</li><li>操作步骤与测试数据（不得含真实秘密）：</li><li>原始证据、日志脱敏方式：</li><li>结果、替代解释与置信度：</li><li>修复、回归结果与已知限制：</li></ul><p><a href="../part/99-appendix.html">← 返回附录</a></p></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/a02.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A02 术语与实验记录模板 · IOSBook</title>
+<meta name="description" content="术语对齐能省掉一半的沟通成本">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">A02</span><h1>术语与实验记录模板</h1><p class="sub">术语对齐能省掉一半的沟通成本</p></header>
+
+<p class="lead">同一个词在不同语境里含义不同，是安全讨论中最常见的误解来源。下面的表只给“最小共识”，细节仍需回到对应章节与官方文档。</p>
+
+<h2>1. 术语速览</h2>
+<table>
+<thead><tr><th>术语</th><th>一句话定义</th><th>别混淆</th></tr></thead>
+<tbody>
+<tr><td>沙盒</td><td>进程创建时施加的资源访问限制</td><td>不等于用户权限（TCC）</td></tr>
+<tr><td>entitlement</td><td>签名中声明的系统能力</td><td>不等于业务授权</td></tr>
+<tr><td>TCC</td><td>用户对隐私数据访问的授权记录</td><td>不等于沙盒规则</td></tr>
+<tr><td>cdhash</td><td>代码签名的整体摘要</td><td>随构建变化，不是固定常量</td></tr>
+<tr><td>UUID</td><td>单个映像构建的唯一标识</td><td>与设备标识、应用标识不同</td></tr>
+<tr><td>slide</td><td>映像本次加载的地址偏移</td><td>每次启动不同</td></tr>
+<tr><td>vmaddr</td><td>Mach-O 中描述的首选虚拟地址</td><td>不是运行时地址</td></tr>
+<tr><td>dyld</td><td>动态链接器</td><td>不是内核的一部分</td></tr>
+<tr><td>Mach 端口</td><td>带权能的通信端点</td><td>不是网络端口</td></tr>
+<tr><td>Jetsam</td><td>系统因内存压力终止进程的机制</td><td>不是崩溃</td></tr>
+<tr><td>Watchdog</td><td>系统因无响应终止进程的机制</td><td>报告形态与崩溃不同</td></tr>
+<tr><td>数据保护</td><td>文件密钥与设备锁定状态绑定的策略</td><td>不是应用自定义加密</td></tr>
+</tbody>
+</table>
+
+<h2>2. 实验记录模板</h2>
+<div class="code"><div class="code-title">可直接复制的记录结构</div><button class="copy" type="button">复制</button><pre><code>标题：一句话说明要验证什么
+日期：
+环境：设备型号 / 系统版本 / 构建号 / 工具与版本
+假设：预期会发生什么，为什么
+步骤：1) 2) 3)（一次只改一个变量）
+观察：原始输出、日志片段、截图（脱敏）
+结论：事实 / 推断 / 未知（分别列出）
+限制：本次结果不能推广到什么
+后续：需要补测什么、谁负责</code></pre></div>
+
+<figure>
+<img src="../assets/figures/record-card.svg" alt="实验记录的字段结构" loading="lazy">
+<figcaption>图 A-2　假设、环境、步骤、观察、结论、限制，六项缺一不可。</figcaption>
+</figure>
+
+<h2>3. 写记录的三个习惯</h2>
+<ul>
+<li><strong>先写假设：</strong>没有假设的观察会变成“什么都记一点”，事后无法判断相关性。</li>
+<li><strong>保留原始输出：</strong>转述会丢失关键字段，尤其是错误码与路径。</li>
+<li><strong>标注限制：</strong>“在 A 机型 B 版本上成立”远好于“已验证”。</li>
+</ul>
+
+<h2>4. 记录字段：六项最小集</h2><table><thead><tr><th>字段</th><th>作用</th></tr></thead><tbody><tr><td>假设</td><td>决定记录什么</td></tr><tr><td>原始输出</td><td>保留可复核证据</td></tr><tr><td>限制</td><td>说明结论适用范围</td></tr></tbody></table><div class="callout"><strong>没有假设就没有记录</strong><br>先写“我预期看到什么”，再看输出；否则记下来的是噪音。</div>
+<h2>5. 填写示例</h2>
+<div class="code"><div class="code-title">一条完整记录</div><button class="copy" type="button">复制</button><pre><code>假设：登录后列表页会缓存首屏数据到磁盘
+环境：测试机 / iOS 18.1 / 构建 1.4.2 (a1b2c3)
+步骤：登录 → 进入列表 → 杀进程 → 重开
+观察：重开后无网络请求，列表立即出现；容器内找到 records.db
+结论：事实——存在磁盘缓存；推断——首屏读缓存；未知——缓存是否加密
+限制：仅验证首屏，未覆盖下拉刷新</code></pre></div>
+
+<h2>6. 记录质量三问</h2>
+<table>
+<thead><tr><th>问题</th><th>不合格的表现</th></tr></thead>
+<tbody>
+<tr><td>别人能复现吗？</td><td>只写“验证通过”，没有步骤与环境</td></tr>
+<tr><td>结论有边界吗？</td><td>从一次实验推广到所有版本</td></tr>
+<tr><td>证据能回看吗？</td><td>只有结论，没有原始输出或截图</td></tr>
+</tbody>
+</table>
+
+<h2>7. 自测</h2>
+<ol>
+<li>沙盒与 TCC 各自回答什么问题？</li>
+<li>为什么 cdhash 不能作为业务常量？</li>
+<li>实验记录里“限制”一栏应写什么？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

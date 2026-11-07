@@ -1,1 +1,167 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>03 dyld 与程序加载 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">CHAPTER 03</span><h1>dyld 与程序加载</h1><p class="sub">从可执行文件到进程映像的加载概念</p></header><p class="lead">动态加载器协助构造进程运行所需的映像与依赖关系。本章关注职责、顺序和可观察证据。</p><h2>学习目标</h2><ul><li>区分操作系统创建进程与动态加载器处理映像的职责。</li><li>理解依赖库、符号解析和初始化阶段的基本关系。</li><li>认识系统版本、架构和构建配置对加载行为的影响。</li></ul><h2>关键问题</h2><p>程序映像如何描述自身？依赖如何记录？地址随机化为什么要求区分文件偏移与运行时地址？初始化顺序可能影响哪些可观察行为？</p><h2>安全实践</h2><p>使用自编译的最小示例或官方工具观察加载信息，记录工具版本、系统版本和结论边界。</p><nav class="pager"><a href="./02-xnu.html">← 上一章</a><a href="../part/01-foundation.html">第一部目录</a><a href="./04-sandbox.html">下一章：沙盒 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/03-dyld.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>05 dyld 与程序加载 · IOSBook</title>
+<meta name="description" content="依赖闭包、共享缓存与链式修正，决定了启动要花多久">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">05</span><h1>dyld 与程序加载</h1><p class="sub">依赖闭包、共享缓存与链式修正，决定了启动要花多久</p></header>
+
+<p class="lead">dyld 做四件事：读依赖、找库、修正地址、跑初始化。iOS 的三个特殊之处是共享缓存、链式修正与只读数据段——它们共同决定了启动开销，也决定了“注入一个库”到底难在哪。</p>
+<blockquote><strong>场景</strong>　手指落在图标上到首帧出现，通常不到一秒。这一秒里，依赖被读了一遍、几十个库被映射、成千上万个指针被改写，然后控制权才交给 main。</blockquote>
+
+
+
+<h2>1. 从 exec 到 main 的五步</h2>
+<ol>
+<li>内核映射主镜像，读到动态链接器加载命令后转入 dyld。</li>
+<li>dyld 递归读取依赖，形成镜像集合（依赖闭包）。</li>
+<li>系统库从共享缓存映射，不逐文件打开。</li>
+<li>完成重定位与符号绑定，把可写数据段按需转为只读。</li>
+<li>执行初始化器（<code>+load</code>、C++ 构造、Swift 元数据注册），最后进入 <code>main</code>。</li>
+</ol>
+
+<figure>
+<img src="../assets/figures/dyld-flow.svg" alt="从 exec 到 main 的加载流程与依赖来源" loading="lazy">
+<figcaption>图 1-7　依赖闭包先于地址修正，初始化器最后执行；任一阶段失败都表现为“启动即退出”。</figcaption>
+</figure>
+
+<h2>2. 共享缓存：系统库不在磁盘上</h2>
+<table>
+<thead><tr><th>特征</th><th>含义</th><th>对分析的影响</th></tr></thead>
+<tbody>
+<tr><td>数百个系统库合并为一个缓存</td><td>预链接、地址相对固定</td><td>磁盘上看不到单独的 dylib 文件</td></tr>
+<tr><td>多进程共享同一份页</td><td>不重复占用物理内存</td><td>统计内存时归属容易算错</td></tr>
+<tr><td>缓存自带符号表</td><td>支持按名字查找</td><td>按符号下断点可行</td></tr>
+<tr><td>地址随系统版本重排</td><td>每次系统更新都可能变</td><td>跨版本偏移不能当常量</td></tr>
+</tbody>
+</table>
+
+<h2>3. 原理推演：为什么系统库要预链接成共享缓存</h2>
+<p>进程启动时，每个外部符号都要从“名字”变成“地址”。如果按库逐个加载，就得为每个库做一次符号查找、一次重定位；库越多、符号越多，这条链越长。</p>
+<p>预链接把常用库合并成一份、地址相对固定、符号表内置，于是启动时只需按固定布局映射，省掉了大部分查找。代价有两个：<b>更新任一库要重建整个缓存</b>；<b>磁盘上再也找不到单独的 dylib 文件</b>——这解释了两个常见困惑：为什么“改了个系统库”要等系统更新，以及为什么按文件路径找不到 libSystem。</p>
+
+<h2>4. 数据细节：一次启动要处理多少东西</h2>
+<table>
+<thead><tr><th>对象</th><th>量级</th><th>为什么是这个量级</th></tr></thead>
+<tbody>
+<tr><td>直接依赖</td><td>数个到十几个</td><td>主程序只声明自己直接调用的库</td></tr>
+<tr><td>依赖闭包</td><td>数十个</td><td>每个依赖再带自己的依赖</td></tr>
+<tr><td>共享缓存中的库</td><td>数百个</td><td>系统把常用库全部预链接在一起</td></tr>
+<tr><td>页大小</td><td>16 KB</td><td>映射、修正、脏页统计都按页计</td></tr>
+<tr><td>链式修正项</td><td>每项 4 字节起</td><td>比旧的 rebase/bind 表更紧凑</td></tr>
+</tbody>
+</table>
+<p>由此可以推断两件事：依赖闭包越大，启动越慢；而“多链接一个库”的成本，主要在闭包扩张，不在文件大小。</p>
+
+<figure data-steps="读修正项|解析符号|写入地址|锁成只读|惰性绑定" data-cols="5" data-rows="1" data-geometry="24,44,136,110,16,0">
+<img src="../assets/figures/binding-steps.svg" alt="改地址的五步：名字 → 地址 → 写入 → 只读化。" loading="lazy">
+<figcaption>图 1-8　改地址的五步：名字 → 地址 → 写入 → 只读化。</figcaption>
+</figure>
+
+<h2>5. 修正与只读化</h2>
+<ul>
+<li><strong>修正（fixup）：</strong>镜像按首选地址映射，实际基址受随机化影响，指针与外部符号引用需要改写。</li>
+<li><strong>链式修正：</strong>新格式把修正信息组织成链（<code>LC_DYLD_CHAINED_FIXUPS</code>），启动时顺序遍历；旧格式是 rebase/bind 表。</li>
+<li><strong>只读化：</strong>启动早期 <code>__DATA_CONST</code> 可写，修正完成后转为只读，缩小运行期被改写的面。</li>
+<li><strong>惰性绑定：</strong>函数调用可延迟到首次执行时解析，失败也推迟到那一刻。</li>
+</ul>
+
+<h2>6. 搜索路径与命名空间</h2>
+<table>
+<thead><tr><th>写法</th><th>展开方式</th><th>典型用途</th></tr></thead>
+<tbody>
+<tr><td><code>@rpath</code></td><td>按 <code>LC_RPATH</code> 列表逐个尝试</td><td>内嵌框架</td></tr>
+<tr><td><code>@loader_path</code></td><td>相对当前加载的库</td><td>框架互相引用</td></tr>
+<tr><td><code>@executable_path</code></td><td>相对主可执行文件</td><td>插件</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/dylib-search.svg" alt="依赖安装名的解析与搜索路径" loading="lazy">
+<figcaption>图 1-9　安装名展开、rpath 遍历、找到或报错，失败点通常在前两步。</figcaption>
+</figure>
+
+<h2>7. 实机输出</h2>
+<div class="code"><div class="code-title">实机输出：依赖清单</div><button class="copy" type="button">复制</button><pre><code>/bin/ls [arm64e]:
+    -linked_dylibs:
+        attributes     load path
+                       /usr/lib/libutil.dylib
+                       /usr/lib/libncurses.5.4.dylib
+                       /usr/lib/libSystem.B.dylib</code></pre></div>
+<div class="code"><div class="code-title">实机输出：版本约束写在依赖里</div><button class="copy" type="button">复制</button><pre><code>/bin/ls:
+	/usr/lib/libutil.dylib (compatibility version 1.0.0, current version 1.0.0)
+	/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)</code></pre></div>
+<div class="code"><div class="code-title">实机输出：导入符号与来源库</div><button class="copy" type="button">复制</button><pre><code>/bin/ls [x86_64]:
+    -imports:
+      __DefaultRuneLocale  (from libSystem)
+      ___assert_rtn  (from libSystem)
+      ___bzero  (from libSystem)</code></pre></div>
+<div class="code"><div class="code-title">实机输出：弱链接依赖</div><button class="copy" type="button">复制</button><pre><code>          cmd LC_LOAD_WEAK_DYLIB
+      cmdsize 64
+         name /usr/lib/swift/libswiftCoreImage.dylib (offset 24)
+compatibility version 1.0.0</code></pre></div>
+<p>四组输出分别回答四个问题：依赖谁、要求什么版本、用了谁的符号、哪些是可有可无的。<code>imports</code> 比 <code>nm -u</code> 多一列来源库，排查 <code>Symbol not found</code> 时先看这一列。</p>
+
+<h2>8. 一次真实排查记录：Library not loaded</h2>
+<ol>
+<li><strong>现象：</strong>应用启动即退出，报告首行是 <code>Library not loaded</code>，后面跟着一个 <code>@rpath/</code> 开头的路径。</li>
+<li><strong>先看安装名：</strong>用 <code>otool -L</code> 确认安装名是绝对路径还是 <code>@rpath</code>；若是绝对路径且指向构建机，分发包必然失败。</li>
+<li><strong>再看 rpath：</strong>列出 <code>LC_RPATH</code>，确认框架实际所在目录是否在其中。</li>
+<li><strong>核对是否打包：</strong>检查 <code>Frameworks/</code> 是否存在该文件，以及它自身的依赖是否齐全。</li>
+<li><strong>结论与限制：</strong>记录“安装名与打包路径不一致”，并注明该结论只对当前构建配置成立。</li>
+</ol>
+
+<h2>9. 工程权衡：静态、动态与内嵌</h2>
+<table>
+<thead><tr><th>方式</th><th>启动开销</th><th>体积</th><th>适用</th></tr></thead>
+<tbody>
+<tr><td>系统库</td><td>低（共享缓存已映射）</td><td>不占包体</td><td>通用能力</td></tr>
+<tr><td>内嵌动态框架</td><td>中（增加闭包与修正）</td><td>增大</td><td>需要独立升级或多 target 共享</td></tr>
+<tr><td>静态链接</td><td>最低（无运行期查找）</td><td>可能重复</td><td>小工具、稳定依赖</td></tr>
+</tbody>
+</table>
+
+<h2>10. 失败分流</h2>
+<table>
+<thead><tr><th>错误</th><th>含义</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>Library not loaded</td><td>安装名解析不到文件</td><td>rpath、内嵌框架是否打包</td></tr>
+<tr><td>Symbol not found</td><td>库在，但无该导出</td><td>架构、部署目标、库版本</td></tr>
+<tr><td>初始化阶段崩溃</td><td>依赖已加载，初始化代码失败</td><td>初始化器里的断言与全局状态</td></tr>
+<tr><td>首次调用才崩溃</td><td>惰性绑定失败</td><td>该函数的符号来源</td></tr>
+</tbody>
+</table>
+
+<div class="callout"><strong>成本在闭包，不在文件</strong><br>多链接一个库，主要开销是依赖闭包扩张与修正项增加，而不是包体大小；优化启动时应先看闭包，再看单库体积。</div>
+
+<div class="code"><div class="code-title">实机输出：链式修正项</div><button class="copy" type="button">复制</button><pre><code>/bin/ls [x86_64]:
+    -fixups:
+        segment   section   address        type   target
+        __DATA    __got     0x100005000    bind   libSystem/__DefaultRuneLocale
+        __DATA    __got     0x100005008    bind   libSystem/___stack_chk_guard</code></pre></div>
+<p>读法：<code>bind</code> 表示这个槽位要绑定到外部符号，<code>target</code> 直接给出库与符号名；<code>address</code> 是首选地址，运行时还要加 slide。修正项里出现业务符号，往往说明该模块依赖了它。</p>
+
+<h2>11. 自测</h2>
+<ol>
+<li>为什么“依赖闭包”比“直接依赖”更能预测启动开销？</li>
+<li>共享缓存让“按文件找系统库”失效，那应该按什么定位？</li>
+<li>链式修正相比 rebase/bind 表省了什么？</li>
+<li><code>Library not loaded</code> 与 <code>Symbol not found</code> 的排查顺序有何不同？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

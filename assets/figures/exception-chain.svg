@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320" width="760" height="320" role="img" aria-label="从指令异常到信号与崩溃报告的接力路径">
+  <defs>
+    <marker id="arrowE" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .o{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:13px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+    </style>
+  </defs>
+
+  <text class="h" x="20" y="30">一次崩溃要经过五级，才变成你看到的报告</text>
+
+  <rect class="b" x="20" y="56" width="130" height="76" rx="9"/>
+  <text class="t" x="85" y="84" text-anchor="middle">指令异常</text>
+  <text class="s" x="85" y="106" text-anchor="middle">访存/权限/断点</text>
+
+  <rect class="b" x="165" y="56" width="130" height="76" rx="9"/>
+  <text class="t" x="230" y="84" text-anchor="middle">异常向量</text>
+  <text class="s" x="230" y="106" text-anchor="middle">内核接管</text>
+
+  <rect class="b" x="310" y="56" width="130" height="76" rx="9"/>
+  <text class="t" x="375" y="84" text-anchor="middle">异常端口</text>
+  <text class="s" x="375" y="106" text-anchor="middle">任务/线程可注册</text>
+
+  <rect class="b" x="455" y="56" width="130" height="76" rx="9"/>
+  <text class="t" x="520" y="84" text-anchor="middle">BSD 信号</text>
+  <text class="s" x="520" y="106" text-anchor="middle">SIGSEGV 等</text>
+
+  <rect class="b" x="600" y="56" width="130" height="76" rx="9"/>
+  <text class="t" x="665" y="84" text-anchor="middle">终止与报告</text>
+  <text class="s" x="665" y="106" text-anchor="middle">写崩溃文件</text>
+
+  <line x1="150" y1="94" x2="161" y2="94" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowE)"/>
+  <line x1="295" y1="94" x2="306" y2="94" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowE)"/>
+  <line x1="440" y1="94" x2="451" y2="94" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowE)"/>
+  <line x1="585" y1="94" x2="596" y2="94" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowE)"/>
+
+  <rect class="o" x="250" y="182" width="250" height="60" rx="9"/>
+  <text class="t" x="375" y="206" text-anchor="middle" font-size="12.5">异常端口被认领</text>
+  <text class="s" x="375" y="226" text-anchor="middle">调试器 / 崩溃收集器接管，不再产生信号</text>
+
+  <line x1="375" y1="182" x2="375" y2="138" stroke="#c26a06" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrowE)"/>
+  <text class="s" x="388" y="164">分支点</text>
+
+  <rect x="20" y="262" width="710" height="42" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="36" y="288">异常类型与子类型来自第 1–3 级，信号编号来自第 4 级；终止原因可能来自系统策略，而不是这一次异常。</text>
+</svg>

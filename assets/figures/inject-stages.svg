@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="注入的五个阶段与各阶段失败表现">
+  <defs>
+    <marker id="arrowI" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.8px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .r{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.8px;fill:#c26a06}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">五个阶段：每一步都可能单独失败</text>
+
+  <rect class="b" x="26" y="44" width="132" height="64" rx="8"/>
+  <text class="t" x="40" y="68">取得进程</text>
+  <text class="s" x="40" y="88">任务端口 + 暂停</text>
+
+  <rect class="b" x="176" y="44" width="132" height="64" rx="8"/>
+  <text class="t" x="190" y="68">加载 agent</text>
+  <text class="s" x="190" y="88">dlopen 动态库</text>
+
+  <rect class="b" x="326" y="44" width="132" height="64" rx="8"/>
+  <text class="t" x="340" y="68">起运行时</text>
+  <text class="s" x="340" y="88">脚本引擎 + JIT</text>
+
+  <rect class="b" x="476" y="44" width="132" height="64" rx="8"/>
+  <text class="t" x="490" y="68">执行脚本</text>
+  <text class="s" x="490" y="88">按指定时机</text>
+
+  <rect class="b" x="626" y="44" width="110" height="64" rx="8"/>
+  <text class="t" x="640" y="68">建通道</text>
+  <text class="s" x="640" y="88">端口 27042/3</text>
+
+  <line x1="158" y1="76" x2="172" y2="76" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowI)"/>
+  <line x1="308" y1="76" x2="322" y2="76" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowI)"/>
+  <line x1="458" y1="76" x2="472" y2="76" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowI)"/>
+  <line x1="608" y1="76" x2="622" y2="76" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowI)"/>
+
+  <text class="r" x="26" y="130">attach 被拒</text>
+  <text class="r" x="176" y="130">进程退出</text>
+  <text class="r" x="326" y="130">ObjC 未定义</text>
+  <text class="r" x="476" y="130">脚本无输出</text>
+  <text class="r" x="626" y="130">命令超时</text>
+
+  <rect x="26" y="156" width="710" height="112" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="40" y="180">两个硬性条件：写内存并创建远程线程、分配可执行内存。两者都受“是否允许动态代码”约束，</text>
+  <text class="s" x="40" y="200">因此注入能力取决于签名与设备状态，而不是工具版本。</text>
+  <text class="s" x="40" y="226">路径两条：设备上跑服务（越狱，默认端口 27042，新会话 27043）或把 gadget 打进自有应用（重签构建）。</text>
+  <text class="s" x="40" y="248">发布签名应用两条都走不通——这正是签名机制的作用。</text>
+</svg>

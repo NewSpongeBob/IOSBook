@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x17-obfuscation.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H02 混淆与反混淆阅读 · IOSBook</title>
+<meta name="description" content="混淆不隐藏“代码在哪”，它破坏的是“读起来像什么”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">H02</span><h1>混淆与反混淆阅读</h1><p class="sub">混淆不隐藏“代码在哪”，它破坏的是“读起来像什么”</p></header>
+
+<p class="lead">混淆有四类，成本从低到高。识别它们的方法很固定：找解密桩、找分派器、找无意义跳转；而反混淆的核心不是写脚本，而是先确定边界，再逐层还原。</p>
+
+<h2>1. 四类混淆</h2>
+<table>
+<thead><tr><th>类型</th><th>做法</th><th>识别特征</th><th>还原难度</th></tr></thead>
+<tbody>
+<tr><td>名称</td><td>类名方法名替换为随机串</td><td>符号存在但语义不可读</td><td>低</td></tr>
+<tr><td>字符串</td><td>密文存储，运行时解密</td><td>统一的解密桩 + 大量常量数组</td><td>低到中</td></tr>
+<tr><td>控制流</td><td>分支改为状态机分派</td><td>大循环 + switch/间接跳转 + 状态变量</td><td>中到高</td></tr>
+<tr><td>指令级</td><td>自定义虚拟机解释字节码</td><td>取指—译码—执行的解释器循环</td><td>高</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/dispatcher-loop.svg" alt="控制流平坦化后的分派循环结构" loading="lazy">
+<figcaption>图 6-2　平坦化把顺序执行改成“分派器 + 状态块”，识别循环与状态变量是还原的第一步。</figcaption>
+</figure>
+
+<h2>2. 从哪入手</h2>
+<ol>
+<li><strong>先找边界：</strong>导出符号、协议方法、通知与 URL 入口，混淆很少覆盖这些“必须对外”的点。</li>
+<li><strong>找解密桩：</strong>被大量调用的短函数，参数是常量地址，返回字符串。</li>
+<li><strong>找分派器：</strong>控制流平坦化的核心是一个按状态跳转的循环，先把它标出来，再还原每个状态块。</li>
+<li><strong>动态验证：</strong>静态看不懂的分支，用断点确认实际走向，避免在死代码上耗时间。</li>
+</ol>
+
+<h2>3. 字符串还原</h2>
+<div class="code"><div class="code-title">思路：定位解密函数，批量取值（自有样本）</div><button class="copy" type="button">复制</button><pre><code># 伪代码：识别“输入常量地址、输出字符串”的桩
+# 1) 找到被调用次数最多的短函数
+# 2) 在桩的返回处下断点，记录 (入参, 返回串)
+# 3) 用参数去重，得到一张常量表</code></pre></div>
+<p>关键是“调用点 + 参数”而不是“算法”。多数实现最终都是异或或简单置换，拿到明文后算法本身就不再重要。</p>
+
+<h2>4. 控制流还原</h2>
+<table>
+<thead><tr><th>现象</th><th>含义</th><th>处理</th></tr></thead>
+<tbody>
+<tr><td>函数体是一个 while + switch</td><td>状态机平坦化</td><td>按状态块拆分，重建跳转关系</td></tr>
+<tr><td>大量 <code>br</code> 到计算出的地址</td><td>间接跳转混淆</td><td>记录实际目标，逐步收敛</td></tr>
+<tr><td>分支条件恒真/恒假</td><td>不透明谓词</td><td>用动态执行确认哪条路径可达</td></tr>
+<tr><td>解释器循环 + 字节码数组</td><td>虚拟机保护</td><td>先提取字节码与指令语义，再考虑模拟执行</td></tr>
+</tbody>
+</table>
+
+<h2>5. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>反编译结果全红</td><td>基址或段识别错</td><td>先修文件加载</td></tr>
+<tr><td>字符串还原出乱码</td><td>解密需要额外参数（长度、密钥）</td><td>在调用点取全部参数</td></tr>
+<tr><td>改完静态代码行为不变</td><td>走的是另一份副本或被校验</td><td>动态确认实际执行地址</td></tr>
+<tr><td>分析量突然爆炸</td><td>陷入平坦化内部</td><td>退回边界，按功能划分</td></tr>
+<tr><td>虚拟机里跟丢</td><td>字节码指针在堆上动态生成</td><td>记录取指地址与操作码</td></tr>
+</tbody>
+</table>
+
+<h2>6. 顺序建议</h2>
+<ul>
+<li>名称混淆不影响阅读主干，最后处理。</li>
+<li>字符串还原收益最高，优先做。</li>
+<li>控制流还原只在必须看懂某段判定时做，不要全局展开。</li>
+<li>虚拟机保护先判断“值不值得”，多数情况下换一条路径更快。</li>
+</ul>
+
+<div class="callout"><strong>还原字符串靠调用点</strong><br>不必先逆出算法：找到“取常量地址并返回字符串”的桩，在调用点记录入参与返回即可。</div>
+<h2>7. 一次真实排查记录：平坦化后读不懂</h2>
+<ol>
+<li><strong>现象：</strong>函数只剩一个大循环与状态变量，看不出业务顺序。</li>
+<li><strong>先找分派器：</strong>标出 switch 与状态更新点。</li>
+<li><strong>再找出口：</strong>哪个状态会跳出循环，通常是成功路径。</li>
+<li><strong>还原关键块：</strong>只拆与判定相关的两三个状态，不全局展开。</li>
+<li><strong>结论与限制：</strong>记录“控制流平坦化”，并注明还原只覆盖关键分支。</li>
+</ol>
+
+<h2>8. 自测</h2>
+<ol>
+<li>为什么字符串还原的关键是“调用点与参数”，而不是算法？</li>
+<li>控制流平坦化的核心结构是什么？</li>
+<li>遇到虚拟机保护，第一步应该做什么？</li>
+<li>为什么“全局展开控制流”通常是错误策略？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

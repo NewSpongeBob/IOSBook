@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320" width="760" height="320" role="img" aria-label="三种 hook 手法的能力与痕迹对比">
+  <defs>
+    <marker id="arrowH" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">能力越强，痕迹越重；顺序应该是“能改数据就不改表，能改表就不改指令”</text>
+
+  <rect x="270" y="46" width="220" height="54" rx="8" fill="#effaf5" stroke="#a9dcc9" stroke-width="1.4"/>
+  <text class="t" x="380" y="72" text-anchor="middle">改数据</text>
+  <text class="s" x="380" y="90" text-anchor="middle">对象字段、配置、返回值</text>
+
+  <rect x="190" y="118" width="380" height="54" rx="8" fill="#eef3fb" stroke="#c9d6ea" stroke-width="1.4"/>
+  <text class="t" x="380" y="144" text-anchor="middle">改方法表</text>
+  <text class="s" x="380" y="162" text-anchor="middle">method_t.imp，8 字节；拦所有消息发送</text>
+
+  <rect x="110" y="190" width="540" height="54" rx="8" fill="#fff9ec" stroke="#f0d9a8" stroke-width="1.4"/>
+  <text class="t" x="380" y="216" text-anchor="middle">改指令</text>
+  <text class="s" x="380" y="234" text-anchor="middle">入口 4 / 12 / 16 字节；连直接调用也能拦</text>
+
+  <line x1="380" y1="100" x2="380" y2="114" stroke="#2563eb" stroke-width="1.3" marker-end="url(#arrowH)"/>
+  <line x1="380" y1="172" x2="380" y2="186" stroke="#2563eb" stroke-width="1.3" marker-end="url(#arrowH)"/>
+
+  <text class="s" x="40" y="76">痕迹：几乎无</text>
+  <text class="s" x="40" y="148">痕迹：实现地址异常</text>
+  <text class="s" x="40" y="220">痕迹：代码页被写</text>
+
+  <rect x="30" y="262" width="700" height="44" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="44" y="282">改方法表不需要碰代码页，因此不会有 16 KB 私有脏页；改指令一定会产生，且能被页权限统计发现。</text>
+  <text class="s" x="44" y="300">单模块 hook 经验值：10 个点以内；几十个点时先找汇聚点。</text>
+</svg>

@@ -1,1 +1,105 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>T01 自建样例应用安全评估 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">T01</span><h1>自建样例应用安全评估</h1><p class="sub">从范围和基线开始，完成一次防御性评估闭环</p></header><p class="lead">本训练只对自己编写的样例应用、模拟器和虚构数据开展。目标是验证防护设计和修复效果，不是绕过第三方应用。</p><h2>实验目标</h2><p>实现一个本地样例：使用测试账户登录、读取一条虚构配置、调用自建测试服务。明确数据资产、授权边界和期望行为。</p><h2>训练步骤</h2><ol><li><strong>定范围：</strong>列出仓库、测试设备、测试服务、数据和明确禁止的目标。</li><li><strong>画数据流：</strong>标出输入、存储、日志、网络传输与服务端授权位置。</li><li><strong>建基线：</strong>记录应用构建、OS、工具版本和预期的正常/失败结果。</li><li><strong>检查防护：</strong>审查凭据存储、日志脱敏、授权拒绝和错误处理。</li><li><strong>修复回归：</strong>在同一测试矩阵重跑用例，保留前后证据。</li></ol><h2>验收标准</h2><ul><li>授权范围和测试数据明确且可复现。</li><li>关键服务端操作在服务端验证权限。</li><li>报告能区分事实、推断和未知项，不包含真实秘密。</li></ul><aside class="callout"><strong>停止条件</strong><br>若测试触及非自有服务、真实用户数据或授权范围不清晰，立即停止并先取得许可。</aside><nav class="pager"><a href="../part/07-training.html">第七部目录</a><a href="../part/99-appendix.html">附录 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/19-lab.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>T01 自建靶场的检测与评估 · IOSBook</title>
+<meta name="description" content="靶场不是随便找个 App，而是能覆盖四条链的最小工程">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">T01</span><h1>自建靶场的检测与评估</h1><p class="sub">靶场不是随便找个 App，而是能覆盖四条链的最小工程</p></header>
+
+<p class="lead">训练营的目标是走完一次完整闭环：定范围、建基线、验证、修复回归。靶场选得对，四天就能跑完；选错了，两周还在找入口。</p>
+
+<h2>1. 靶场要覆盖什么</h2>
+<table>
+<thead><tr><th>链路</th><th>必须有</th><th>用来练什么</th></tr></thead>
+<tbody>
+<tr><td>入口</td><td>登录页 + 一个列表页</td><td>调试时找到功能入口</td></tr>
+<tr><td>鉴权</td><td>令牌、刷新、退出</td><td>401 与 403 的分流</td></tr>
+<tr><td>网络</td><td>一个可拦截的请求</td><td>请求体、响应、错误码</td></tr>
+<tr><td>存储</td><td>本地缓存 + 一份凭据</td><td>位置盘点与保护类</td></tr>
+</tbody>
+</table>
+<p>四条链齐全，才谈得上“完整分析”；只有登录页的靶场，练不到授权与存储。</p>
+
+<h2>2. 环境清单</h2>
+<table>
+<thead><tr><th>项</th><th>要求</th><th>检查方式</th></tr></thead>
+<tbody>
+<tr><td>工程</td><td>自己构建，Debug 可调试</td><td>能 attach 到进程</td></tr>
+<tr><td>设备</td><td>模拟器或自有测试机</td><td>`simctl list devices` 有 Booted</td></tr>
+<tr><td>测试服务</td><td>本机或内网，可返回 200/401/403</td><td>`curl` 三个状态各一次</td></tr>
+<tr><td>工具</td><td>命令行工具、调试器、抓包</td><td>逐条命令能跑通</td></tr>
+</tbody>
+</table>
+
+<h2>3. 四天节奏</h2>
+<table>
+<thead><tr><th>天</th><th>任务</th><th>产出</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>范围、数据流、基线</td><td>范围说明 + 基线记录</td></tr>
+<tr><td>2</td><td>存储与日志检查</td><td>位置清单 + 证据</td></tr>
+<tr><td>3</td><td>网络与授权验证</td><td>用例结果表</td></tr>
+<tr><td>4</td><td>修复、回归、报告</td><td>回归报告</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/lab-loop.svg" alt="靶场评估的四阶段闭环" loading="lazy">
+<figcaption>图 7-1　定范围、建基线、验证、修复回归，复盘后再回到范围。</figcaption>
+</figure>
+
+<h2>4. 第一天要留下的基线</h2>
+<div class="code"><div class="code-title">建立基线</div><button class="copy" type="button">复制</button><pre><code>xcrun simctl list devices | grep Booted
+xcrun simctl get_app_container booted com.example.app data
+git rev-parse --short HEAD
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/records/1</code></pre></div>
+<p>基线包含三样：构建号、容器路径、测试服务的可用状态。后面所有结论都要能对回这三样，否则无法复现。</p>
+
+<h2>5. 验收标准</h2>
+<table>
+<thead><tr><th>标准</th><th>合格线</th></tr></thead>
+<tbody>
+<tr><td>范围</td><td>写明对象、时间、允许动作与禁止项</td></tr>
+<tr><td>证据</td><td>每条结论都有可复现的位置或命令</td></tr>
+<tr><td>修复</td><td>至少一处改动落在权威端</td></tr>
+<tr><td>回归</td><td>同环境复测通过，相邻失败路径覆盖</td></tr>
+<tr><td>报告</td><td>他人仅凭报告即可复现</td></tr>
+</tbody>
+</table>
+<div class="callout"><strong>停止条件</strong><br>触及真实用户数据、影响非自有服务、或超出授权范围时立即停止并上报；停止本身也是训练的一部分。</div>
+
+<h2>6. 常见错误：靶场选型与节奏</h2>
+<table>
+<thead><tr><th>错误</th><th>后果</th><th>改法</th></tr></thead>
+<tbody>
+<tr><td>选了一个只有登录页的靶场</td><td>练不到授权与存储</td><td>补列表页与本地缓存</td></tr>
+<tr><td>用线上接口做测试</td><td>影响真实数据</td><td>只连自建服务</td></tr>
+<tr><td>没有基线就开始改</td><td>无法判断是否修好</td><td>先记构建号与容器路径</td></tr>
+<tr><td>四天排满不留余量</td><td>第四天赶报告，结论失真</td><td>每天留半天写记录</td></tr>
+</tbody>
+</table>
+<p>靶场选型的唯一标准：能不能在四天内走完“入口 → 鉴权 → 网络 → 存储 → 错误处理”这条链。</p>
+
+<h2>7. 自测</h2>
+<ol>
+<li>为什么靶场必须包含“存储 + 凭据”这一链？</li>
+<li>基线只记构建号够不够？还缺什么？</li>
+<li>验收标准里“修复落在权威端”意味着什么？</li>
+<li>训练中什么情况下应当立即停止？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

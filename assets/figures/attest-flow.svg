@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320" width="760" height="320" role="img" aria-label="App Attest 的注册与断言两步流程">
+  <defs>
+    <marker id="arrowAt" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">第一步：注册（attest）</text>
+
+  <rect class="b" x="30" y="40" width="150" height="56" rx="8"/>
+  <text class="t" x="46" y="64">App</text>
+  <text class="s" x="46" y="84">请求生成密钥</text>
+
+  <rect class="g" x="210" y="40" width="160" height="56" rx="8"/>
+  <text class="t" x="226" y="64">安全隔区</text>
+  <text class="s" x="226" y="84">生成密钥对，私钥不出区</text>
+
+  <rect class="b" x="400" y="40" width="150" height="56" rx="8"/>
+  <text class="t" x="416" y="64">Apple</text>
+  <text class="s" x="416" y="84">签发凭证</text>
+
+  <rect class="b" x="580" y="40" width="150" height="56" rx="8"/>
+  <text class="t" x="596" y="64">服务端</text>
+  <text class="s" x="596" y="84">验签并存公钥</text>
+
+  <line x1="180" y1="68" x2="206" y2="68" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowAt)"/>
+  <line x1="370" y1="68" x2="396" y2="68" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowAt)"/>
+  <line x1="550" y1="68" x2="576" y2="68" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowAt)"/>
+
+  <text class="h" x="30" y="146">第二步：断言（assert）</text>
+
+  <rect class="b" x="30" y="160" width="220" height="64" rx="8"/>
+  <text class="t" x="46" y="184">请求体 + 计数器</text>
+  <text class="s" x="46" y="204">用私钥对哈希签名</text>
+
+  <rect class="b" x="320" y="160" width="200" height="64" rx="8"/>
+  <text class="t" x="336" y="184">断言对象</text>
+  <text class="s" x="336" y="204">签名 + 单调递增计数</text>
+
+  <rect class="b" x="580" y="160" width="150" height="64" rx="8"/>
+  <text class="t" x="596" y="184">服务端</text>
+  <text class="s" x="596" y="204">验签 + 比计数</text>
+
+  <line x1="250" y1="192" x2="316" y2="192" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowAt)"/>
+  <line x1="520" y1="192" x2="576" y2="192" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowAt)"/>
+
+  <rect x="30" y="252" width="700" height="52" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="44" y="274">计数器必须单调递增，否则同一断言可被重放；clientDataHash 必须与请求体一致，否则断言可被挪用。</text>
+  <text class="s" x="44" y="292">模拟器通常不支持设备证明，必须准备降级路径。</text>
+</svg>

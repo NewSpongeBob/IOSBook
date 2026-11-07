@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 420" width="760" height="420" role="img" aria-label="进程虚拟地址空间的分区与到物理内存的映射">
+  <defs>
+    <marker id="arrowV" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6c32d0"/>
+    </marker>
+    <style>
+      .seg{stroke:#c9d6ea;stroke-width:1.3}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:13px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11.5px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .p{fill:#fff;stroke:#d7dee9;stroke-width:1.2}
+    </style>
+  </defs>
+
+  <text class="h" x="140" y="26">一个进程的虚拟地址空间（示意）</text>
+  <text class="s" x="140" y="52">高地址</text>
+
+  <rect class="seg" x="140" y="60" width="240" height="60" fill="#fff9ec"/>
+  <text class="t" x="156" y="88">栈</text>
+  <text class="s" x="156" y="108">向下增长，每线程独立</text>
+
+  <rect class="seg" x="140" y="120" width="240" height="60" fill="#eef3fb"/>
+  <text class="t" x="156" y="148">共享库与框架</text>
+  <text class="s" x="156" y="168">系统库多来自共享缓存</text>
+
+  <rect class="seg" x="140" y="180" width="240" height="60" fill="#effaf5"/>
+  <text class="t" x="156" y="208">堆</text>
+  <text class="s" x="156" y="228">向上增长，动态分配</text>
+
+  <rect class="seg" x="140" y="240" width="240" height="50" fill="#f4f0fd"/>
+  <text class="t" x="156" y="268">__DATA</text>
+  <text class="s" x="250" y="268">可写</text>
+
+  <rect class="seg" x="140" y="290" width="240" height="50" fill="#f2f4f7"/>
+  <text class="t" x="156" y="318">__TEXT</text>
+  <text class="s" x="250" y="318">只读可执行</text>
+
+  <text class="s" x="140" y="356">低地址</text>
+
+  <text class="h" x="540" y="66">物理内存（页帧）</text>
+  <rect class="p" x="540" y="80" width="200" height="150" rx="8"/>
+  <line x1="540" y1="105" x2="740" y2="105" stroke="#e3e8ef"/>
+  <line x1="540" y1="130" x2="740" y2="130" stroke="#e3e8ef"/>
+  <line x1="540" y1="155" x2="740" y2="155" stroke="#e3e8ef"/>
+  <line x1="540" y1="180" x2="740" y2="180" stroke="#e3e8ef"/>
+  <line x1="540" y1="205" x2="740" y2="205" stroke="#e3e8ef"/>
+
+  <line x1="382" y1="170" x2="536" y2="155" stroke="#6c32d0" stroke-width="1.6" marker-end="url(#arrowV)"/>
+  <text class="s" x="392" y="150">页表 + MMU</text>
+  <text class="s" x="392" y="196">虚拟页 → 物理页（按需）</text>
+
+  <rect x="30" y="372" width="710" height="28" rx="7" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="44" y="391">虚拟大小描述“预留”，常驻与脏页描述“实际成本”；共享页与压缩内存让“占用”必须说明口径。</text>
+</svg>

@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 340" width="760" height="340" role="img" aria-label="Mach-O 文件布局与内存映射的关系">
+  <defs>
+    <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0a8f68"/>
+    </marker>
+    <style>
+      .f{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .m{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:13.5px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11.5px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+    </style>
+  </defs>
+
+  <text class="h" x="40" y="26">磁盘上的文件（偏移连续）</text>
+  <text class="h" x="470" y="26">进程地址空间（按页映射）</text>
+
+  <rect class="f" x="40" y="40" width="250" height="38" rx="6"/>
+  <text class="t" x="56" y="64">Mach-O 头</text>
+  <text class="s" x="200" y="64">0x0</text>
+
+  <rect class="f" x="40" y="78" width="250" height="64" rx="6"/>
+  <text class="t" x="56" y="104">加载命令</text>
+  <text class="s" x="56" y="126">段描述、依赖、符号表位置</text>
+
+  <rect class="f" x="40" y="142" width="250" height="60" rx="6"/>
+  <text class="t" x="56" y="166">__TEXT</text>
+  <text class="s" x="56" y="186">fileoff 0x4000，代码与常量</text>
+
+  <rect class="f" x="40" y="202" width="250" height="50" rx="6"/>
+  <text class="t" x="56" y="232">__DATA</text>
+
+  <rect class="f" x="40" y="252" width="250" height="44" rx="6"/>
+  <text class="t" x="56" y="279">__LINKEDIT</text>
+
+  <rect class="m" x="470" y="142" width="250" height="60" rx="6"/>
+  <text class="t" x="486" y="166">__TEXT</text>
+  <text class="s" x="486" y="186">r-x：只读可执行</text>
+
+  <rect class="m" x="470" y="202" width="250" height="50" rx="6"/>
+  <text class="t" x="486" y="232">__DATA</text>
+  <text class="s" x="600" y="232">rw-</text>
+
+  <rect class="m" x="470" y="252" width="250" height="44" rx="6"/>
+  <text class="t" x="486" y="279">__LINKEDIT</text>
+  <text class="s" x="600" y="279">r--</text>
+
+  <line x1="290" y1="172" x2="468" y2="172" stroke="#0a8f68" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrow2)"/>
+  <line x1="290" y1="227" x2="468" y2="227" stroke="#0a8f68" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrow2)"/>
+  <line x1="290" y1="274" x2="468" y2="274" stroke="#0a8f68" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrow2)"/>
+
+  <rect x="40" y="308" width="680" height="24" rx="6" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="52" y="324">文件偏移用于离线分析，映射后按页对齐；段权限在加载时确定，运行期不随内容变化。</text>
+</svg>

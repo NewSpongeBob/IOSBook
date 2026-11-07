@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="hook 的入口跳转与跳板结构">
+  <defs>
+    <marker id="arrowTp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .o{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.8px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .n{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#c26a06}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">入口被换成一条跳转，跳板负责“还原 + 回调 + 跳回”</text>
+
+  <rect class="b" x="26" y="70" width="180" height="90" rx="8"/>
+  <text class="t" x="40" y="96">函数入口</text>
+  <text class="s" x="40" y="116">前 4 字节被改写</text>
+  <text class="s" x="40" y="136">（B ±128MB）</text>
+
+  <rect class="o" x="300" y="52" width="230" height="126" rx="10"/>
+  <text class="t" x="316" y="78">跳板（框架分配）</text>
+  <text class="s" x="316" y="100">1. 恢复被覆盖的原指令</text>
+  <text class="s" x="316" y="122">2. 执行你的回调</text>
+  <text class="s" x="316" y="144">3. 跳回原函数偏移</text>
+  <text class="s" x="316" y="166">（可用 attach / replace 两种）</text>
+
+  <rect class="b" x="620" y="70" width="110" height="90" rx="8"/>
+  <text class="t" x="636" y="96">原函数</text>
+  <text class="s" x="636" y="116">偏移 +N 之后</text>
+
+  <line x1="206" y1="115" x2="296" y2="115" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowTp)"/>
+  <text class="n" x="214" y="106">跳转</text>
+
+  <line x1="530" y1="115" x2="616" y2="115" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowTp)"/>
+  <text class="n" x="540" y="106">跳回</text>
+
+  <text class="s" x="30" y="226">覆盖多少字节取决于跳转方案：4 / 12 / 16 字节，必须备份完整指令，不能切在半条上。</text>
+  <text class="s" x="30" y="248">页大小 16 KB：改一次入口，就产生一个私有脏页；这也是可被统计的痕迹。</text>
+  <text class="s" x="30" y="270">arm64e 上跳转目标需正确签名，自写跳板容易触发异常。</text>
+</svg>

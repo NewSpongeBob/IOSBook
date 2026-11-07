@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="方法交换五步分帧">
+  <defs>
+    <style>
+      .p{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .q{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+      .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.5px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .n{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#fff;font-weight:700}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">方法交换五步：只改一个指针，代码页不动</text>
+
+  <rect class="p" x="24" y="44" width="136" height="110" rx="9"/>
+  <circle cx="44" cy="64" r="10" fill="#2563eb"/><text class="n" x="44" y="68" text-anchor="middle">1</text>
+  <text class="t" x="60" y="68">调用点</text>
+  <text class="s" x="38" y="92">发起消息发送</text>
+  <text class="s" x="38" y="112">x1 = 选择子</text>
+  <text class="s" x="38" y="136">代码未变</text>
+
+  <rect class="p" x="176" y="44" width="136" height="110" rx="9"/>
+  <circle cx="196" cy="64" r="10" fill="#2563eb"/><text class="n" x="196" y="68" text-anchor="middle">2</text>
+  <text class="t" x="212" y="68">查方法表</text>
+  <text class="s" x="190" y="92">按选择子找 method_t</text>
+  <text class="s" x="190" y="112">命中即取 imp</text>
+  <text class="s" x="190" y="136">记录地址</text>
+
+  <rect class="q" x="328" y="44" width="136" height="110" rx="9"/>
+  <circle cx="348" cy="64" r="10" fill="#c26a06"/><text class="n" x="348" y="68" text-anchor="middle">3</text>
+  <text class="t" x="364" y="68">保存旧实现</text>
+  <text class="s" x="342" y="92">记下 imp_A</text>
+  <text class="s" x="342" y="112">之后要回调它</text>
+  <text class="s" x="342" y="136">等价于 %orig</text>
+
+  <rect class="q" x="480" y="44" width="136" height="110" rx="9"/>
+  <circle cx="500" cy="64" r="10" fill="#c26a06"/><text class="n" x="500" y="68" text-anchor="middle">4</text>
+  <text class="t" x="516" y="68">换 imp</text>
+  <text class="s" x="494" y="92">写 8 字节指针</text>
+  <text class="s" x="494" y="112">改为 imp_B</text>
+  <text class="s" x="494" y="136">不产生脏页</text>
+
+  <rect class="g" x="632" y="44" width="104" height="110" rx="9"/>
+  <circle cx="652" cy="64" r="10" fill="#0a8f68"/><text class="n" x="652" y="68" text-anchor="middle">5</text>
+  <text class="t" x="668" y="68">再调用</text>
+  <text class="s" x="646" y="92">走 imp_B</text>
+  <text class="s" x="646" y="112">日志出现</text>
+
+  <text class="s" x="24" y="188">关键点：调用点的指令一个字节都没动，所以“反汇编看起来正常”，但行为已经变了。</text>
+  <text class="s" x="24" y="212">可观测的痕迹只有一处：方法表里的 imp 与符号地址不一致。</text>
+  <text class="s" x="24" y="236">与之相对，改指令必然产生私有脏页（16 KB），痕迹更重。</text>
+
+  <rect x="24" y="252" width="712" height="34" rx="6" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="38" y="274">交换是全局的：同一个类对象被所有调用点共享，换一次就全生效。</text>
+</svg>

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 280" width="760" height="280" role="img" aria-label="系统版本与架构组成的兼容矩阵">
+  <defs>
+    <style>
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .ok{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11.5px;fill:#0a8f68;font-weight:600}
+      .un{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11.5px;fill:#c26a06;font-weight:600}
+      .na{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11.5px;fill:#9aa4b2;font-weight:600}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">兼容矩阵：每格要么有证据，要么明确写“未验证”</text>
+
+  <rect x="30" y="44" width="700" height="36" rx="6" fill="#eef3fb" stroke="#c9d6ea"/>
+  <text class="t" x="44" y="68">系统版本 \ 架构</text>
+  <text class="t" x="270" y="68">arm64</text>
+  <text class="t" x="440" y="68">arm64e</text>
+  <text class="t" x="610" y="68">模拟器</text>
+
+  <rect x="30" y="86" width="700" height="38" rx="6" fill="#fff" stroke="#e3e8ef"/>
+  <text class="s" x="44" y="111">最低支持版本</text>
+  <text class="ok" x="270" y="111">已验证</text>
+  <text class="un" x="440" y="111">未验证</text>
+  <text class="na" x="610" y="111">不适用</text>
+
+  <rect x="30" y="130" width="700" height="38" rx="6" fill="#fbfcfe" stroke="#e3e8ef"/>
+  <text class="s" x="44" y="155">主流版本</text>
+  <text class="ok" x="270" y="155">已验证</text>
+  <text class="ok" x="440" y="155">已验证</text>
+  <text class="ok" x="610" y="155">已验证</text>
+
+  <rect x="30" y="174" width="700" height="38" rx="6" fill="#fff" stroke="#e3e8ef"/>
+  <text class="s" x="44" y="199">最新版本</text>
+  <text class="un" x="270" y="199">未验证</text>
+  <text class="ok" x="440" y="199">已验证</text>
+  <text class="ok" x="610" y="199">已验证</text>
+
+  <text class="s" x="30" y="244">同一份脚本在不同格子里表现可能完全不同：架构影响指针签名与跳转校验，系统版本影响运行时结构。</text>
+  <text class="s" x="30" y="264">发布/交付前，每格都要有证据编号；没有证据的格子写“未验证”，不要留空。</text>
+</svg>

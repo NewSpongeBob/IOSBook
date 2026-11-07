@@ -1,1 +1,95 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="initial-scale=1"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>T02 样例应用数据流评估 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">T02</span><h1>样例应用数据流与存储评估</h1><p class="sub">用虚构数据追踪采集、使用、保存、传输和删除</p></header><p class="lead">本练习只针对自建样例应用和虚构数据。目标是验证数据生命周期与隐私控制，不分析或提取第三方应用数据。</p><h2>实验准备</h2><ol><li>建立一个仅含测试账户和虚构资料的样例应用。</li><li>列出数据字段、敏感级别、用途、所有者和保留期限。</li><li>画出 UI、内存、文件、Keychain、日志和自建测试服务之间的数据流。</li></ol><h2>检查任务</h2><ul><li>确认凭据使用平台安全存储，普通缓存有清理和备份策略。</li><li>检查日志、崩溃报告和分析事件不包含测试秘密或多余个人信息。</li><li>验证注销、账户切换、权限撤销和卸载后的预期清理行为。</li><li>检查失败路径不把敏感输入写入错误提示或诊断输出。</li></ul><h2>交付物与验收</h2><p>提交数据清单、流向图、测试记录、发现与修复建议。验收要求每个字段有目的和生命周期，测试证据经过脱敏，且删除/退出场景的行为与设计一致。</p><aside class="callout"><strong>停止条件</strong><br>误用真实凭据或意外接触非测试数据时立即停止，按数据处理流程隔离并报告。</aside><nav class="pager"><a href="../part/07-training.html">第七部目录</a><a href="./54-lab-network.html">下一练习 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/53-lab-data.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>T02 数据流与存储评估 · IOSBook</title>
+<meta name="description" content="先画清数据落到哪里，再谈“有没有加密”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">T02</span><h1>数据流与存储评估</h1><p class="sub">先画清数据落到哪里，再谈“有没有加密”</p></header>
+
+<p class="lead">数据评估的常见错误是先看加密算法，再看数据在哪。顺序反过来更有效：先枚举副本，再判断每份副本的暴露条件，最后才选保护手段。</p>
+
+<h2>1. 实验准备</h2>
+<ol>
+<li>全新安装样例应用，登录测试账号，制造一条可识别的测试记录（例如 <code>TEST-RECORD-001</code>）。</li>
+<li>准备查看容器内容的开发环境：模拟器可直接访问容器目录；真机通过调试构建导出或使用受控的日志手段。</li>
+<li>准备一份检查表，逐项记录“位置 / 是否命中 / 保护方式 / 证据”。</li>
+</ol>
+
+<h2>2. 检查任务</h2>
+<table>
+<thead><tr><th>位置</th><th>怎么查</th><th>关注点</th></tr></thead>
+<tbody>
+<tr><td>容器文件</td><td>搜索测试记录标识</td><td>是否明文、是否在不该存在的目录</td></tr>
+<tr><td>偏好设置</td><td>检查 plist 内容</td><td>是否存了令牌或身份信息</td></tr>
+<tr><td>钥匙串</td><td>通过调试构建读取条目属性</td><td>可访问性、访问组、是否仅本设备</td></tr>
+<tr><td>日志</td><td>导出系统日志并搜索标识</td><td>是否出现完整记录或令牌</td></tr>
+<tr><td>备份</td><td>检查备份内容（自有设备）</td><td>敏感文件是否参与备份</td></tr>
+<tr><td>界面快照</td><td>切换后台后查看切换器</td><td>敏感信息是否可见</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/lab-data-map.svg" alt="样例应用的数据位置盘点" loading="lazy">
+<figcaption>图 7-2　先枚举副本（含旁路），再判断每份副本的暴露条件。</figcaption>
+</figure>
+
+<h2>3. 判定标准</h2>
+<ul>
+<li><strong>可接受：</strong>必要的明文缓存，位于受保护目录，有清理策略，且不含凭据。</li>
+<li><strong>需修复：</strong>凭据出现在日志或偏好设置；敏感记录进入备份；快照暴露内容。</li>
+<li><strong>需评估：</strong>为了性能保留的明文缓存，需有加密或访问控制补偿。</li>
+</ul>
+
+<h2>4. 常见发现</h2>
+<ol>
+<li>调试日志把整个响应体打印出来，包含他人信息。</li>
+<li>退出登录只清了内存，磁盘缓存仍在。</li>
+<li>“仅本设备”语义缺失，凭据随备份迁移到新设备。</li>
+<li>图片缓存没有淘汰策略，长期占用空间。</li>
+</ol>
+
+<h2>5. 交付物：位置表与证据清单</h2>
+<ol>
+<li>一份位置清单：每处数据、保护方式、清理时机。</li>
+<li>证据：文件名与时间戳（脱敏），不粘贴完整敏感内容。</li>
+<li>修复建议：按“最小改动、可回归”排序。</li>
+</ol>
+
+<h2>6. 判定标准</h2><table><thead><tr><th>发现</th><th>结论</th><th>动作</th></tr></thead><tbody><tr><td>凭据出现在日志/偏好设置</td><td>需修复</td><td>改存钥匙串、清理日志</td></tr><tr><td>明文缓存位于受保护目录</td><td>可接受</td><td>补清理策略</td></tr><tr><td>敏感文件参与备份</td><td>需修复</td><td>排除备份或改保护类</td></tr></tbody></table><div class="code"><div class="code-title">检索容器中的测试标识</div><button class="copy" type="button">复制</button><pre><code>APP=$(xcrun simctl get_app_container booted com.example.app data)
+grep -rl "TEST-RECORD-001" "$APP" | head
+du -sh "$APP"/Library/Caches</code></pre></div>
+<div class="callout"><strong>先枚举副本</strong><br>先列“数据出现在哪些位置”，再判断每份副本的暴露条件，最后才选加密手段；顺序反了会漏掉日志与备份。</div>
+<h2>7. 常见错误：存储评估</h2>
+<table>
+<thead><tr><th>错误</th><th>为什么错</th></tr></thead>
+<tbody>
+<tr><td>只查 Documents</td><td>偏好设置与缓存同样可能落敏感数据</td></tr>
+<tr><td>把缓存增长当泄漏</td><td>缓存有上限问题，不是对象泄漏</td></tr>
+<tr><td>只看文件不看备份</td><td>排除备份缺失会让数据进入云端</td></tr>
+<tr><td>清理只清内存</td><td>退出登录后磁盘仍留有副本</td></tr>
+</tbody>
+</table>
+
+<h2>8. 自测</h2>
+<ol>
+<li>为什么先枚举副本再看加密？</li>
+<li>“退出登录后磁盘仍有缓存”属于哪一类问题？</li>
+<li>证据记录中为什么不应粘贴完整敏感内容？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

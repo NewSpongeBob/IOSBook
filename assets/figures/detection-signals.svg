@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320" width="760" height="320" role="img" aria-label="检测信号的可靠性分层与响应分级">
+  <defs>
+    <marker id="arrowD2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .hi{fill:#0a8f68}
+      .mid{fill:#c26a06}
+      .lo{fill:#9aa4b2}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">信号可靠性</text>
+
+  <text class="t" x="30" y="60">镜像与可执行映射</text>
+  <rect x="200" y="46" width="300" height="18" rx="9" fill="#eef3fb"/>
+  <rect x="200" y="46" width="282" height="18" rx="9" class="hi"/>
+  <text class="s" x="512" y="60">高</text>
+
+  <text class="t" x="30" y="112">线程与端口</text>
+  <rect x="200" y="98" width="300" height="18" rx="9" fill="#eef3fb"/>
+  <rect x="200" y="98" width="170" height="18" rx="9" class="mid"/>
+  <text class="s" x="512" y="112">中</text>
+
+  <text class="t" x="30" y="164">文件路径与包管理器</text>
+  <rect x="200" y="150" width="300" height="18" rx="9" fill="#eef3fb"/>
+  <rect x="200" y="150" width="95" height="18" rx="9" class="lo"/>
+  <text class="s" x="512" y="164">低</text>
+
+  <text class="h" x="570" y="26">响应分级</text>
+  <rect x="570" y="40" width="160" height="40" rx="7" fill="#effaf5" stroke="#a9dcc9"/>
+  <text class="t" x="584" y="65" font-size="12">上报</text>
+
+  <rect x="570" y="96" width="160" height="40" rx="7" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="t" x="584" y="121" font-size="12">限制高风险操作</text>
+
+  <rect x="570" y="152" width="160" height="40" rx="7" fill="#fdf1f0" stroke="#f3c9c4"/>
+  <text class="t" x="584" y="177" font-size="12">阻断</text>
+
+  <line x1="502" y1="60" x2="566" y2="60" stroke="#2563eb" stroke-width="1.3" marker-end="url(#arrowD2)"/>
+  <line x1="502" y1="112" x2="566" y2="112" stroke="#2563eb" stroke-width="1.3" marker-end="url(#arrowD2)"/>
+  <line x1="502" y1="164" x2="566" y2="164" stroke="#2563eb" stroke-width="1.3" marker-end="url(#arrowD2)"/>
+
+  <rect x="30" y="220" width="700" height="76" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="44" y="244">规则：弱信号只上报；两个弱信号或一个中信号限制操作；只有镜像/行为级证据并经服务端确认才阻断。</text>
+  <text class="s" x="44" y="266">直接退出会把误报变成事故——企业设备、开发机、辅助工具都会触发同样的行为。</text>
+  <text class="s" x="44" y="288">“端口在监听”只能说明有服务，不能说明代码被加载。</text>
+</svg>

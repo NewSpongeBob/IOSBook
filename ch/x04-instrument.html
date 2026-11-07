@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x04-instrument.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>08 hook 原理：改数据、改方法表、改指令 · IOSBook</title>
+<meta name="description" content="改数据、改方法表、改指令——三种手法各有明确的字节数与痕迹">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">08</span><h1>hook 原理：改数据、改方法表、改指令</h1><p class="sub">改数据、改方法表、改指令——三种手法各有明确的字节数与痕迹</p></header>
+
+<p class="lead">插桩的本质是让一次调用走到你指定的地方。手法只有三类，能力与痕迹成反比：改数据最轻，改方法表居中，改指令最重。下面的数字都是 arm64 iOS 上的实际量级，不是比喻。</p>
+<blockquote><strong>场景</strong>　交换返回成功，调用点也确实走到了新实现，可要观察的那条路径始终没出现。原因常在更早一步：这次调用根本没走消息发送。</blockquote>
+
+
+
+<h2>1. 三种改法</h2>
+<table>
+<thead><tr><th>手法</th><th>改什么</th><th>能拦到什么</th><th>留下的痕迹</th></tr></thead>
+<tbody>
+<tr><td>改数据</td><td>对象字段、配置、返回值</td><td>依赖该数据的判断</td><td>几乎无（不触碰代码与元数据）</td></tr>
+<tr><td>改方法表</td><td><code>method_t.imp</code>（8 字节）</td><td>所有走 <code>objc_msgSend</code> 的调用</td><td>方法实现指针与符号地址不一致</td></tr>
+<tr><td>改指令</td><td>函数入口前 4–16 字节</td><td>连直接调用、C 函数也能拦</td><td>代码段被写、页权限变化、签名不再匹配</td></tr>
+</tbody>
+</table>
+<p>选择顺序应该是：能用数据解决就不改方法表，能改方法表就不改指令。这和“能用户态就不内核态”是同一套成本逻辑。</p>
+
+<h2>2. 方法交换改的是哪 8 个字节</h2>
+<p>Objective-C 的方法在运行时是一条结构：方法名、类型编码、实现指针。交换只改最后的实现指针：</p>
+<div class="code"><div class="code-title">method_t 的字段（objc4 公开源码）</div><button class="copy" type="button">复制</button><pre><code>struct method_t {
+    SEL name;              // 选择子
+    const char *types;     // 类型编码，如 "v24@0:8@16"
+    MethodListIMP imp;      // 实现地址，8 字节
+};</code></pre></div>
+<p>关键的实现细节：类在首次使用时，运行时会把只读的原始方法列表复制到可写列表，之后查找走可写副本。因此<strong>你交换的是副本里的 <code>imp</code>，<code>__DATA_CONST</code> 中的原始列表不变</strong>。这解释了两个现象：交换对后续所有调用生效；而静态查看二进制时看不到任何改动。</p>
+
+<figure>
+<img src="../assets/figures/hook-levels.svg" alt="三种 hook 手法的能力与痕迹对比" loading="lazy">
+<figcaption>图 1-12　能力与痕迹同向增长：优先改数据，其次改表，最后才改指令。</figcaption>
+</figure>
+
+<figure>
+<img src="../assets/figures/swizzle-before-after.svg" alt="方法交换前后的调用路径" loading="lazy">
+<figcaption>图 1-13　交换只改方法表里的实现指针，调用点不变，也不产生代码脏页。</figcaption>
+</figure>
+
+<figure data-steps="调用点|查方法表|保存旧实现|换 imp|再调用" data-cols="5" data-rows="1" data-geometry="24,44,136,110,16,0">
+<img src="../assets/figures/swizzle-steps.svg" alt="方法交换五步分帧" loading="lazy">
+<figcaption>图 1-14　只改一个 8 字节指针：调用点不动，代码页不动，痕迹只在方法表。</figcaption>
+</figure>
+
+<h2>3. 原理推演：改指令为什么必然产生脏页</h2>
+<p>代码页由内核映射为“只读 + 可执行”。这不是策略，而是 MMU 的权限位：任何写入都会触发保护异常。所以要改指令，必须先把那一页改成可写。</p>
+<p>改完可写后，这一页不再是与其他进程共享的干净页，而是本进程私有的一份副本——写时复制的必然结果。<b>因此“hook 指令一定留脏页”不是实现缺陷，是想改代码就得付的代价</b>；这也是为什么 16 KB 页在 iOS 上格外显眼：一次入口改写就多出 16 KB 私有内存。</p>
+
+<h2>4. 为什么有些方法交换不了</h2>
+<table>
+<thead><tr><th>情况</th><th>原因</th><th>表现</th></tr></thead>
+<tbody>
+<tr><td>Swift <code>final</code> 方法</td><td>静态派发，不查方法表</td><td>交换成功但调用点不受影响</td></tr>
+<tr><td>未标 <code>@objc</code> 的 Swift 方法</td><td>不在 Objective-C 方法列表里</td><td><code>class_getInstanceMethod</code> 返回空</td></tr>
+<tr><td>协议扩展方法</td><td>见证表派发，非消息发送</td><td>换掉具体类型的实现也没用</td></tr>
+<tr><td>被内联的短函数</td><td>调用点没有函数调用</td><td>断点与交换都不命中</td></tr>
+</tbody>
+</table>
+
+<h2>5. 动手：在自有应用里看见交换</h2>
+<div class="code"><div class="code-title">交换前后打印实现地址（自有工程，Debug 构建）</div><button class="copy" type="button">复制</button><pre><code>Method m = class_getInstanceMethod([LoginService class], @selector(requestToken:));
+IMP before = method_getImplementation(m);
+method_exchangeImplementations(m, class_getInstanceMethod([LoginService class], @selector(loggedRequestToken:)));
+IMP after = method_getImplementation(m);
+NSLog(@"imp before=%p after=%p", before, after);</code></pre></div>
+<div class="code"><div class="code-title">在调试器里核对</div><button class="copy" type="button">复制</button><pre><code>(lldb) image lookup -n "-[LoginService requestToken:]"
+(lldb) br set -n "-[LoginService loggedRequestToken:]"
+(lldb) run</code></pre></div>
+<p>预期：<code>before</code> 与 <code>after</code> 互换但不相等；调用点仍然写着 <code>requestToken:</code>，实际停在 <code>loggedRequestToken:</code>。如果两者相等，说明选择子写错或方法不存在。</p>
+
+<h2>6. 一次真实排查记录：交换后行为没变</h2>
+<ol>
+<li><strong>现象：</strong>交换返回成功，日志却没有新实现的输出。</li>
+<li><strong>先确认调用：</strong>在调用点下断点，看是否真的经过 <code>objc_msgSend</code>；若直接跳到实现，说明走了静态派发。</li>
+<li><strong>再看方法可见性：</strong>枚举该类的 <code>$ownMethods</code>，确认交换的选择子存在于方法表里。</li>
+<li><strong>检查时机：</strong>交换是否发生在类注册之前；过早执行时类对象为空，交换会静默失败。</li>
+<li><strong>结论与限制：</strong>记录“调用未走消息发送”，并注明该结论只对当前构建与优化设置成立。</li>
+</ol>
+
+<h2>7. 工程权衡：三种改法怎么选</h2>
+<table>
+<thead><tr><th>手法</th><th>能力</th><th>痕迹</th><th>维护成本</th></tr></thead>
+<tbody>
+<tr><td>改数据</td><td>只影响依赖该数据的判断</td><td>几乎无</td><td>低，但覆盖面小</td></tr>
+<tr><td>改方法表</td><td>覆盖所有消息发送</td><td>实现地址异常</td><td>中，受派发方式限制</td></tr>
+<tr><td>改指令</td><td>连直接调用也能拦</td><td>代码页被写、私有脏页</td><td>高，需处理并发与签名</td></tr>
+</tbody>
+</table>
+
+<h2>8. 失败分流表</h2>
+<table>
+<thead><tr><th>现象</th><th>最可能的原因</th><th>该查哪里</th></tr></thead>
+<tbody>
+<tr><td>交换成功但行为没变</td><td>调用走了静态派发或另一处实现</td><td>在调用点下断点，看是否经过 <code>objc_msgSend</code></td></tr>
+<tr><td>崩溃：unrecognized selector</td><td>类型编码不匹配，或交换发生在类初始化之前</td><td>打印 <code>method_getTypeEncoding</code>，检查调用时机</td></tr>
+<tr><td>只有部分入口生效</td><td>同一功能有多个实现或缓存已建立</td><td>搜同名选择子，查调用链</td></tr>
+<tr><td>断点停不住</td><td>断点设在原方法上，而实现已被替换</td><td>改为在新实现或调用点下断</td></tr>
+<tr><td>Swift 方法无效</td><td>未暴露给 Objective-C 运行时</td><td>看是否有 <code>@objc</code>/<code>dynamic</code>，或加包装层</td></tr>
+</tbody>
+</table>
+
+<h2>9. 如果改的是指令，量级是多少</h2>
+<p>arm64 的指令定长 4 字节，所以“劫持函数入口”只需要替换开头几条指令。不同跳转方案的代价差别很大：</p>
+<table>
+<thead><tr><th>方案</th><th>占用</th><th>可达范围</th><th>备注</th></tr></thead>
+<tbody>
+<tr><td><code>B imm26</code></td><td>4 字节</td><td>±128 MB</td><td>最省，但跳不远</td></tr>
+<tr><td><code>ADRP + ADD + BR</code></td><td>12 字节</td><td>±4 GB</td><td>常用折中</td></tr>
+<tr><td><code>LDR literal + BR</code>（含 8 字节地址常量）</td><td>16 字节</td><td>全地址空间</td><td>需保存/恢复更长前缀</td></tr>
+</tbody>
+</table>
+<p>iOS arm64 的页大小是 <strong>16 KB</strong>。第一次写入代码页会触发写时复制，产生一个 16 KB 的私有脏页——这比 Android 常见的 4 KB 页更容易被统计发现。改权限（<code>mprotect</code>）只能恢复可执行属性，抹不掉这页已经私有的状态。</p>
+
+<h2>10. 分析者能看到什么</h2>
+<table>
+<thead><tr><th>观测点</th><th>能发现什么</th></tr></thead>
+<tbody>
+<tr><td>方法实现地址</td><td>与符号地址不一致，或落在非映像区间</td></tr>
+<tr><td>镜像列表</td><td>出现未随包分发的库或异常映射</td></tr>
+<tr><td>页权限与脏页</td><td>代码页变成可写，或私有脏页增长</td></tr>
+<tr><td>代码签名</td><td>磁盘产物未被改动，但运行期代码已变</td></tr>
+</tbody>
+</table>
+<div class="callout"><strong>边界</strong><br>本节讨论的是“如何在自己的应用上实现与观测”，以及“防护方能看到什么”。不提供针对他人应用的改写或绕过步骤。</div>
+
+<p class="more">延伸：<a href="x05-runtime-meta.html">13 运行时元数据</a> · <a href="x11-interceptor.html">F02 跳板结构</a> · <a href="05-signature.html">17 代码签名</a></p>
+
+<h2>11. 自测</h2>
+<ol>
+<li>方法交换修改的是方法结构的哪个字段？为什么只读段里的原始列表没有变化？</li>
+<li>为什么 <code>final</code> 修饰的 Swift 方法交换后调用点不受影响？</li>
+<li>iOS arm64 上一次代码页写入会产生多大的私有脏页？这对“隐蔽性”意味着什么？</li>
+<li>如果防护方比较方法表里的实现地址与符号地址，交换会留下什么信号？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 280" width="760" height="280" role="img" aria-label="Swift 方法暴露给运行时的三种状态与可 hook 性">
+  <defs>
+    <marker id="arrowSw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+      .y{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.5px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .no{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#c0392b;font-weight:600}
+      .ok{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#0a8f68;font-weight:600}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">同一份代码，加不加注解决定了“能不能按名字 hook”</text>
+
+  <rect class="b" x="26" y="48" width="200" height="104" rx="8"/>
+  <text class="t" x="40" y="72">纯 Swift</text>
+  <text class="s" x="40" y="94">静态 / 虚表 / 见证表</text>
+  <text class="s" x="40" y="114">方法表里没有条目</text>
+  <text class="no" x="40" y="138">不能按名字 hook</text>
+
+  <rect class="y" x="270" y="48" width="200" height="104" rx="8"/>
+  <text class="t" x="284" y="72">标 @objc</text>
+  <text class="s" x="284" y="94">走消息发送</text>
+  <text class="s" x="284" y="114">仍可能被内联/去虚化</text>
+  <text class="ok" x="284" y="138">能挂，但不一定生效</text>
+
+  <rect class="g" x="514" y="48" width="220" height="104" rx="8"/>
+  <text class="t" x="528" y="72">@objc dynamic</text>
+  <text class="s" x="528" y="94">走消息发送且禁止优化</text>
+  <text class="s" x="528" y="114">实现地址稳定可查</text>
+  <text class="ok" x="528" y="138">能挂且稳定</text>
+
+  <line x1="226" y1="100" x2="266" y2="100" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowSw)"/>
+  <line x1="470" y1="100" x2="510" y2="100" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowSw)"/>
+  <text class="s" x="232" y="92">加注解</text>
+  <text class="s" x="476" y="92">加 dynamic</text>
+
+  <rect x="26" y="176" width="708" height="80" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="40" y="200">泛型会为每个具体类型生成特化版本，符号上看像“同名多个函数”，按符号 hook 可能只挂到一个。</text>
+  <text class="s" x="40" y="222">优化会把短方法内联进调用方，原地址不再被调用——断点验证比看符号可靠。</text>
+  <text class="s" x="40" y="244">需要稳定观测点时，优先 hook 边界（网络、存储、@objc 暴露的入口）。</text>
+</svg>

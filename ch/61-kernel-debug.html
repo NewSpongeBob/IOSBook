@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/61-kernel-debug.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K08 内核调试的限制与替代 · IOSBook</title>
+<meta name="description" content="零售设备没有内核断点，只有事后证据与间接观测">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">K08</span><h1>内核调试的限制与替代</h1><p class="sub">零售设备没有内核断点，只有事后证据与间接观测</p></header>
+
+<p class="lead">iOS 的内核调试需要 Apple 提供的开发内核与调试链路，零售设备上不存在这条通道。能做的只有三件事：读 kernelcache、看诊断包、从用户态行为反推。</p>
+
+<h2>1. 三种环境</h2>
+<table>
+<thead><tr><th>环境</th><th>内核断点</th><th>前提</th></tr></thead>
+<tbody>
+<tr><td>开发内核 + 调试协议</td><td>可以</td><td>Apple 提供的开发镜像与受支持设备</td></tr>
+<tr><td>越狱设备</td><td>部分可以</td><td>内核补丁 + 调试器，稳定性差</td></tr>
+<tr><td>零售设备</td><td>不行</td><td>无调试通道</td></tr>
+</tbody>
+</table>
+<p>“不行”不是配置问题：调试通道可读写任意物理内存，等于绕过所有用户态保护，所以只在受控构建上开放。</p>
+
+<h2>2. 替代观测面</h2>
+<table>
+<thead><tr><th>手段</th><th>能得到什么</th><th>限制</th></tr></thead>
+<tbody>
+<tr><td>kernelcache 静态分析</td><td>函数结构、判定逻辑、字符串</td><td>需解包与符号恢复</td></tr>
+<tr><td>系统诊断包</td><td>内核日志、panic 记录、进程快照</td><td>事后，粒度粗</td></tr>
+<tr><td>系统追踪</td><td>系统调用、调度、I/O 事件</td><td>开销大，窗口短</td></tr>
+<tr><td>用户态观测</td><td>错误码、时序、行为差异</td><td>只能推断</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/debug-env-matrix.svg" alt="三种调试环境与可用观测手段矩阵" loading="lazy">
+<figcaption>图 2-12　能不能下内核断点，取决于设备是不是受控构建。</figcaption>
+</figure>
+
+<h2>3. 命令形态</h2>
+<div class="code"><div class="code-title">用系统追踪观察自有应用（macOS 侧）</div><button class="copy" type="button">复制</button><pre><code>xcrun xctrace list templates | grep -i "System Trace"
+xcrun xctrace record --template "System Trace" --time-limit 5s \
+  --output /tmp/sys.trace --launch -- /path/to/YourApp.app/Contents/MacOS/YourApp</code></pre></div>
+<div class="code"><div class="code-title">收集诊断包（设备侧触发后导入）</div><button class="copy" type="button">复制</button><pre><code># 设备上触发 sysdiagnose 后，把包导入本机
+ls ~/Library/Logs/CrashReporter/MobileDevice/ | tail
+log show --last 10m --predicate 'process == "YourApp"' | head -50</code></pre></div>
+
+<h2>4. 一次内核相关排障</h2>
+<ol>
+<li>用户态出现权限错误，先确认错误码与调用栈。</li>
+<li>拉诊断包，对齐同一时间点的内核日志与进程状态。</li>
+<li>在 kernelcache 里定位对应判定函数，看分支条件。</li>
+<li>用公开源码对照逻辑，标注“模型”与“事实”。</li>
+<li>回到设备构造可复现条件，验证推断。</li>
+</ol>
+
+<h2>5. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>提示无法连接内核</td><td>零售设备无调试通道</td><td>设备与构建类型</td></tr>
+<tr><td>诊断包里没有内核日志</td><td>日志级别或保留策略</td><td>收集方式与时间窗</td></tr>
+<tr><td>panic 无法符号化</td><td>缺少对应内核符号</td><td>按版本匹配 kernelcache</td></tr>
+<tr><td>推断与实测不符</td><td>公开源码与设备构建差异</td><td>以设备行为为准并记录差异</td></tr>
+</tbody>
+</table>
+<div class="callout"><strong>别把“可观测”当“可调试”</strong><br>系统追踪能看到系统调用与调度事件，但看不到内核内部变量；想验证“某个判定为什么失败”，最终仍要靠 kernelcache 的静态阅读与用户态实验。</div>
+
+<h2>6. 一次真实排查记录：诊断包里没有内核日志</h2>
+<ol>
+<li><strong>现象：</strong>按流程触发了诊断包，却找不到内核相关记录。</li>
+<li><strong>先看时间窗：</strong>诊断包只保留最近一段，问题发生太久就已被覆盖。</li>
+<li><strong>再看采集方式：</strong>部分日志需要更高的采集级别才会落盘。</li>
+<li><strong>替代路径：</strong>改用系统追踪复现一次，或从 panic 记录反推。</li>
+<li><strong>结论与限制：</strong>记录“证据未被保留”，并注明这类结论只能标为推断。</li>
+</ol>
+<p>“没有日志”本身也是证据：它说明当时的采集配置不足以支撑这个结论。</p>
+
+<h2>7. 工程权衡：三种替代手段怎么选</h2>
+<table>
+<thead><tr><th>手段</th><th>能得到</th><th>适合</th></tr></thead>
+<tbody>
+<tr><td>kernelcache 静态阅读</td><td>判定逻辑与分支条件</td><td>解释“为什么会拒绝”</td></tr>
+<tr><td>系统追踪</td><td>调用与调度时间线</td><td>解释“慢在哪、谁先谁后”</td></tr>
+<tr><td>诊断包</td><td>事后状态与 panic 记录</td><td>解释“当时发生了什么”</td></tr>
+</tbody>
+</table>
+<p>三者回答不同问题：静态说“规则是什么”，追踪说“顺序是什么”，诊断说“现场是什么”。混用会得到看似完整、实则无法验证的结论。</p>
+
+<h2>8. 自测</h2>
+<ol>
+<li>为什么内核调试通道只在受控构建上开放？</li>
+<li>零售设备上，哪三类证据可以替代内核断点？</li>
+<li>“开发内核行为”为什么不能迁移到量产设备？</li>
+<li>panic 分析与普通崩溃在证据来源上有什么不同？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

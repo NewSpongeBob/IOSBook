@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/58-ptrace.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>06 ptrace 与调试附加 · IOSBook</title>
+<meta name="description" content="附加失败通常不是工具问题，而是签名、权限或进程状态">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">06</span><h1>ptrace 与调试附加</h1><p class="sub">附加失败通常不是工具问题，而是签名、权限或进程状态</p></header>
+
+<p class="lead">ptrace 提供的是“让另一个进程停下来并被读写”的能力。iOS 上它受三层约束：签名是否允许调试、进程是否属于你、内核策略是否放行。理解这三层，调试失败时就不用猜。</p>
+<blockquote><strong>场景</strong>　调试器显示 attached，界面却停在启动画面。附加成功只是第一步——暂停线程、读寄存器、写断点，每一步都可能卡在权限上。</blockquote>
+
+
+
+<h2>1. 谁在用它</h2>
+<table>
+<thead><tr><th>使用者</th><th>目的</th><th>权限来源</th></tr></thead>
+<tbody>
+<tr><td>Xcode / lldb</td><td>断点、单步、读写内存</td><td>开发签名的调试能力</td></tr>
+<tr><td>崩溃收集器</td><td>在进程内捕获异常并写报告</td><td>同进程内，不需要附加</td></tr>
+<tr><td>反调试逻辑</td><td>发现“自己被别的进程控制”</td><td>读取自身状态</td></tr>
+</tbody>
+</table>
+
+<h2>2. 常用请求号（Darwin）</h2>
+<table>
+<thead><tr><th>常量</th><th>值</th><th>作用</th></tr></thead>
+<tbody>
+<tr><td><code>PT_TRACE_ME</code></td><td>0</td><td>声明“我的父进程可以调试我”</td></tr>
+<tr><td><code>PT_CONTINUE</code></td><td>7</td><td>让被暂停的进程继续</td></tr>
+<tr><td><code>PT_STEP</code></td><td>9</td><td>单步执行</td></tr>
+<tr><td><code>PT_ATTACH</code></td><td>10</td><td>附加到指定进程</td></tr>
+<tr><td><code>PT_DETACH</code></td><td>11</td><td>解除附加</td></tr>
+<tr><td><code>PT_DENY_ATTACH</code></td><td>31</td><td>请求“不要附加我”</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/ptrace-attach.svg" alt="调试器附加目标进程的六个步骤" loading="lazy">
+<figcaption>图 1-10　第 1 步拿任务端口就是权限关口；后续全部依赖它。</figcaption>
+</figure>
+
+<h2>3. 一次附加的六个步骤</h2>
+<ol>
+<li>调试器取得目标进程的<strong>任务端口</strong>（相当于“操作这个进程的权能”）。</li>
+<li>暂停目标的所有线程。</li>
+<li>读取线程状态（寄存器），定位当前指令。</li>
+<li>在目标地址写入断点指令（arm64 为 4 字节）。</li>
+<li>恢复执行，命中后再次暂停并上报。</li>
+<li>调试结束：恢复被改写的字节，解除附加。</li>
+</ol>
+<p>第 1 步是权限关口：拿不到任务端口，后面全都做不了。</p>
+
+<h2>4. iOS 上的三道限制</h2>
+<table>
+<thead><tr><th>限制</th><th>表现</th><th>为什么</th></tr></thead>
+<tbody>
+<tr><td>签名能力</td><td>发布构建无法附加</td><td>开发构建才有允许调试的能力</td></tr>
+<tr><td>进程归属</td><td>普通应用无法附加别的进程</td><td>任务端口需要特权</td></tr>
+<tr><td>系统策略</td><td>系统进程默认不可附加</td><td>平台完整性保护</td></tr>
+</tbody>
+</table>
+<p>越狱环境会放宽后两条，但第一条仍取决于签名。这也是“为什么同一份代码在开发机能调试、在 TestFlight 上不能”的原因。</p>
+
+<h2>5. 为什么能检测到被附加</h2>
+<table>
+<thead><tr><th>手段</th><th>原理</th><th>误报</th></tr></thead>
+<tbody>
+<tr><td>读取进程标志</td><td>被调试的进程带 <code>P_TRACED</code>（<code>0x800</code>）标志</td><td>低</td></tr>
+<tr><td><code>PT_DENY_ATTACH</code></td><td>请求内核拒绝后续附加</td><td>中：调试器仍可能绕过</td></tr>
+<tr><td>时序差</td><td>断点与单步会显著改变执行时间</td><td>高：慢设备也会误判</td></tr>
+<tr><td>异常端口</td><td>调试器接管异常处理后，自身收不到崩溃</td><td>中</td></tr>
+</tbody>
+</table>
+<div class="code"><div class="code-title">读取自身是否被调试（自有应用内）</div><button class="copy" type="button">复制</button><pre><code>#include &lt;sys/sysctl.h&gt;
+#include &lt;sys/proc.h&gt;
+
+bool isTraced(void) {
+    int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid() };
+    struct kinfo_proc info;
+    size_t size = sizeof(info);
+    if (sysctl(mib, 4, &info, &size, NULL, 0) != 0) return false;
+    return (info.kp_proc.p_flag &amp; P_TRACED) != 0;
+}</code></pre></div>
+<p><code>PT_DENY_ATTACH</code> 只是“请求”，不是强制：具备足够权限的调试器仍能附加。把它当成提高成本的措施，而不是安全边界。</p>
+
+<h2>6. 一次真实排查记录：附加成功但断点不命中</h2>
+<ol>
+<li><strong>现象：</strong>调试器显示已附加，设置的地址断点从不触发。</li>
+<li><strong>先假设地址错了：</strong>镜像基址随随机化变化，静态算出的地址在本次运行里无效。</li>
+<li><strong>改用符号断点：</strong>按函数名下断，让调试器自己做地址换算，命中后核对实际地址与静态地址的差值是否等于 slide。</li>
+<li><strong>再排除优化：</strong>若符号断点也不命中，检查该函数是否被内联进调用方——此时断点应下在调用点。</li>
+<li><strong>结论与限制：</strong>记录“断点未命中源于地址失效”，并注明该结论只对本次启动的 slide 成立。</li>
+</ol>
+
+<h2>7. 工程权衡：断点、日志与采样</h2>
+<table>
+<thead><tr><th>手段</th><th>精度</th><th>侵入性</th><th>适用</th></tr></thead>
+<tbody>
+<tr><td>断点</td><td>精确到指令与参数</td><td>暂停线程，改变时序</td><td>定位具体分支与返回值</td></tr>
+<tr><td>日志</td><td>代码里写了什么才有什么</td><td>需要改代码，影响性能</td><td>长期观测、线上问题</td></tr>
+<tr><td>采样</td><td>统计意义上的热点</td><td>低，但看不到单次参数</td><td>性能与卡顿</td></tr>
+</tbody>
+</table>
+<p>三者不是替代关系：先用采样找热点，再用断点看单次行为，最后用日志做长期验证。</p>
+
+<h2>8. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>attach 失败：权限不足</td><td>构建不带调试能力</td><td>签名与描述文件</td></tr>
+<tr><td>attach 成功但断点不命中</td><td>地址随 slide 变化，或代码被内联</td><td>用映像加载偏移换算</td></tr>
+<tr><td>附加后应用立刻崩溃</td><td>检测到 <code>P_TRACED</code> 主动退出</td><td>检测逻辑与退出路径</td></tr>
+<tr><td>断点命中但变量为空</td><td>优化构建，变量在寄存器或被复用</td><td>看寄存器与返回值</td></tr>
+<tr><td>连上就超时断开</td><td>暂停过久触发看门狗</td><td>缩短停顿，减少断点</td></tr>
+</tbody>
+</table>
+
+<div class="callout"><strong>拒绝附加只是提高成本</strong><br><code>PT_DENY_ATTACH</code> 是请求，不是强制；具备足够权限的调试器仍能附加，因此它属于提高成本而非安全边界。</div>
+<h2>9. 自测</h2>
+<ol>
+<li>为什么“拿到任务端口”等于拿到了操作该进程的全部能力？</li>
+<li><code>P_TRACED</code> 标志位是 <code>0x800</code>，它由谁设置？</li>
+<li><code>PT_DENY_ATTACH</code> 为什么只能算提高成本？</li>
+<li>发布构建无法被 Xcode 附加，根因在签名还是系统版本？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

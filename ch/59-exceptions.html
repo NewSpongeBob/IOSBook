@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/59-exceptions.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K03 异常、信号与崩溃现场 · IOSBook</title>
+<meta name="description" content="先读异常类型与子类型，再读线程与寄存器；顺序错了结论就会错">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">K03</span><h1>异常、信号与崩溃现场</h1><p class="sub">先读异常类型与子类型，再读线程与寄存器；顺序错了结论就会错</p></header>
+
+<p class="lead">崩溃报告是现场记录：异常类型说明谁触发了陷阱，子类型给出地址与原因，线程与寄存器给出位置。读懂这三个层次，比背符号表有用。</p>
+<blockquote><strong>场景</strong>　一封崩溃报告里真正有用的只有三行：异常类型、子类型、触发线程。剩下几百行，都是这三行的注脚。</blockquote>
+
+
+
+<h2>1. 五级接力</h2>
+<ol>
+<li>指令触发同步异常（缺页、权限、对齐、断点）。</li>
+<li>CPU 进入内核异常向量。</li>
+<li>内核检查任务/线程是否注册了异常端口。</li>
+<li>无人认领时转换为 BSD 信号（SIGSEGV/SIGBUS/SIGILL/SIGABRT）。</li>
+<li>信号无处理者则终止进程并写报告。</li>
+</ol>
+
+<figure>
+<img src="../assets/figures/exception-chain.svg" alt="从指令异常到信号与崩溃报告的接力路径" loading="lazy">
+<figcaption>图 2-5　异常端口是分叉点：被认领时交给调试器/收集器，否则落到信号与终止。</figcaption>
+</figure>
+
+<h2>2. 异常类型与编号</h2>
+<table>
+<thead><tr><th>异常</th><th>编号</th><th>常见信号</th><th>典型原因</th></tr></thead>
+<tbody>
+<tr><td>EXC_BAD_ACCESS</td><td>1</td><td>SIGSEGV(11) / SIGBUS(10)</td><td>空指针、释放后使用、越界</td></tr>
+<tr><td>EXC_BAD_INSTRUCTION</td><td>2</td><td>SIGILL(4)</td><td>非法指令、断言失败</td></tr>
+<tr><td>EXC_BREAKPOINT</td><td>6</td><td>SIGTRAP(5)</td><td>断点、运行时检查</td></tr>
+<tr><td>EXC_CRASH</td><td>10</td><td>SIGABRT(6)</td><td>未捕获异常、主动中止</td></tr>
+<tr><td>EXC_GUARD</td><td>12</td><td>SIGKILL(9)</td><td>违规使用受保护资源（如越界访问文件描述符）</td></tr>
+</tbody>
+</table>
+<p>访存类异常的子类型最关键：<code>KERN_INVALID_ADDRESS</code>（1）表示地址无效，<code>KERN_PROTECTION_FAILURE</code>（2）表示权限不足。前者通常是野指针，后者常是写只读页或保护类未解锁。</p>
+
+<figure data-steps="指令触发|进异常向量|查异常端口|转成信号|写报告" data-cols="5" data-rows="1" data-geometry="24,44,136,112,16,0">
+<img src="../assets/figures/exception-steps.svg" alt="异常到崩溃报告的五步分帧" loading="lazy">
+<figcaption>图 2-6　第三步是分叉点：端口被认领时不会转成信号，也就没有普通报告。</figcaption>
+</figure>
+
+<h2>3. 报告长什么样</h2>
+<div class="code"><div class="code-title">崩溃报告头部（标准格式）</div><button class="copy" type="button">复制</button><pre><code>Exception Type:  EXC_BAD_ACCESS (SIGSEGV)
+Exception Subtype: KERN_INVALID_ADDRESS at 0x0000000000000010
+Termination Reason: SIGNAL 11 Segmentation fault: 11
+Triggered by Thread:  0</code></pre></div>
+<p>读法：地址 <code>0x10</code> 说明是空指针加偏移；<code>Triggered by Thread: 0</code> 告诉你先看主线程，而不是遍历所有线程。</p>
+
+<h2>4. 寄存器与线程状态</h2>
+<table>
+<thead><tr><th>寄存器</th><th>含义</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td><code>pc</code></td><td>触发异常的指令</td><td>定位到函数与行号</td></tr>
+<tr><td><code>lr</code></td><td>返回地址</td><td>看调用来源</td></tr>
+<tr><td><code>fp</code></td><td>帧指针</td><td>还原调用链</td></tr>
+<tr><td><code>x0</code></td><td>第一个参数/返回值</td><td>判断对象是否为空</td></tr>
+</tbody>
+</table>
+
+<h2>5. 系统终止不是崩溃</h2>
+<table>
+<thead><tr><th>终止码</th><th>含义</th><th>证据特征</th></tr></thead>
+<tbody>
+<tr><td><code>0x8badf00d</code></td><td>看门狗超时</td><td>主线程长时间无响应，无异常帧</td></tr>
+<tr><td><code>0xdead10cc</code></td><td>挂起时仍持有文件锁/数据库</td><td>后台被终止，回溯停在持锁调用</td></tr>
+</tbody>
+</table>
+<div class="callout"><strong>先分类再分析</strong><br>Termination Reason 明确写着系统原因时，不要去读异常帧——那里往往没有异常，只有“被杀时正在做什么”。</div>
+
+<h2>6. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>报告无异常帧</td><td>被系统终止</td><td>Termination Reason</td></tr>
+<tr><td>栈顶全是系统库</td><td>系统代调用方执行非法操作</td><td>往下找调用来源</td></tr>
+<tr><td>同一地址反复崩</td><td>释放后使用或缓存失效指针</td><td>对象生命周期</td></tr>
+<tr><td>仅锁屏后崩溃</td><td>文件保护类未解锁</td><td>保护类与读取时机</td></tr>
+<tr><td>符号化行号偏移</td><td>符号文件与构建不匹配</td><td>UUID 核对</td></tr>
+</tbody>
+</table>
+
+<h2>7. 一次真实排查记录：同一地址反复崩溃</h2>
+<ol>
+<li><strong>现象：</strong>不同入口进去，崩溃地址几乎相同。</li>
+<li><strong>先看子类型：</strong><code>KERN_INVALID_ADDRESS</code> 且地址很小，通常是空指针加偏移。</li>
+<li><strong>再问生命周期：</strong>同一地址反复出现，多与“释放后使用”或缓存的失效指针有关。</li>
+<li><strong>验证：</strong>在对象释放处下断点，确认崩溃发生在其后。</li>
+<li><strong>结论与限制：</strong>记录“释放后使用”，并注明结论只对该崩溃路径成立。</li>
+</ol>
+<p>若地址是大数（远超正常范围），更可能是野指针或越界；两种情形的修复方式完全不同。</p>
+
+<h2>8. 自测</h2>
+<ol>
+<li><code>KERN_INVALID_ADDRESS</code> 与 <code>KERN_PROTECTION_FAILURE</code> 分别说明什么？</li>
+<li>为什么 <code>0x8badf00d</code> 的报告里通常没有异常帧？</li>
+<li><code>pc/lr/fp</code> 在定位崩溃点时各起什么作用？</li>
+<li>“崩溃在系统库”为什么多数不是系统的问题？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

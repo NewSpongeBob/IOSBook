@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 280" width="760" height="280" role="img" aria-label="客户端检测与信任边界">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker><style>
+  .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+  .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+  .y{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+  .n{fill:#f2f4f7;stroke:#cfd6e0;stroke-width:1.3}
+  .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+  .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+  .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+  .k{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#c26a06}
+</style></defs>
+
+  <text class="h" x="30" y="28">客户端只能提高成本，判定必须在服务端</text>
+
+  <rect class="n" x="30" y="52" width="300" height="150" rx="10"/>
+  <text class="t" x="44" y="76">客户端（可被控制）</text>
+  <text class="s" x="44" y="100">检测信号：镜像、线程、端口</text>
+  <text class="s" x="44" y="122">加固：混淆、字符串加密</text>
+  <text class="s" x="44" y="144">状态缓存与用户体验</text>
+  <text class="s" x="44" y="166">结论：只能作为风险信号</text>
+
+  <rect class="g" x="430" y="52" width="300" height="150" rx="10"/>
+  <text class="t" x="444" y="76">服务端（权威判定）</text>
+  <text class="s" x="444" y="100">身份与令牌校验</text>
+  <text class="s" x="444" y="122">对象级授权</text>
+  <text class="s" x="444" y="144">风控与限流</text>
+  <text class="s" x="444" y="166">结论：可执行的决定</text>
+
+  <line x1="330" y1="60" x2="330" y2="196" stroke="#c26a06" stroke-width="1.6" stroke-dasharray="6 4"/>
+  <text class="k" x="300" y="228">信任边界</text>
+
+  <text class="s" x="30" y="254">判断标准：假设客户端完全被控制，这个决定还能不能正确执行？不能，就必须上移。</text>
+
+</svg>

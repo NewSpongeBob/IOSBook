@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 280" width="760" height="280" role="img" aria-label="Stalker 按基本块重编译并插入回调">
+  <defs>
+    <marker id="arrowSt" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.8px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">按基本块复制一份，每条指令前后插回调</text>
+
+  <rect class="b" x="26" y="52" width="200" height="110" rx="8"/>
+  <text class="t" x="40" y="76">原始基本块</text>
+  <text class="s" x="40" y="98">指令 1</text>
+  <text class="s" x="40" y="118">指令 2</text>
+  <text class="s" x="40" y="138">分支（末尾）</text>
+
+  <rect class="g" x="290" y="52" width="250" height="110" rx="8"/>
+  <text class="t" x="304" y="76">插桩副本</text>
+  <text class="s" x="304" y="98">回调 → 指令 1 → 回调</text>
+  <text class="s" x="304" y="118">回调 → 指令 2 → 回调</text>
+  <text class="s" x="304" y="138">分支仍按原目标跳转</text>
+
+  <rect class="b" x="604" y="52" width="130" height="110" rx="8"/>
+  <text class="t" x="618" y="76">代码缓存</text>
+  <text class="s" x="618" y="98">只编译一次</text>
+  <text class="s" x="618" y="118">下次直接复用</text>
+
+  <line x1="226" y1="107" x2="286" y2="107" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowSt)"/>
+  <line x1="540" y1="107" x2="600" y2="107" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowSt)"/>
+
+  <rect x="26" y="186" width="708" height="72" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="40" y="210">代价：每条指令都多一次回调，量级约 10×（只记块入口）到 50–100×（逐指令）。</text>
+  <text class="s" x="40" y="232">因此只适合短窗口；长期观察应改用采样或断点，而不是一直 follow。</text>
+  <text class="s" x="40" y="252">默认只跟一个线程，跨线程要显式 follow，否则异步路径会漏。</text>
+</svg>

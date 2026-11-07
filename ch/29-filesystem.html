@@ -1,1 +1,112 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>K06 文件系统、容器与数据边界 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">K06</span><h1>文件系统、容器与数据边界</h1><p class="sub">把沙盒路径、数据类别、备份与保护属性纳入同一设计</p></header><p class="lead">应用容器提供隔离边界，但容器中的文件仍需分类管理。路径选择、备份行为、数据保护级别、日志和删除策略共同决定真实暴露面。</p><h2>数据流模型</h2><p>先从数据来源开始，追踪它经过内存、文件、数据库、日志、备份和网络的路径。将数据分为可重建缓存、用户文档、凭据和高敏感资料，并给每类指定保存期限、保护要求和删除责任。</p><h2>工程检查</h2><ul><li>使用系统提供的应用目录和文件 API，不依赖容器绝对路径或跨版本私有布局。</li><li>检查缓存与临时文件能否重建，避免将敏感数据误标为可备份。</li><li>将数据库、索引、缩略图和日志视为原始数据的潜在副本。</li><li>定义注销、账户切换、卸载、云同步和设备恢复时的预期。</li></ul><h2>授权实验</h2><p>在自有测试应用中写入虚构的不同敏感级别数据，检查应用目录、备份配置和锁屏状态下的预期行为。验证清理后是否仍有缓存副本；测试应使用开发工具及公开支持的接口。</p><h2>结论边界</h2><p>文件系统内部实现��容器路径会随系统版本变化。公开 API 的行为契约优先于对某一设备目录结构的观察。报告路径信息时去除用户标识和真实文件内容。</p><p><strong>参考：</strong><a href="https://developer.apple.com/documentation/foundation/filemanager">FileManager 文档</a> · <a href="https://support.apple.com/guide/security/welcome/web">Apple Platform Security</a></p><nav class="pager"><a href="./28-memory-pressure.html">← 上一章</a><a href="./30-diagnostics.html">下一章：诊断与崩溃 →</a></nav></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/29-filesystem.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K04 文件系统、容器与数据边界 · IOSBook</title>
+<meta name="description" content="能写的地方只有一处，能读的地方取决于保护类">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">K04</span><h1>文件系统、容器与数据边界</h1><p class="sub">能写的地方只有一处，能读的地方取决于保护类</p></header>
+
+<p class="lead">iOS 的文件边界由三件事共同决定：容器布局（写到哪）、文件保护类（锁屏能不能读）、备份策略（会不会被带走）。三者都能量化，也都能在自有设备上验证。</p>
+
+<h2>1. 目录布局</h2>
+<table>
+<thead><tr><th>位置</th><th>可写</th><th>备份</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td><code>YourApp.app</code></td><td>否</td><td>随包</td><td>可执行文件与资源</td></tr>
+<tr><td><code>Documents/</code></td><td>是</td><td>是</td><td>用户数据</td></tr>
+<tr><td><code>Library/Application Support/</code></td><td>是</td><td>是</td><td>应用状态，可主动排除备份</td></tr>
+<tr><td><code>Library/Caches/</code></td><td>是</td><td>否</td><td>可重建缓存，空间紧张时被清理</td></tr>
+<tr><td><code>tmp/</code></td><td>是</td><td>否</td><td>临时文件，不保证保留</td></tr>
+<tr><td>App Group 容器</td><td>是</td><td>视配置</td><td>主应用与扩展共享，需签名能力</td></tr>
+</tbody>
+</table>
+<p>写在包内的东西在运行期不可修改：任何“下载资源到应用目录”的方案，最终都落在数据容器里。</p>
+
+<h2>2. 文件保护类</h2>
+<table>
+<thead><tr><th>保护类</th><th>密钥可用条件</th><th>后台任务能否读</th></tr></thead>
+<tbody>
+<tr><td>完全保护</td><td>设备已解锁</td><td>不能</td></tr>
+<tr><td>仅解锁时（已打开）</td><td>解锁后可继续访问已打开文件</td><td>有限</td></tr>
+<tr><td>首次解锁前不可用</td><td>本次启动解锁过一次</td><td>能</td></tr>
+<tr><td>无保护</td><td>始终</td><td>能</td></tr>
+</tbody>
+</table>
+<div class="code"><div class="code-title">写入时指定保护类</div><button class="copy" type="button">复制</button><pre><code>let url = documents.appendingPathComponent("token.bin")
+try data.write(to: url, options: [.atomic, .completeFileProtection])</code></pre></div>
+<p>锁屏后读取“完全保护”文件会返回权限错误（<code>EPERM</code>），而不是“文件不存在”。把两者混为一谈，会写出错误的降级逻辑。</p>
+
+<figure>
+<img src="../assets/figures/container-tree.svg" alt="应用容器目录树与读写、备份属性" loading="lazy">
+<figcaption>图 2-7　能写的只有数据容器；备份与清理规则各不相同。</figcaption>
+</figure>
+
+<h2>3. 观测容器</h2>
+<div class="code"><div class="code-title">模拟器中定位容器并查看布局</div><button class="copy" type="button">复制</button><pre><code>xcrun simctl get_app_container booted com.example.app data
+du -sh "$(xcrun simctl get_app_container booted com.example.app data)"/*
+find "$(xcrun simctl get_app_container booted com.example.app data)" -name "*.sqlite" -maxdepth 3</code></pre></div>
+<p>真机上无法直接读容器路径，但可以让应用把关键路径与文件大小写进日志，或用调试构建导出。</p>
+
+<h2>4. 备份与清理</h2>
+<ul>
+<li>大文件与可重建数据应排除备份，避免占用用户云空间。</li>
+<li>退出登录要清理的不只是内存：数据库、缓存、钥匙串条目都要覆盖。</li>
+<li>缓存目录可能被系统清理，不能当作唯一数据源。</li>
+</ul>
+
+<h2>5. 失败分流</h2>
+<table>
+<thead><tr><th>错误</th><th>含义</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td><code>ENOENT</code></td><td>路径不存在</td><td>目录是否创建、容器是否被清理</td></tr>
+<tr><td><code>EACCES</code></td><td>权限不足</td><td>沙盒边界、App Group 能力</td></tr>
+<tr><td><code>EPERM</code></td><td>策略拒绝</td><td>文件保护类与锁屏状态</td></tr>
+<tr><td><code>ENOSPC</code></td><td>空间不足</td><td>缓存是否无上限增长</td></tr>
+</tbody>
+</table>
+
+<div class="callout"><strong>两种拒绝不同</strong><br><code>EPERM</code> 是策略（保护类、锁屏），<code>EACCES</code> 是沙盒或能力；按同一个分支处理会把“稍后重试”和“没有权限”混为一谈。</div>
+<h2>6. 一次真实排查记录：锁屏后写入失败</h2>
+<ol>
+<li><strong>现象：</strong>前台正常，锁屏后后台任务写文件失败。</li>
+<li><strong>先看错误码：</strong>是 <code>EPERM</code>（策略拒绝）而不是 <code>ENOENT</code>。</li>
+<li><strong>查保护类：</strong>目标文件标了“完全保护”，锁屏时密钥不可用。</li>
+<li><strong>改策略：</strong>需要后台访问的数据降到“首次解锁后可用”，并评估敏感度。</li>
+<li><strong>结论与限制：</strong>记录“保护类与访问时机不匹配”，并注明降级会带来安全权衡。</li>
+</ol>
+<p>把 <code>EPERM</code> 当成“文件不存在”去重试，是这类问题最常见的错误处理。</p>
+
+<h2>7. 工程权衡：三个目录怎么选</h2>
+<table>
+<thead><tr><th>目录</th><th>保证</th><th>不该放什么</th></tr></thead>
+<tbody>
+<tr><td>Documents</td><td>备份、用户可见语义</td><td>可重建的大文件</td></tr>
+<tr><td>Application Support</td><td>备份、可排除</td><td>敏感明文凭据</td></tr>
+<tr><td>Caches</td><td>不备份、可被清理</td><td>唯一数据源</td></tr>
+</tbody>
+</table>
+<p>判断标准只有两个：丢了会不会影响用户，和丢了能不能重建。两个问题答完，目录就定了。</p>
+
+<h2>8. 自测</h2>
+<ol>
+<li>为什么应用包目录在运行期不可写？这对热更新方案意味着什么？</li>
+<li>锁屏后读文件返回 <code>EPERM</code> 与 <code>ENOENT</code>，分别说明什么？</li>
+<li>哪些目录需要主动排除备份？为什么？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

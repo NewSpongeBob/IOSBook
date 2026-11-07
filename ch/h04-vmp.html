@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/h04-vmp.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H04 VMP：解释循环与还原路径 · IOSBook</title>
+<meta name="description" content="不是加密，是换了一台“虚拟机”来跑你的逻辑">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">H04</span><h1>VMP：解释循环与还原路径</h1><p class="sub">不是加密，是换了一台“虚拟机”来跑你的逻辑</p></header>
+
+<p class="lead">虚拟机保护（VMP）把机器码换成自定义字节码，运行时由一个解释器逐条执行。它防的不是“读”，而是“读得懂”——静态反汇编看到的只是解释器，业务逻辑藏在数据里。</p>
+
+<blockquote><strong>场景</strong>　你把函数交给反汇编器，出来几百行长得一样的循环：读一个字节、查表、跳转、再回来。真正的加法、比较、调用，全都不见了。</blockquote>
+
+<h2>1. 三件套：字节码、解释器、上下文</h2>
+<table>
+<thead><tr><th>组成</th><th>形态</th><th>分析价值</th></tr></thead>
+<tbody>
+<tr><td>字节码</td><td>常量表 + 指令流</td><td>真正的逻辑在这里，但不是机器码</td></tr>
+<tr><td>解释器</td><td>分发循环 + 大 switch</td><td>识别 VMP 的第一线索</td></tr>
+<tr><td>上下文</td><td>虚拟寄存器、栈、PC</td><td>解释“上一条指令留下什么”</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/vmp-loop.svg" alt="虚拟机保护的解释循环结构" loading="lazy">
+<figcaption>图 6-4　字节码是数据、解释器是代码；中央那个大 switch 就是识别入口。</figcaption>
+</figure>
+
+<figure data-steps="取指|解码|执行|更新上下文|回跳" data-cols="5" data-rows="1" data-geometry="24,44,136,110,16,0">
+<img src="../assets/figures/vmp-steps.svg" alt="VMP 解释循环五步分帧" loading="lazy">
+<figcaption>图 6-5　取指、解码、执行、更新、回跳：一条字节码走完这五步，业务才前进一格。</figcaption>
+</figure>
+
+<h2>2. 先识别，再动手</h2>
+<ol>
+<li><b>找分发循环：</b>一个函数里出现“取一字节 → 乘 4 → 查跳转表 → 间接跳转”。</li>
+<li><b>找操作码范围：</b>统计 switch 分支数量，通常在几十到几百之间。</li>
+<li><b>找常量表：</b>解释器附近有一块只读数据，被同一条指令反复读取。</li>
+<li><b>确认不是状态机：</b>平坦化混淆也有分发，但它的“状态”会回到少数几个块；VMP 的分支数量和上下文结构明显更大。</li>
+</ol>
+
+<div class="code"><div class="code-title">解释循环的骨架（示意）</div><button class="copy" type="button">复制</button><pre><code>for (;;) {
+    uint8_t op = code[pc++];
+    switch (op) {
+        case OP_ADD:  reg[a] = reg[b] + reg[c]; break;
+        case OP_CMP:  flag = reg[a] &lt; reg[b];   break;
+        case OP_CALL: call(reg[a], reg[b]);      break;
+        case OP_EXIT: return;
+    }
+}</code></pre></div>
+<p>读法：<code>code[pc++]</code> 取指，<code>switch</code> 解码。编译器常把它变成跳转表，于是反汇编里只剩一条间接跳转 + 一张表——这就是“明明有分发却看不到 switch”的原因。</p>
+
+<h2>3. 阅读顺序：从一条操作码开始</h2>
+<p>不要试图一次还原整个 VM。挑一个最容易验证的操作码（加法、比较、调用），看它读几个字节、改哪些虚拟寄存器、如何前进 PC。把这条链路走通，再按需扩到相邻操作码。</p>
+<table>
+<thead><tr><th>步骤</th><th>产出</th><th>验证方式</th></tr></thead>
+<tbody>
+<tr><td>定位分发器</td><td>操作码 → 处理函数映射</td><td>改一个字节码，看走的分支是否变化</td></tr>
+<tr><td>解析一条指令</td><td>该操作码的语义与长度</td><td>构造输入，比对其结果</td></tr>
+<tr><td>建立小词典</td><td>10–20 条操作码</td><td>能读懂一个短函数</td></tr>
+</tbody>
+</table>
+
+<h2>4. 原理推演：为什么 VMP 一定要有“解释”这一层</h2>
+<p>如果只是加密机器码，解密后仍要交给 CPU 执行，那么只要找到解密后的内存就能读。要让逻辑“不成为机器码”，就必须自己扮演 CPU：定义指令集、维护寄存器与 PC、逐条执行。<b>解释层不是附加保护，而是 VMP 存在的前提。</b></p>
+<p>这也给出两条实用推论：解释器本身不能被保护（否则它自己跑不起来），所以它一定以明文机器码存在；字节码必须能被解释器读，所以它一定在运行期以可读形式出现。</p>
+
+<h2>5. 代价</h2>
+<table>
+<thead><tr><th>代价</th><th>表现</th></tr></thead>
+<tbody>
+<tr><td>性能</td><td>解释执行慢一个数量级，热点函数尤其明显</td></tr>
+<tr><td>体积</td><td>字节码 + 常量表膨胀，包体变大</td></tr>
+<tr><td>可观测性</td><td>崩溃栈里出现解释器帧，符号化后仍读不懂业务</td></tr>
+</tbody>
+</table>
+
+<h2>6. 自测</h2>
+<ol>
+<li>为什么 VMP 的解释器必然以明文机器码存在？</li>
+<li>平坦化混淆与 VMP 的分发循环，怎么快速区分？</li>
+<li>为什么建议从一条操作码开始，而不是先写“通用反编译器”？</li>
+<li>性能开销为什么反而成了识别线索？</li>
+</ol>
+
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

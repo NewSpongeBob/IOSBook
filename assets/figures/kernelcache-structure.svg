@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 340" width="760" height="340" role="img" aria-label="从系统镜像到 kernelcache 内部结构的三层">
+  <defs>
+    <marker id="arrowK" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6c32d0"/>
+    </marker>
+    <style>
+      .a{fill:#f2f4f7;stroke:#cfd6e0;stroke-width:1.3}
+      .b{fill:#f4f0fd;stroke:#d6c9f2;stroke-width:1.4}
+      .c{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:13px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11.5px;fill:#475467}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+    </style>
+  </defs>
+
+  <text class="h" x="40" y="30">外层：签名与封装</text>
+  <text class="h" x="330" y="30">内层：预链接的 Mach-O</text>
+
+  <rect class="a" x="40" y="46" width="210" height="56" rx="8"/>
+  <text class="t" x="56" y="70">系统镜像（IPSW）</text>
+  <text class="s" x="56" y="90">按设备与版本分发</text>
+
+  <rect class="a" x="40" y="116" width="210" height="56" rx="8"/>
+  <text class="t" x="56" y="140">签名容器</text>
+  <text class="s" x="56" y="160">带校验元数据与载荷</text>
+
+  <rect class="a" x="40" y="186" width="210" height="56" rx="8"/>
+  <text class="t" x="56" y="210">压缩载荷</text>
+  <text class="s" x="56" y="230">新设备可能仍受加密保护</text>
+
+  <line x1="145" y1="102" x2="145" y2="112" stroke="#6c32d0" stroke-width="1.5" marker-end="url(#arrowK)"/>
+  <line x1="145" y1="172" x2="145" y2="182" stroke="#6c32d0" stroke-width="1.5" marker-end="url(#arrowK)"/>
+
+  <rect class="b" x="320" y="46" width="400" height="196" rx="10"/>
+  <text class="t" x="338" y="72">kernelcache</text>
+
+  <rect class="c" x="338" y="86" width="364" height="34" rx="5"/>
+  <text class="s" x="350" y="108">内核段：__TEXT / __DATA，调度、内存、IPC</text>
+
+  <rect class="c" x="338" y="126" width="364" height="34" rx="5"/>
+  <text class="s" x="350" y="148">内置扩展：驱动与安全组件</text>
+
+  <rect class="c" x="338" y="166" width="364" height="34" rx="5"/>
+  <text class="s" x="350" y="188">预链接信息：各扩展加载地址与依赖</text>
+
+  <rect class="c" x="338" y="206" width="364" height="26" rx="5"/>
+  <text class="s" x="350" y="224">符号与字符串：可能被剥离</text>
+
+  <line x1="250" y1="214" x2="316" y2="170" stroke="#6c32d0" stroke-width="1.5" marker-end="url(#arrowK)"/>
+  <text class="s" x="258" y="252">解压后得到</text>
+
+  <rect x="40" y="276" width="680" height="50" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="56" y="300">分析用的是“首选地址 + 偏移”，下断点才需要本次启动的 slide；两者不能混用。</text>
+  <text class="s" x="56" y="318">能否解压/解密取决于设备与系统版本，这一点没有通用答案。</text>
+</svg>

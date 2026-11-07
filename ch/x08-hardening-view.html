@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x08-hardening-view.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>04 注入与越狱检测 · IOSBook</title>
+<meta name="description" content="检测的价值不在“能不能发现”，而在“发现之后做什么”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">04</span><h1>注入与越狱检测</h1><p class="sub">检测的价值不在“能不能发现”，而在“发现之后做什么”</p></header>
+
+<p class="lead">注入与越狱检测本质是收集信号：镜像列表、线程、端口、文件、行为。每条信号都有可靠性上限与误报代价，工程上要做的是分级响应，而不是一发现就退出。</p>
+
+<h2>1. 检测面：六类信号与可靠性</h2>
+<table>
+<thead><tr><th>面</th><th>信号</th><th>可靠性</th><th>误报来源</th></tr></thead>
+<tbody>
+<tr><td>镜像</td><td>出现未随包分发的动态库</td><td>高</td><td>调试构建、内嵌工具</td></tr>
+<tr><td>内存</td><td>未签名的可执行映射</td><td>高</td><td>JIT 类框架（需授权）</td></tr>
+<tr><td>线程</td><td>非应用创建的线程</td><td>中</td><td>系统框架线程</td></tr>
+<tr><td>端口</td><td>本机端口监听</td><td>中</td><td>调试与本地服务</td></tr>
+<tr><td>文件</td><td>bootstrap 目录、管理工具</td><td>低</td><td>路径可改名</td></tr>
+<tr><td>行为</td><td>能 <code>fork</code>、能加载未签名库</td><td>高</td><td>企业设备、测试机</td></tr>
+</tbody>
+</table>
+
+<h2>2. 镜像检查</h2>
+<div class="code"><div class="code-title">C：枚举已加载镜像，找出不在预期清单里的库</div><button class="copy" type="button">复制</button><pre><code>#include &lt;mach-o/dyld.h&gt;
+#include &lt;string.h&gt;
+
+for (uint32_t i = 0; i &lt; _dyld_image_count(); i++) {
+    const char *name = _dyld_get_image_name(i);
+    if (name &amp;&amp; strstr(name, "Frida")) {
+        // 记录：索引、路径、是否在允许清单内
+    }
+}</code></pre></div>
+<p>要点：按“允许清单”判断，而不是按关键字黑名单；关键字随时能改，允许清单只需维护自己打包的库。</p>
+
+<figure>
+<img src="../assets/figures/detection-signals.svg" alt="检测信号的可靠性分层与响应分级" loading="lazy">
+<figcaption>图 1-6　可靠性分三档，响应也分三级；弱信号不该直接阻断。</figcaption>
+</figure>
+
+<h2>3. 行为检查</h2>
+<ul>
+<li><code>fork()</code> 在正常沙盒里通常失败；成功说明沙盒被放宽。</li>
+<li>尝试加载一个自建的未签名库，成功说明签名校验被短路。</li>
+<li>检查自身是否被跟踪（见 06 讲的 <code>P_TRACED</code>）。</li>
+</ul>
+
+<h2>4. 分级响应</h2>
+<table>
+<thead><tr><th>风险等级</th><th>触发</th><th>动作</th></tr></thead>
+<tbody>
+<tr><td>低</td><td>单个弱信号（路径命中）</td><td>上报，不做阻断</td></tr>
+<tr><td>中</td><td>两个以上弱信号，或一个中信号</td><td>限制高风险操作</td></tr>
+<tr><td>高</td><td>镜像/行为级证据，且服务端确认异常</td><td>要求重新认证、收紧权限</td></tr>
+</tbody>
+</table>
+<div class="callout"><strong>分级的意义</strong><br>直接退出会把误报变成事故：企业设备、开发机、辅助功能工具都可能触发检测。把“发现”和“处置”分开，才有回旋余地。</div>
+
+<h2>5. 误报与代价</h2>
+<table>
+<thead><tr><th>做法</th><th>收益</th><th>代价</th></tr></thead>
+<tbody>
+<tr><td>检测后直接退出</td><td>阻断明确</td><td>误报即事故</td></tr>
+<tr><td>仅上报</td><td>无用户影响</td><td>对攻击者无成本</td></tr>
+<tr><td>分级 + 服务端判定</td><td>可控</td><td>需要后端配合</td></tr>
+</tbody>
+</table>
+
+<h2>6. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>正常用户被拦</td><td>黑名单误命中</td><td>改为允许清单</td></tr>
+<tr><td>检测从不触发</td><td>信号被清零或代码未执行</td><td>断点确认调用路径</td></tr>
+<tr><td>注入后未发现</td><td>注入路径不在镜像列表里</td><td>补充内存与线程信号</td></tr>
+<tr><td>触发后无法恢复</td><td>没有降级路径</td><td>设计可逆响应</td></tr>
+</tbody>
+</table>
+
+<h2>7. 一次真实排查记录：正常用户被拦</h2>
+<ol>
+<li><strong>现象：</strong>企业设备用户反馈“打开就退出”，普通用户不受影响。</li>
+<li><strong>先看信号：</strong>日志显示命中路径类检测——某个目录存在。</li>
+<li><strong>再问来源：</strong>该目录属于系统组件，并非越狱产物；路径黑名单误伤。</li>
+<li><strong>改判据：</strong>主判据换成行为级（能否 <code>fork</code>、能否加载未签名库），路径降为辅助分。</li>
+<li><strong>结论与限制：</strong>记录“误报源于路径黑名单”，并注明企业设备需单独回归。</li>
+</ol>
+
+<h2>8. 工程权衡：多久检测一次</h2>
+<table>
+<thead><tr><th>时机</th><th>覆盖</th><th>代价</th></tr></thead>
+<tbody>
+<tr><td>每次启动</td><td>冷启动路径</td><td>拖慢首屏，误报影响最大</td></tr>
+<tr><td>进入敏感页</td><td>关键业务</td><td>用户可感知的延迟</td></tr>
+<tr><td>定时轮询</td><td>持续状态</td><td>耗电，且可被“检测前还原”绕过</td></tr>
+<tr><td>事件触发</td><td>支付、导出等高风险动作</td><td>实现复杂，需埋点</td></tr>
+</tbody>
+</table>
+<p>没有“全都查一遍”的选项：检测频率越高，误报与耗电越明显。工程上通常选“启动粗查 + 敏感动作细查”。</p>
+
+<h2>9. 数据细节：一次扫描的成本</h2>
+<table>
+<thead><tr><th>检测</th><th>成本量级</th><th>可缓存</th></tr></thead>
+<tbody>
+<tr><td>枚举镜像</td><td>与镜像数量线性相关（数十个）</td><td>否，每次启动重算</td></tr>
+<tr><td>路径探测</td><td>与路径数线性相关（几条）</td><td>是，但容易被改名绕过</td></tr>
+<tr><td>行为检测</td><td>一次 <code>fork</code> 或 <code>dlopen</code></td><td>否，且会产生副作用</td></tr>
+</tbody>
+</table>
+<p>三类检测里，只有镜像枚举既便宜又难绕过；行为检测最有力，但每次执行都会留下痕迹，也可能影响应用自身。</p>
+
+<h2>10. 自测</h2>
+<ol>
+<li>为什么镜像检查要用允许清单而不是关键字？</li>
+<li>行为级信号为什么比路径信号可靠？</li>
+<li>“检测到就退出”的风险是什么？</li>
+<li>分级响应中，服务端扮演什么角色？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

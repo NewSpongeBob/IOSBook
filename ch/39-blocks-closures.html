@@ -1,28 +1,119 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>R05 Block、闭包与捕获 · IOSBook</title><link rel="stylesheet" href="../style.css"></head>
-<body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">R05</span><h1>Block、闭包与捕获</h1><p class="sub">理解闭包的环境、逃逸和执行时机</p></header>
-<p class="lead">Block 与 Swift closure 都可以把代码和所需环境一起传递。分析时要区分闭包的语义、捕获规则、存储位置和调用时机；不同语言运行时与编译器实现不能简单互相类比。</p>
-<h2>闭包携带什么</h2><p>闭包至少包含可调用行为及其所需的捕获环境。捕获值还是捕获引用、捕获是否延长对象生命周期、闭包是否逃逸到调用返回之后，都会影响行为和内存图。具体布局属于编译器/ABI实现细节，不应依赖未承诺的内存偏移。</p>
-<h2>逃逸与非逃逸</h2><p>非逃逸闭包在调用期间使用；逃逸闭包可能被保存并稍后调用，例如异步完成回调。逃逸使生命周期分析更重要：回调可能在对象状态变化、页面离开或任务取消之后到达。</p>
-<div class="code"><div class="code-title">Swift：为异步回调定义可取消的生命周期</div><button class="copy" type="button">复制</button><pre><code>final class SearchModel {
-    private var task: Task&lt;Void, Never&gt;?
+<html lang="zh-CN" data-root=".." data-page="ch/39-blocks-closures.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R05 Block、闭包与捕获 · IOSBook</title>
+<meta name="description" content="block 是一块带函数指针与捕获变量的结构体，32 字节起步">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">R05</span><h1>Block、闭包与捕获</h1><p class="sub">block 是一块带函数指针与捕获变量的结构体，32 字节起步</p></header>
 
-    func search(_ query: String) {
-        task?.cancel()
-        task = Task { [weak self] in
-            let result = await fetchLocalFixture(query)
-            guard !Task.isCancelled else { return }
-            await self?.apply(result)
-        }
-    }
+<p class="lead">Block 不是“匿名函数”这么抽象：它在内存里是一块有固定头部的结构体，捕获的变量跟在后面。理解布局，才能解释栈/堆拷贝、<code>__block</code> 转发与循环引用。</p>
 
-    func stop() {
-        task?.cancel()
-        task = nil
-    }
-}</code></pre></div>
-<p>示例中的本地 fixture 代表自有测试数据。真实异步 API 应明确错误、取消、主线程/actor 隔离和结果过期策略。</p>
-<h2>常见生命周期陷阱</h2><ul><li>长期持有的回调强捕获拥有者，形成循环引用。</li><li>多次注册回调却没有对应移除，造成重复执行或资源泄漏。</li><li>异步结果晚于当前界面/状态，覆盖更新的数据。</li><li>把“弱捕获防环”误当成任务取消；对象不再被捕获，不会自动终止底层工作。</li></ul>
-<h2>工程检查</h2><ol><li>标出闭包由谁存储、谁负责释放或取消。</li><li>说明捕获变量是快照还是共享可变状态。</li><li>保证 UI 状态在正确 actor/线程更新。</li><li>给重复、延迟、取消和失败回调编写测试。</li></ol>
-<h2>自测</h2><p>设计一个会延迟返回的自有异步任务：用户连续提交两次请求时，如何避免旧结果覆盖新结果？对象销毁时应取消什么、保留什么？</p>
-<nav class="pager"><a href="./38-arc-lifecycle.html">← 上一章</a><a href="../part/04-runtime.html">第四部目录</a><a href="./40-protocol-dispatch.html">下一章：协议与派发 →</a></nav></article></main></body></html>
+<h2>1. 内存布局</h2>
+<table>
+<thead><tr><th>字段</th><th>大小（64 位）</th><th>作用</th></tr></thead>
+<tbody>
+<tr><td><code>isa</code></td><td>8</td><td>指向 block 的类（栈/堆/全局三种）</td></tr>
+<tr><td><code>flags</code></td><td>4</td><td>是否捕获、是否有签名等标志</td></tr>
+<tr><td><code>reserved</code></td><td>4</td><td>保留</td></tr>
+<tr><td><code>invoke</code></td><td>8</td><td>函数指针，调用时执行它</td></tr>
+<tr><td><code>descriptor</code></td><td>8</td><td>大小、拷贝/销毁辅助函数、签名</td></tr>
+</tbody>
+</table>
+<p>头部固定 32 字节，之后是捕获变量；结构体总大小记录在 descriptor 里，拷贝与销毁都靠它计算。</p>
+
+<h2>2. 三种存储域</h2>
+<table>
+<thead><tr><th>域</th><th>何时出现</th><th>风险</th></tr></thead>
+<tbody>
+<tr><td>全局</td><td>不捕获任何外部变量</td><td>无生命周期问题</td></tr>
+<tr><td>栈</td><td>捕获变量且未拷贝</td><td>函数返回后失效，异步使用必崩</td></tr>
+<tr><td>堆</td><td>被 <code>Block_copy</code> 或 API 拷贝</td><td>需配对释放，易成环</td></tr>
+</tbody>
+</table>
+<div class="code"><div class="code-title">捕获语义对比</div><button class="copy" type="button">复制</button><pre><code>int x = 1;
+void (^a)(void) = ^{ printf("%d", x); };   // 值捕获：拷贝当前值
+x = 2;                                      // a 仍打印 1
+
+__block int y = 1;
+void (^b)(void) = ^{ printf("%d", y); };    // 转发：读的是变量本身
+y = 2;                                      // b 打印 2</code></pre></div>
+
+<figure>
+<img src="../assets/figures/block-layout.svg" alt="Block 的内存布局与三种存储域" loading="lazy">
+<figcaption>图 4-5　头部固定 32 字节，捕获变量跟在后面；栈 block 在函数返回后失效。</figcaption>
+</figure>
+
+<h2>3. 捕获方式</h2>
+<table>
+<thead><tr><th>写法</th><th>捕获什么</th><th>典型问题</th></tr></thead>
+<tbody>
+<tr><td>直接引用对象</td><td>强引用</td><td>闭包与对象互持成环</td></tr>
+<tr><td><code>__weak</code> / <code>[weak self]</code></td><td>弱引用</td><td>执行时可能已置空，需判空</td></tr>
+<tr><td><code>__block</code></td><td>可变量转发</td><td>跨线程读写需同步</td></tr>
+<tr><td>捕获 <code>self</code> 的属性</td><td>等价强捕获 <code>self</code></td><td>容易忽略的环</td></tr>
+</tbody>
+</table>
+
+<div class="callout"><strong>栈 block 是异步陷阱</strong><br>函数返回后栈 block 失效，异步回调里调用它会崩溃；凡是可能逃出作用域的场景，都应确认已被拷贝（堆上）。</div>
+
+<h2>4. 与 Swift 闭包的对应</h2>
+<ul>
+<li>Swift 闭包同样是引用类型，捕获列表决定强弱。</li>
+<li><code>@escaping</code> 标记“会逃出当前作用域”，编译器因此要求显式处理 <code>self</code>。</li>
+<li>Swift 的 <code>weak</code> 捕获与 Objective-C 的 <code>__weak</code> 语义一致，都会在目标释放后置空。</li>
+</ul>
+
+<h2>5. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>崩溃在 block 调用处</td><td>栈 block 已失效</td><td>是否被正确拷贝</td></tr>
+<tr><td>对象不释放</td><td>block 强捕获 self</td><td>捕获列表</td></tr>
+<tr><td>读到旧值</td><td>值捕获而非 <code>__block</code></td><td>捕获方式</td></tr>
+<tr><td>偶发崩溃在读捕获变量</td><td>跨线程未同步</td><td>访问隔离</td></tr>
+</tbody>
+</table>
+
+<h2>6. 数据细节：block 的字节布局</h2>
+<table>
+<thead><tr><th>部分</th><th>大小（64 位）</th><th>作用</th></tr></thead>
+<tbody>
+<tr><td>头部</td><td>32 字节</td><td>isa、flags、reserved、invoke、descriptor</td></tr>
+<tr><td>捕获区</td><td>按需</td><td>值拷贝或转发结构</td></tr>
+<tr><td>descriptor</td><td>固定字段 + 辅助函数</td><td>决定拷贝与销毁方式</td></tr>
+</tbody>
+</table>
+
+<h2>7. 一次真实排查记录：异步回调崩溃</h2>
+<ol>
+<li><strong>现象：</strong>异步回调执行时崩溃，地址落在 block 调用处。</li>
+<li><strong>先看存储域：</strong>block 是栈上分配的，函数返回后已失效。</li>
+<li><strong>确认拷贝：</strong>异步 API 是否对 block 做了拷贝。</li>
+<li><strong>改法：</strong>显式拷贝或改由持有方保存。</li>
+<li><strong>结论与限制：</strong>记录“栈 block 逃逸”，并注明结论只对该调用路径成立。</li>
+</ol>
+
+<h2>8. 自测</h2>
+<ol>
+<li>Block 头部固定占多少字节？之后是什么？</li>
+<li>栈 block 与堆 block 的差别体现在哪个字段？</li>
+<li><code>__block</code> 与普通值捕获在读写语义上有什么不同？</li>
+<li>为什么“捕获 self 的属性”也可能成环？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

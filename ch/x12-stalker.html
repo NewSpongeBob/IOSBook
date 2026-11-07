@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x12-stalker.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>F03 Stalker：指令级追踪 · IOSBook</title>
+<meta name="description" content="把每条指令变成回调，代价是几十倍时间；窗口越短越有用">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">F03</span><h1>Stalker：指令级追踪</h1><p class="sub">把每条指令变成回调，代价是几十倍时间；窗口越短越有用</p></header>
+
+<p class="lead">Stalker 不是断点也不是采样：它按基本块重编译目标线程的代码，插好回调再执行。因此能看到完整执行序列，代价是速度下降一到两个数量级。</p>
+
+<h2>1. 工作方式</h2>
+<ol>
+<li>接管目标线程，拦截执行流。</li>
+<li>以基本块（顺序执行、末尾分支的一段）为单位复制代码并插入回调。</li>
+<li>重编译结果放进代码缓存，下次直接跳过去。</li>
+<li>按配置上报事件：块入口、调用、返回、指令级。</li>
+</ol>
+
+<h2>2. 开销：三档配置差两个数量级</h2>
+<table>
+<thead><tr><th>配置</th><th>量级</th><th>适合</th></tr></thead>
+<tbody>
+<tr><td>只记录块入口</td><td>约 10×</td><td>覆盖率、执行路径</td></tr>
+<tr><td>记录调用与返回</td><td>约 20–50×</td><td>函数级调用图</td></tr>
+<tr><td>逐指令回调</td><td>50–100× 以上</td><td>短窗口、算法定位</td></tr>
+</tbody>
+</table>
+<p>这些是量级而非精确值，随设备、指令密度与回调复杂度变化。原则：窗口越短越好，回调里不做重活。</p>
+
+<div class="callout"><strong>短窗口原则</strong><br>Stalker 的价值在“看清一小段”，而不是“一直开着”。把窗口压到几百毫秒，往往比调低事件类型更有效。</div>
+
+<figure>
+<img src="../assets/figures/stalker-blocks.svg" alt="Stalker 按基本块重编译并插入回调" loading="lazy">
+<figcaption>图 3-5　块只编译一次，代价是每条指令都多一次回调。</figcaption>
+</figure>
+
+<figure data-steps="follow|重编译块|回调上报|unfollow + flush" data-cols="4" data-rows="1" data-geometry="24,44,168,112,16,0">
+<img src="../assets/figures/stalker-steps.svg" alt="Stalker 一次采集的四个分帧" loading="lazy">
+<figcaption>图 3-6　开、编、采、收四步；第 4 步顺序反了会丢尾段。</figcaption>
+</figure>
+
+<h2>3. 代码形态</h2>
+<div class="code"><div class="code-title">JavaScript：跟踪当前线程的调用（自有应用）</div><button class="copy" type="button">复制</button><pre><code>const tid = Process.getCurrentThreadId();
+Stalker.follow(tid, {
+  events: { call: true, ret: true },
+  onCallSummary(summary) {
+    console.log(JSON.stringify(summary).slice(0, 400));
+  }
+});
+
+// 观察结束后必须收尾，否则线程一直跑在插桩副本上
+setTimeout(() =&gt; { Stalker.unfollow(tid); Stalker.flush(); }, 3000);</code></pre></div>
+<p><code>onCallSummary</code> 给出“谁调用了谁”的计数汇总；要看顺序就换成事件回调，但日志量会急剧上升。</p>
+
+<figure>
+<img src="../assets/figures/stalker-session.svg" alt="Stalker 一次观察会话的时间轴" loading="lazy">
+<figcaption>图 3-7　开、采、停、收四步；先 unfollow 再 flush，否则最后一段会丢。</figcaption>
+</figure>
+
+<h2>4. 适用与不适用</h2>
+<table>
+<thead><tr><th>任务</th><th>适合</th><th>替代</th></tr></thead>
+<tbody>
+<tr><td>找加密/校验算法入口</td><td>是：从输入追到输出</td><td>断点 + 调用栈</td></tr>
+<tr><td>确认按钮触发了哪些函数</td><td>是：短窗口</td><td>符号断点</td></tr>
+<tr><td>长时间观察 UI 滑动</td><td>否：开销压垮帧率</td><td>采样、signpost</td></tr>
+<tr><td>分析系统框架内部</td><td>风险高</td><td>日志、公开文档</td></tr>
+</tbody>
+</table>
+
+<h2>5. 平台限制</h2>
+<ul>
+<li><strong>可执行内存：</strong>插桩副本需要可写可执行页，无动态代码权限的环境用不了。</li>
+<li><strong>架构：</strong>arm64e 的指针签名与跳转校验更严格，可能失败或需要额外处理。</li>
+<li><strong>线程范围：</strong>默认只跟一个线程，跨线程要显式 follow，容易漏异步路径。</li>
+<li><strong>边界：</strong>跨内核或框架的路径可能无法完整重编译。</li>
+</ul>
+
+<h2>6. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>开启后卡死</td><td>回调太重或窗口太长</td><td>缩短窗口、减少事件类型</td></tr>
+<tr><td>没有数据</td><td>跟错线程</td><td>确认主线程/工作线程 ID</td></tr>
+<tr><td>调用丢失</td><td>异步线程未 follow</td><td>对关键线程显式 follow</td></tr>
+<tr><td>跳转处崩溃</td><td>架构或签名不兼容</td><td>换设备或改用断点</td></tr>
+<tr><td>日志爆炸</td><td>事件太多</td><td>只留 call 并采样</td></tr>
+</tbody>
+</table>
+
+<h2>7. 数据细节：事件类型与开销的对应</h2>
+<table>
+<thead><tr><th>事件</th><th>记录什么</th><th>相对开销</th></tr></thead>
+<tbody>
+<tr><td>块入口</td><td>基本块地址</td><td>约 10×</td></tr>
+<tr><td>调用 / 返回</td><td>调用关系</td><td>约 20–50×</td></tr>
+<tr><td>逐指令</td><td>每条指令</td><td>约 50–100×</td></tr>
+<tr><td>编译事件</td><td>哪些块被重编译</td><td>低，适合看覆盖面</td></tr>
+</tbody>
+</table>
+<p>先用“编译事件”确认插桩是否覆盖到目标区域，再开调用或逐指令事件，能省掉大量无效日志。</p>
+
+<h2>8. 一次真实排查记录：开了却没有任何数据</h2>
+<ol>
+<li><strong>现象：</strong>Stalker 已开启，回调一次都没触发。</li>
+<li><strong>先确认线程：</strong>默认只跟一个线程，业务是否跑在别的线程上。</li>
+<li><strong>再确认开关：</strong>跟随后是否立即 unfollow，窗口太短没等到执行。</li>
+<li><strong>验证：</strong>改跟主线程并延长窗口到数秒，看是否有数据。</li>
+<li><strong>结论与限制：</strong>记录“跟错线程”，并注明结论只对该执行路径成立。</li>
+</ol>
+
+<h2>9. 自测</h2>
+<ol>
+<li>Stalker 为什么必须重编译代码，而不能像断点那样改几个字节？</li>
+<li>“块入口”与“逐指令回调”在开销上差多少量级？</li>
+<li>为什么跨线程分析容易漏数据？</li>
+<li>什么情况下应放弃 Stalker 改用采样？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

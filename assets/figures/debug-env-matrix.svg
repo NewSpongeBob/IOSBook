@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="三种调试环境与可用观测手段矩阵">
+  <defs>
+    <style>
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .yes{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#0a8f68;font-weight:600}
+      .part{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#c26a06;font-weight:600}
+      .no{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#c0392b;font-weight:600}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">能不能下内核断点，取决于“设备是不是受控构建”</text>
+
+  <rect x="30" y="44" width="700" height="40" rx="6" fill="#eef3fb" stroke="#c9d6ea"/>
+  <text class="t" x="44" y="69">环境</text>
+  <text class="t" x="250" y="69">内核断点</text>
+  <text class="t" x="400" y="69">系统追踪</text>
+  <text class="t" x="550" y="69">诊断包 / panic</text>
+
+  <rect x="30" y="90" width="700" height="46" rx="6" fill="#fff" stroke="#e3e8ef"/>
+  <text class="s" x="44" y="118">开发内核 + 调试协议</text>
+  <text class="yes" x="250" y="118">可以</text>
+  <text class="yes" x="400" y="118">可以</text>
+  <text class="yes" x="550" y="118">可以</text>
+
+  <rect x="30" y="142" width="700" height="46" rx="6" fill="#fbfcfe" stroke="#e3e8ef"/>
+  <text class="s" x="44" y="170">越狱设备</text>
+  <text class="part" x="250" y="170">部分（不稳定）</text>
+  <text class="yes" x="400" y="170">可以</text>
+  <text class="yes" x="550" y="170">可以</text>
+
+  <rect x="30" y="194" width="700" height="46" rx="6" fill="#fbfcfe" stroke="#e3e8ef"/>
+  <text class="s" x="44" y="222">零售设备</text>
+  <text class="no" x="250" y="222">不行</text>
+  <text class="yes" x="400" y="222">可以</text>
+  <text class="yes" x="550" y="222">可以</text>
+
+  <text class="s" x="30" y="274">所以零售设备上的“内核分析”= 静态读 kernelcache + 系统追踪 + 诊断包，再用用户态实验验证推断。</text>
+</svg>

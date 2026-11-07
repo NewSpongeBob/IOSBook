@@ -1,1 +1,106 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>A04 版本矩阵模板 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">A04</span><h1>版本矩阵模板</h1><p class="sub">把结论绑定到设备、系统、SDK 和构建环境</p></header><p class="lead">iOS 行为可能随设备、OS build、SDK、硬件能力、授权状态和配置变化。记录环境是可复现性的一部分，不是附带备注。</p><h2>建议字段</h2><ul><li>设备型号、芯片架构、模拟器或真机。</li><li>iOS 版本、build、语言/地区和关键系统设置。</li><li>Xcode、SDK、编译器、依赖锁定版本。</li><li>App commit、版本号、签名配置、构建模式。</li><li>用户权限、账户状态、网络条件和测试数据类别。</li><li>用例 ID、预期、结果、证据位置、复现次数。</li><li>已知差异、未覆盖组合和结论置信度。</li></ul><h2>矩阵策略</h2><p>先覆盖最低支持版本与当前主流版本，再根据风险选择硬件和状态组合。针对权限、密钥访问、网络授权和生命周期等关键行为，使用真实设备确认模拟器无法代表的条件。</p><h2>空白记录模板</h2><p>设备：____；OS/build：____；Xcode/SDK：____；App commit/build：____；授权范围：____；前置条件：____；步骤：____；预期/实际：____；证据：____；已知限制：____。</p><p><a href="../part/99-appendix.html">← 返回附录</a></p></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/a04.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A04 版本矩阵模板 · IOSBook</title>
+<meta name="description" content="矩阵是“我们支持什么、验证过什么”的公开声明">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">A04</span><h1>版本矩阵模板</h1><p class="sub">矩阵是“我们支持什么、验证过什么”的公开声明</p></header>
+
+<p class="lead">版本矩阵的作用是让“支持范围”变成可执行的清单，而不是模糊的承诺。它同时服务于测试排期、发布判断和事故定位。</p>
+
+<h2>1. 建议字段</h2>
+<table>
+<thead><tr><th>字段</th><th>说明</th><th>示例</th></tr></thead>
+<tbody>
+<tr><td>系统版本</td><td>最低支持、主流、最新</td><td>16.x / 17.x / 18.x</td></tr>
+<tr><td>设备代际</td><td>按内存与芯片分组</td><td>小内存机型 / 主流 / 最新</td></tr>
+<tr><td>架构</td><td>设备与模拟器</td><td>arm64 设备 / arm64 模拟器</td></tr>
+<tr><td>功能状态</td><td>已支持 / 降级 / 不支持</td><td>后台刷新：降级</td></tr>
+<tr><td>验证方式</td><td>自动 / 手动 / 未测</td><td>手动</td></tr>
+<tr><td>证据</td><td>报告或流水线编号</td><td>RUN-2311</td></tr>
+<tr><td>负责人</td><td>维护该行的人</td><td>—</td></tr>
+<tr><td>复核日期</td><td>下次必须重看的日期</td><td>系统大版本发布前</td></tr>
+</tbody>
+</table>
+
+<h2>2. 一个空白模板</h2>
+<table>
+<thead><tr><th>系统</th><th>设备组</th><th>架构</th><th>关键功能</th><th>状态</th><th>验证</th><th>证据</th></tr></thead>
+<tbody>
+<tr><td>最低支持</td><td>小内存</td><td>arm64</td><td>登录 / 同步</td><td>待填</td><td>待填</td><td>待填</td></tr>
+<tr><td>主流</td><td>主流</td><td>arm64</td><td>登录 / 同步</td><td>待填</td><td>待填</td><td>待填</td></tr>
+<tr><td>最新</td><td>最新</td><td>arm64</td><td>登录 / 同步</td><td>待填</td><td>待填</td><td>待填</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/matrix-template.svg" alt="版本矩阵模板" loading="lazy">
+<figcaption>图 A-4　每行要么有证据，要么写“未验证”；删除行要记录原因。</figcaption>
+</figure>
+
+<h2>3. 维护策略</h2>
+<ul>
+<li>系统大版本发布前更新，不等用户反馈。</li>
+<li>按真实用户分布分配测试比重，老版本仍有大量用户时不能直接放弃。</li>
+<li>每行要么有证据，要么标“未验证”，不允许留空。</li>
+<li>删除行时记录原因（例如系统版本停止支持），保留历史以便追溯。</li>
+</ul>
+
+<h2>4. 与发布流程的衔接</h2>
+<ol>
+<li>发布单引用矩阵版本号，说明本版覆盖范围。</li>
+<li>灰度阶段观察新增系统版本的表现，异常时缩小范围。</li>
+<li>事故复盘时对照矩阵：出问题的组合是否在覆盖范围内，若不在则补入。</li>
+</ol>
+
+<div class="code"><div class="code-title">矩阵行模板（Markdown 表）</div><button class="copy" type="button">复制</button><pre><code>| 系统 | 设备组 | 架构 | 关键功能 | 状态 | 验证 | 证据 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 最低支持 | 小内存 | arm64 | 登录/同步 | 待填 | 手动 | RUN-000 |</code></pre></div>
+<div class="callout"><strong>未验证要写出来</strong><br>矩阵里允许“未验证”，但不允许空白：空白会被读成“没问题”。</div>
+<h2>5. 填写示例</h2>
+<div class="code"><div class="code-title">矩阵的一行</div><button class="copy" type="button">复制</button><pre><code>| iOS 17.2 | 小内存机型 | arm64  | 登录 / 同步 | 已验证 | 手动 | RUN-014 |
+| iOS 18.1 | 主流机型   | arm64e | 登录 / 同步 | 未验证 | —    | —       |</code></pre></div>
+<p>“未验证”也是有效信息：它告诉读者结论的边界在哪里。</p>
+
+<h2>6. 常见错误：矩阵维护</h2>
+<table>
+<thead><tr><th>错误</th><th>后果</th></tr></thead>
+<tbody>
+<tr><td>删行不写原因</td><td>下一个人重复踩坑</td></tr>
+<tr><td>把“未验证”留空</td><td>被读成“已验证”</td></tr>
+<tr><td>矩阵不随版本更新</td><td>发布单引用过期结论</td></tr>
+</tbody>
+</table>
+
+<h2>7. 更新流程</h2>
+<ol>
+<li>新版本发布后，先补一行“待验证”，不要留空。</li>
+<li>按风险挑三档：最低支持、主流、最新。</li>
+<li>每档至少验证一次关键功能（登录 + 同步）。</li>
+<li>验证完把状态改成“已验证”，并附证据编号。</li>
+<li>删行必须写原因，否则下一个人会重复踩坑。</li>
+</ol>
+
+<h2>8. 自测</h2>
+<ol>
+<li>为什么矩阵要包含“未验证”状态，而不是只有通过/失败？</li>
+<li>用户分布如何影响测试比重的分配？</li>
+<li>矩阵与发布单之间应如何关联？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

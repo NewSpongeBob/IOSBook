@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x03-lldb.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>10 用调试器观察自有应用 · IOSBook</title>
+<meta name="description" content="断点不是“卡住程序”，而是把某个时刻的状态固定下来观察">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">10</span><h1>用调试器观察自有应用</h1><p class="sub">断点不是“卡住程序”，而是把某个时刻的状态固定下来观察</p></header>
+
+<p class="lead">调试器提供的是“可重复的暂停”：在指定位置停下，查看对象、参数与调用栈。会用断点的人，能用几分钟确认别人猜半天的问题。</p>
+<blockquote><strong>场景</strong>　断点设好了，函数也跑到了，变量窗口却是空的。你怀疑调试器坏了，其实是那行代码被优化进了寄存器。</blockquote>
+
+
+
+<h2>1. 前提条件</h2>
+<ul>
+<li>可调试的签名：开发构建带有允许调试的能力，发布构建通常没有。</li>
+<li>自己的工程与设备：通过 Xcode 启动或附加到自己的进程。</li>
+<li>符号可用：Debug 构建能看到变量名与行号，Release 构建常常只能看到函数名。</li>
+</ul>
+
+<h2>2. 常用命令</h2>
+<table>
+<thead><tr><th>命令</th><th>作用</th></tr></thead>
+<tbody>
+<tr><td><code>image list -o -f</code></td><td>列出已加载映像、加载偏移与路径</td></tr>
+<tr><td><code>br set -n "-[LoginService requestToken]"</code></td><td>按 Objective-C 方法名下断点</td></tr>
+<tr><td><code>br set -a 0x100004a1c</code></td><td>按地址下断点（无符号时使用）</td></tr>
+<tr><td><code>br set -f Login.swift -l 42</code></td><td>按文件与行号下断点</td></tr>
+<tr><td><code>bt all</code></td><td>查看所有线程调用栈</td></tr>
+<tr><td><code>po $x0</code> / <code>po self</code></td><td>打印对象（arm64 下第一个参数在 x0）</td></tr>
+<tr><td><code>frame variable</code></td><td>查看当前帧的局部变量</td></tr>
+<tr><td><code>memory read -c 16 $x0</code></td><td>按数量读取内存</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/lldb-breakpoint.svg" alt="断点命中时的进程状态变化" loading="lazy">
+<figcaption>图 1-16　断点把连续执行切成可检查片段；参数与选择子分别在 x0、x1。</figcaption>
+</figure>
+
+<h2>3. 三种断点策略</h2>
+<table>
+<thead><tr><th>场景</th><th>策略</th><th>注意</th></tr></thead>
+<tbody>
+<tr><td>知道类与方法名</td><td>符号断点</td><td>方法被内联或改名时可能打不中</td></tr>
+<tr><td>只有地址</td><td>地址断点</td><td>地址随 slide 变化，需用加载偏移换算</td></tr>
+<tr><td>命中太频繁</td><td>条件断点</td><td>条件里避免调用有副作用的函数</td></tr>
+</tbody>
+</table>
+
+<div class="code"><div class="code-title">一次典型的观察会话（自有工程）</div><button class="copy" type="button">复制</button><pre><code>(lldb) image list -o -f | head
+(lldb) br set -n "-[LoginService requestToken]"
+(lldb) run
+(lldb) po $x0                 # self
+(lldb) po $x1                 # _cmd
+(lldb) frame variable         # 查看局部变量
+(lldb) bt                     # 调用来源
+(lldb) thread step-out        # 看返回值</code></pre></div>
+
+<h2>4. 看什么、不看什么</h2>
+<ul>
+<li><strong>看调用顺序：</strong>谁先触发、谁依赖谁，比单点变量更有价值。</li>
+<li><strong>看对象图：</strong>打印对象能看到持有关系与内部状态。</li>
+<li><strong>不要迷信变量值：</strong>优化构建可能把变量放进寄存器或被复用，显示值不可靠。</li>
+<li><strong>不要长时间停在断点：</strong>会触发超时、断连或状态过期。</li>
+</ul>
+<div class="callout"><strong>观察影响观察</strong><br>断点改变时序，可能让竞态消失或暴露。记录“这次是在断点状态下观察到的”，并把结论标为受限。</div>
+
+<h2>5. 练习：三条命令查一个对象</h2>
+<ol>
+<li>在自有工程的登录流程上设两处断点，记录实际调用顺序，与源码阅读的预期比较。</li>
+<li>用地址断点命中一个没有符号的第三方库函数（自己打包的版本），说明如何由加载偏移算出地址。</li>
+<li>对比 Debug 与 Release 下同一处的 `frame variable` 输出，解释差异。</li>
+</ol>
+
+<h2>6. 数据细节：命令背后的动作</h2>
+<table>
+<thead><tr><th>命令</th><th>底层动作</th><th>副作用</th></tr></thead>
+<tbody>
+<tr><td>按地址下断点</td><td>向目标地址写入断点指令（arm64 为 4 字节）</td><td>命中时线程暂停，原始字节被暂存</td></tr>
+<tr><td>按符号下断点</td><td>解析符号得到当前 slide 下的地址</td><td>符号缺失时静默失败</td></tr>
+<tr><td><code>po</code></td><td>在目标进程里调用对象的描述方法</td><td>会改变对象状态，慎用于有副作用的方法</td></tr>
+<tr><td><code>bt</code></td><td>沿帧指针或调试信息回溯</td><td>优化构建可能缺帧</td></tr>
+</tbody>
+</table>
+<p>知道这些副作用，就不会把“<code>po</code> 了一下”当成纯观察——它真的执行了代码。</p>
+
+<h2>7. 一次真实排查记录：断点命中但变量为空</h2>
+<ol>
+<li><strong>现象：</strong>断点停住了，想看的变量显示 <code>nil</code> 或不可用。</li>
+<li><strong>先怀疑优化：</strong>发布构建把变量放进了寄存器，或被复用。</li>
+<li><strong>换位置：</strong>改在函数入口或返回处看寄存器与返回值，而不是看局部变量。</li>
+<li><strong>再怀疑时机：</strong>对象尚未初始化就读取，自然为空。</li>
+<li><strong>结论与限制：</strong>记录“变量被优化”，并注明结论只对当前构建配置成立。</li>
+</ol>
+
+<h2>8. 工程权衡：断点的代价</h2>
+<table>
+<thead><tr><th>操作</th><th>对目标的影响</th><th>建议</th></tr></thead>
+<tbody>
+<tr><td>条件断点</td><td>每次命中都要评估表达式</td><td>只在缩小范围后使用</td></tr>
+<tr><td>一次性断点</td><td>命中后自动删除</td><td>适合只看首次调用</td></tr>
+<tr><td>批量断点</td><td>可能拖慢到超时</td><td>控制在个位数</td></tr>
+</tbody>
+</table>
+<p>断点越少，越接近真实时序；观察竞态类问题时，先减少断点再用日志。</p>
+
+<div class="code"><div class="code-title">断点在指令层是什么</div><button class="copy" type="button">复制</button><pre><code>原始指令：  0x100003f20   add  x0, x1, x2
+下断点后：  0x100003f20   brk  #0          ; 编码 0xD4200000
+命中后：    暂停线程 → 恢复原指令 → 单步 → 再写回 brk</code></pre></div>
+<p>读法：<code>BRK #0</code> 的机器码是 <code>0xD4200000</code>，占 4 字节，恰好等于一条指令的长度——所以断点可以“原地替换”，不像 hook 那样还要处理跨指令的问题。命中时调试器先恢复原指令、单步一次，再把 <code>brk</code> 写回，这也是断点命中次数多时明显变慢的原因。</p>
+
+<h2>9. 自测</h2>
+<ol>
+<li>为什么发布构建常常无法直接附加调试？</li>
+<li>地址断点为什么需要结合映像加载偏移？</li>
+<li>断点状态下得到的结论需要注意什么限制？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

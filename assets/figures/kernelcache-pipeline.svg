@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 280" width="760" height="280" role="img" aria-label="从固件包到内核符号的提取流程">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker><style>
+  .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+  .g{fill:#effaf5;stroke:#a9dcc9;stroke-width:1.4}
+  .y{fill:#fff9ec;stroke:#f0d9a8;stroke-width:1.4}
+  .n{fill:#f2f4f7;stroke:#cfd6e0;stroke-width:1.3}
+  .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#1c2533;font-weight:600}
+  .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11px;fill:#68727f}
+  .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+  .k{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.8px;fill:#c26a06}
+</style></defs>
+
+  <text class="h" x="30" y="28">五步：定位、解容器、解压、识别结构、找符号</text>
+
+  <rect class="b" x="26" y="52" width="130" height="60" rx="7"/>
+  <text class="t" x="40" y="76" font-size="12">固件包</text>
+  <text class="s" x="40" y="96">按设备与版本</text>
+
+  <rect class="b" x="176" y="52" width="130" height="60" rx="7"/>
+  <text class="t" x="190" y="76" font-size="12">定位条目</text>
+  <text class="s" x="190" y="96">kernelcache.*</text>
+
+  <rect class="b" x="326" y="52" width="130" height="60" rx="7"/>
+  <text class="t" x="340" y="76" font-size="12">解容器</text>
+  <text class="s" x="340" y="96">签名 + 载荷</text>
+
+  <rect class="b" x="476" y="52" width="130" height="60" rx="7"/>
+  <text class="t" x="490" y="76" font-size="12">解压</text>
+  <text class="s" x="490" y="96">得到 Mach-O</text>
+
+  <rect class="g" x="626" y="52" width="110" height="60" rx="7"/>
+  <text class="t" x="640" y="76" font-size="12">找符号</text>
+  <text class="s" x="640" y="96">字符串/交叉引用</text>
+
+  <line x1="156" y1="82" x2="172" y2="82" stroke="#2563eb" stroke-width="1.3" marker-end="url(#ar)"/>
+  <line x1="306" y1="82" x2="322" y2="82" stroke="#2563eb" stroke-width="1.3" marker-end="url(#ar)"/>
+  <line x1="456" y1="82" x2="472" y2="82" stroke="#2563eb" stroke-width="1.3" marker-end="url(#ar)"/>
+  <line x1="606" y1="82" x2="622" y2="82" stroke="#2563eb" stroke-width="1.3" marker-end="url(#ar)"/>
+
+  <rect class="y" x="26" y="134" width="710" height="52" rx="8"/>
+  <text class="s" x="40" y="156">失败点分布：固件包内条目名随版本变化；容器标签识别错会解出垃圾；新设备载荷加密，本地无法继续。</text>
+  <text class="s" x="40" y="176">因此“解不开”多数是第二步或第三步的问题，而不是文件损坏。</text>
+
+  <text class="s" x="30" y="216">拿到 Mach-O 后先看段与命令，再按字符串定位函数；符号被剥离时，交叉引用是唯一线索。</text>
+  <text class="s" x="30" y="238">最后别忘了换算：静态看到的是首选地址，下断点要加本次启动的 slide。</text>
+  <text class="s" x="30" y="260">每一步都记下命令与产物哈希，否则复现时说不清“解的是哪一份”。</text>
+
+</svg>

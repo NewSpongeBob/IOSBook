@@ -1,1 +1,115 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>10 平台安全边界与研究规范 · IOSBook</title><link rel="stylesheet" href="../style.css"></head><body><main class="content"><article class="hero"><header class="chapter-head"><span class="chapter-no">CHAPTER 10</span><h1>平台安全边界与研究规范</h1><p class="sub">版本差异、授权范围与负责任披露</p></header><p class="lead">平台安全特性会随设备、系统版本、硬件能力和配置而变化。研究结论必须带有适用范围，不应把单一环境观察当作普遍事实。</p><h2>学习目标</h2><ul><li>记录设备型号、系统版本、构建号和配置。</li><li>优先使用官方文档、公开源码和自有测试环境。</li><li>报告问题时说明影响、复现条件、缓解建议并保护用户数据。</li></ul><h2>研究流程</h2><ol><li>确认目标所有权或书面授权与测试边界。</li><li>在隔离环境中使用非生产数据验证假设。</li><li>最小化收集数据，并在测试后清理。</li><li>按适用政策向受影响方负责任地披露。</li></ol><p><a href="../index.html">← 返回 IOSBook 首页</a></p></article></main></body></html>
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/10-platform.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A01 平台安全边界与研究规范 · IOSBook</title>
+<meta name="description" content="边界不是免责声明，而是一组可执行的判定规则">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">A01</span><h1>平台安全边界与研究规范</h1><p class="sub">边界不是免责声明，而是一组可执行的判定规则</p></header>
+
+<p class="lead">研究能不能做，不取决于“意图是否善意”，而取决于三件事：对象归谁、范围写没写清、越界时怎么停。把这三件事写成规则，比在文末加一句“仅供学习”有用得多。</p>
+
+<h2>1. 三类对象与允许动作</h2>
+<table>
+<thead><tr><th>对象</th><th>典型来源</th><th>允许</th><th>不允许</th></tr></thead>
+<tbody>
+<tr><td>自己构建的应用</td><td>自己的工程、自己的证书</td><td>静态分析、调试、插桩、改代码</td><td>把改后的包分发给他人</td></tr>
+<tr><td>明确授权的目标</td><td>书面授权、SRC 项目</td><td>授权书列明的动作与范围</td><td>超出范围的主机、账号、数据</td></tr>
+<tr><td>公开样本</td><td>公开样本集、教学二进制</td><td>静态阅读、离线实验</td><td>对其真实服务发起请求</td></tr>
+</tbody>
+</table>
+
+<figure>
+<img src="../assets/figures/scope-decision.svg" alt="研究范围的判断路径" loading="lazy">
+<figcaption>图 A-1　先判断对象归属，再决定能不能动手；触及他人数据立即停止。</figcaption>
+</figure>
+
+<h2>2. 授权范围的七个要素</h2>
+<table>
+<thead><tr><th>要素</th><th>写法示例</th><th>缺失后果</th></tr></thead>
+<tbody>
+<tr><td>对象</td><td>应用包名、域名、构建号</td><td>范围含糊，做多做少都算越界</td></tr>
+<tr><td>时间</td><td>起止日期与时段</td><td>过期后仍操作</td></tr>
+<tr><td>动作</td><td>静态分析、动态调试、被动流量</td><td>把“分析”做成“利用”</td></tr>
+<tr><td>数据</td><td>仅限测试账号与合成数据</td><td>接触真实用户数据</td></tr>
+<tr><td>禁止项</td><td>不得影响生产、不得横向移动</td><td>测试波及线上</td></tr>
+<tr><td>停止条件</td><td>发现他人数据即停止并上报</td><td>越陷越深</td></tr>
+<tr><td>联系人</td><td>双方负责人与升级路径</td><td>出事找不到人</td></tr>
+</tbody>
+</table>
+
+<h2>3. 数据最小化</h2>
+<table>
+<thead><tr><th>采集项</th><th>是否必要</th><th>替代方案</th></tr></thead>
+<tbody>
+<tr><td>账号标识</td><td>通常不必要</td><td>用测试账号或哈希前缀</td></tr>
+<tr><td>请求体全文</td><td>看目标而定</td><td>只留字段名与长度</td></tr>
+<tr><td>崩溃报告</td><td>必要</td><td>删去设备名与用户路径</td></tr>
+<tr><td>截图</td><td>必要</td><td>打码，只留关键区域</td></tr>
+</tbody>
+</table>
+<p>记录里保留“证据类型 + 位置 + 结论”，通常比保留原始数据更有用，也更安全。</p>
+
+<h2>4. 披露的时间线</h2>
+<ol>
+<li>发现 → 内部确认可复现（不超过 3 天）。</li>
+<li>提交报告：影响、复现步骤、最小证据。</li>
+<li>等待响应与修复窗口（按项目规定，通常 90 天）。</li>
+<li>修复后复测，确认问题消失。</li>
+<li>公开时只写机制与修复建议，不写可直接利用的步骤。</li>
+</ol>
+
+<h2>5. 记录模板</h2>
+<div class="code"><div class="code-title">授权范围记录（最小字段）</div><button class="copy" type="button">复制</button><pre><code>对象：仓库 / 构建号 / 测试设备
+时间：起止日期
+允许：静态分析、调试自有构建、自有测试服务
+禁止：第三方应用、真实用户数据、生产接口
+停止条件：发现他人数据或影响外部系统时立即停止
+联系人：</code></pre></div>
+
+<h2>6. 四种越界形态</h2>
+<table>
+<thead><tr><th>形态</th><th>表现</th><th>预防</th></tr></thead>
+<tbody>
+<tr><td>对象越界</td><td>顺手分析了同事的应用</td><td>对象清单逐个列明</td></tr>
+<tr><td>数据越界</td><td>日志里带了真实手机号</td><td>采集前先定字段</td></tr>
+<tr><td>时间越界</td><td>授权到期仍在测试</td><td>日历提醒 + 到期停手</td></tr>
+<tr><td>影响越界</td><td>测试流量打到生产库</td><td>只连自建服务，禁改线上</td></tr>
+</tbody>
+</table>
+<div class="callout"><strong>一句话判据</strong><br>如果这个动作被公开，你是否能拿出书面依据说明它被允许？拿不出，就不做。</div>
+
+<h2>7. 常见错误：授权与范围</h2>
+<table>
+<thead><tr><th>错误</th><th>后果</th></tr></thead>
+<tbody>
+<tr><td>只有口头同意</td><td>事后无法证明范围</td></tr>
+<tr><td>授权写了对象没写动作</td><td>“分析”与“利用”边界不清</td></tr>
+<tr><td>没写停止条件</td><td>发现异常数据仍继续</td></tr>
+<tr><td>记录里带真实用户标识</td><td>报告本身成为泄漏源</td></tr>
+</tbody>
+</table>
+
+<h2>8. 自测</h2>
+<ol>
+<li>为什么“意图善意”不能作为越界的免责依据？</li>
+<li>授权书里哪两项最容易被忽略，后果是什么？</li>
+<li>数据最小化为什么反而让报告更有说服力？</li>
+<li>披露时间线里，“复测”这一步为什么不能省？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

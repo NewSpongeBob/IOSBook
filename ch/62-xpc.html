@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/62-xpc.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K10 XPC 与 Mach 服务 · IOSBook</title>
+<meta name="description" content="客户端按名字查服务、拿端口、发消息；能不能调，取决于服务端的校验">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">K10</span><h1>XPC 与 Mach 服务</h1><p class="sub">客户端按名字查服务、拿端口、发消息；能不能调，取决于服务端的校验</p></header>
+
+<p class="lead">Mach 端口解决“怎么投递”，XPC 解决“怎么组织服务”。系统服务通过 nameserver 注册名字，客户端查名字换到端点，之后仍是 Mach 消息。能不能调，最终取决于服务端的权限校验。</p>
+
+<h2>1. 分层：名字、端点、消息</h2>
+<table>
+<thead><tr><th>层</th><th>是什么</th><th>谁负责</th></tr></thead>
+<tbody>
+<tr><td>服务名</td><td><code>com.apple.xxx</code> 形式的字符串</td><td>nameserver（引导端口）</td></tr>
+<tr><td>端点</td><td>Mach 端口权能</td><td>内核与持有者</td></tr>
+<tr><td>消息</td><td>头 + 参数 + 可能的端口描述符</td><td>双方约定</td></tr>
+</tbody>
+</table>
+
+<h2>2. 一次调用的四步</h2>
+<ol>
+<li>客户端用名字查服务，拿到发送权。</li>
+<li>服务端在自己的端口上接收，检查调用方上下文。</li>
+<li>双方按约定的消息编号与格式交换数据。</li>
+<li>调用结束，客户端释放端点（或保留复用）。</li>
+</ol>
+<p>第 2 步是权限关口：名字能查到，不代表有资格调用；服务端仍要判断调用方是谁、要做什么。</p>
+
+<figure data-steps="查名字|拿端点|发消息|服务端校验" data-cols="4" data-rows="1" data-geometry="24,44,168,104,16,0">
+<img src="../assets/figures/xpc-steps.svg" alt="XPC 四步：查名字、拿端点、发消息、校验" loading="lazy">
+<figcaption>图 2-15　能查到不等于有权调用，服务端校验才是关口。</figcaption>
+</figure>
+
+<h2>3. 名字查不到，通常是这三种情况</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>unknown service</td><td>服务未启动或名字不同</td><td>服务是否在运行、名字大小写</td></tr>
+<tr><td>能查到但调用被拒</td><td>服务端权限校验不通过</td><td>调用方身份与授权</td></tr>
+<tr><td>偶发失败</td><td>服务正在重启</td><td>重试与超时策略</td></tr>
+</tbody>
+</table>
+
+<h2>4. 一次真实排查记录：调用偶发失败</h2>
+<ol>
+<li><strong>现象：</strong>多数调用成功，少数返回失败，重启应用后恢复。</li>
+<li><strong>先看错误码：</strong>是“端点失效”还是“超时”，两者处理方式不同。</li>
+<li><strong>查服务状态：</strong>服务在系统更新或空闲时会被重启，端点随之失效。</li>
+<li><strong>改策略：</strong>端点失效后重新按名字查一次，而不是复用旧端点。</li>
+<li><strong>结论与限制：</strong>记录“端点失效未重建”，并注明结论只对该服务生命周期成立。</li>
+</ol>
+
+<h2>5. 与 Mach IPC 的分工</h2>
+<table>
+<thead><tr><th>问题</th><th>看 Mach IPC</th><th>看 XPC</th></tr></thead>
+<tbody>
+<tr><td>谁能发消息</td><td>端口权能</td><td>服务名可查性</td></tr>
+<tr><td>消息长什么样</td><td>头字段与长度</td><td>接口与序列化</td></tr>
+<tr><td>为什么被拒</td><td>无权能 / 失效</td><td>服务端校验</td></tr>
+</tbody>
+</table>
+
+<h2>6. 工程权衡：XPC 还是进程内</h2>
+<table>
+<thead><tr><th>方式</th><th>收益</th><th>代价</th></tr></thead>
+<tbody>
+<tr><td>进程内调用</td><td>零序列化、调试简单</td><td>崩溃互相拖累，权限共享</td></tr>
+<tr><td>XPC 到独立服务</td><td>崩溃隔离、权限最小化</td><td>序列化开销、生命周期管理</td></tr>
+<tr><td>XPC 到系统服务</td><td>复用系统能力</td><td>受权限与版本约束，不可控</td></tr>
+</tbody>
+</table>
+<p>判断标准是“崩溃是否会互相拖累”和“是否需要更小的权限”：两者任一成立，就值得拆进程。</p>
+
+<h2>7. 数据细节：一次调用的量级</h2>
+<table>
+<thead><tr><th>项</th><th>量级</th><th>含义</th></tr></thead>
+<tbody>
+<tr><td>消息头</td><td>24 字节</td><td>与 Mach 消息共用</td></tr>
+<tr><td>端口名</td><td>4 字节整数</td><td>不是地址，只有权能有效</td></tr>
+<tr><td>常见载荷</td><td>几十字节到数 KB</td><td>大对象应改为共享内存或分块</td></tr>
+<tr><td>端点生命周期</td><td>随服务重启失效</td><td>客户端需重新查名字</td></tr>
+</tbody>
+</table>
+<p>载荷越大，序列化与拷贝越贵；“把整张表塞进一条消息”通常是不必要的设计。</p>
+
+<h2>8. 自测</h2>
+<ol>
+<li>名字、端点、消息分别由谁维护？</li>
+<li>为什么“能查到服务”不等于“有权调用”？</li>
+<li>端点失效后正确的处理方式是什么？</li>
+<li>XPC 与 Mach IPC 在排查时各自负责回答什么问题？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

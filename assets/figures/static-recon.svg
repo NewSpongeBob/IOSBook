@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="静态侦察的五步流水线">
+  <defs>
+    <marker id="arrowSR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .b{fill:#eef3fb;stroke:#c9d6ea;stroke-width:1.4}
+      .t{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12px;fill:#1c2533;font-weight:600}
+      .s{font-family:-apple-system,"PingFang SC",sans-serif;font-size:10.5px;fill:#68727f}
+      .h{font-family:-apple-system,"PingFang SC",sans-serif;font-size:12.5px;fill:#2563eb}
+      .o{font-family:-apple-system,"PingFang SC",sans-serif;font-size:11.5px;fill:#0a8f68}
+    </style>
+  </defs>
+
+  <text class="h" x="30" y="26">从文件到候选入口：每步都有明确产出</text>
+
+  <rect class="b" x="22" y="44" width="130" height="64" rx="8"/>
+  <text class="t" x="30" y="66" text-anchor="middle">文件与架构</text>
+  <text class="s" x="30" y="86" text-anchor="middle">file / otool -hv</text>
+
+  <rect class="b" x="170" y="44" width="130" height="64" rx="8"/>
+  <text class="t" x="178" y="66" text-anchor="middle">依赖</text>
+  <text class="s" x="178" y="86" text-anchor="middle">otool -L</text>
+
+  <rect class="b" x="318" y="44" width="130" height="64" rx="8"/>
+  <text class="t" x="326" y="66" text-anchor="middle">符号</text>
+  <text class="s" x="326" y="86" text-anchor="middle">nm -m / demangle</text>
+
+  <rect class="b" x="466" y="44" width="130" height="64" rx="8"/>
+  <text class="t" x="474" y="66" text-anchor="middle">签名与能力</text>
+  <text class="s" x="474" y="86" text-anchor="middle">codesign -dvvv</text>
+
+  <rect class="b" x="614" y="44" width="130" height="64" rx="8"/>
+  <text class="t" x="622" y="66" text-anchor="middle">可疑入口</text>
+  <text class="s" x="622" y="86" text-anchor="middle">字符串交叉引用</text>
+
+  <line x1="152" y1="76" x2="166" y2="76" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowSR)"/>
+  <line x1="300" y1="76" x2="314" y2="76" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowSR)"/>
+  <line x1="448" y1="76" x2="462" y2="76" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowSR)"/>
+  <line x1="596" y1="76" x2="610" y2="76" stroke="#2563eb" stroke-width="1.4" marker-end="url(#arrowSR)"/>
+
+  <text class="o" x="30" y="132" text-anchor="middle">架构与类型</text>
+  <text class="o" x="178" y="132" text-anchor="middle">调用面</text>
+  <text class="o" x="326" y="132" text-anchor="middle">名字线索</text>
+  <text class="o" x="474" y="132" text-anchor="middle">能力边界</text>
+  <text class="o" x="622" y="132" text-anchor="middle">待验证假设</text>
+
+  <rect x="22" y="158" width="722" height="118" rx="8" fill="#fff9ec" stroke="#f0d9a8"/>
+  <text class="s" x="38" y="182">读法要点：<tspan font-weight="600">undefined external</tspan> 是正常现象（运行时由依赖提供）；没有符号不等于混淆；</text>
+  <text class="s" x="38" y="204">strings 命中不代表有该功能；依赖列表里有不等于被调用。</text>
+  <text class="s" x="38" y="230">产出应是一张表：架构 / 依赖 / 符号 / 能力 / 可疑入口 / 待验证问题，每条对应一条命令。</text>
+  <text class="s" x="38" y="252">所有结论都要绑定产物哈希与构建号，否则后续地址与符号对比失去锚点。</text>
+</svg>

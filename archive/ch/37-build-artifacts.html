@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/37-build-artifacts.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B08 构建产物与发布可追溯性 · IOSBook</title>
+<meta name="description" content="从一个线上版本号，能一路追回代码、依赖、工具链与签名配置">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">B08</span><h1>构建产物与发布可追溯性</h1><p class="sub">从一个线上版本号，能一路追回代码、依赖、工具链与签名配置</p></header>
+
+<p class="lead">可追溯性不是文档工作，而是事故响应能力：线上出问题时，你能不能在十分钟内确定“这一版到底是什么”。答案取决于发布时保存了什么。</p>
+
+<h2>1. 证据链</h2>
+<blockquote>提交 → 构建流水线运行 → 归档产物 → 符号文件 → 发布渠道 → 线上版本</blockquote>
+<p>链条上任何一环断裂，后续判断都只能靠猜。最常见断点是“只保留了产物，没有保留构建输入”，于是无法回答“某依赖是哪个版本”“谁签的名”。</p>
+
+<h2>2. 最小证据集</h2>
+<table>
+<thead><tr><th>类别</th><th>具体内容</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td>源码</td><td>提交 SHA、分支、标签</td><td>复现与定位改动</td></tr>
+<tr><td>工具链</td><td>Xcode 版本、SDK、编译器设置</td><td>解释构建差异</td></tr>
+<tr><td>依赖</td><td>锁定文件、二进制依赖版本与哈希</td><td>供应链追溯</td></tr>
+<tr><td>产物</td><td>归档包哈希、各切片 UUID</td><td>与线上包一一对应</td></tr>
+<tr><td>签名</td><td>签名身份、能力集合、导出选项</td><td>判断能力差异与合规</td></tr>
+<tr><td>过程</td><td>流水线编号、测试结果、批准记录</td><td>证明发布经过检查</td></tr>
+</tbody>
+</table>
+
+<h2>3. 流水线控制</h2>
+<ul>
+<li><strong>凭据集中管理：</strong>签名材料放在受控的密钥存储中，按最小权限分发，禁止导出到个人机器。</li>
+<li><strong>制品只写不改：</strong>正式产物由受保护流水线生成，个人机器不应重签生产包。</li>
+<li><strong>依赖按来源固定：</strong>版本 + 哈希锁定，升级走评审流程。</li>
+<li><strong>构建可重复：</strong>同输入应得到同产物（时间戳等可变因素应可控），至少要做到差异可解释。</li>
+</ul>
+
+<h2>4. 归档与保密</h2>
+<p>归档内容包含符号与内部信息，需要访问控制与保留期限。对外共享构建日志或报告前，去除开发者本机路径、内部域名、测试账号与令牌。归档不是为了“留一份”，而是为了“可检索、可验证、可删除”。</p>
+
+<h2>5. 可验证实验</h2>
+<div class="code"><div class="code-title">生成一份最小发布清单</div><button class="copy" type="button">复制</button><pre><code>shasum -a 256 build/YourApp.ipa
+shasum -a 256 build/YourApp.app/YourApp
+dwarfdump --uuid build/YourApp.app/YourApp
+codesign -dvvv build/YourApp.app 2&gt;&amp;1 | grep -E "Identifier|TeamIdentifier|CDHash"</code></pre></div>
+<ol>
+<li>把这些输出整理成一份清单，附上提交 SHA 与工具链版本。</li>
+<li>只凭清单，让另一位同事找到对应产物并核对哈希，验证清单是否真的自洽。</li>
+<li>模拟一次“线上崩溃回溯”：给出一个构建号，按清单走完整条链，记录每一步耗时与卡点。</li>
+</ol>
+
+<h2>6. 审计问题</h2>
+<ul>
+<li>能否证明线上包与归档包是同一份（哈希一致）？</li>
+<li>能否证明该包的能力集合符合预期，没有调试残留？</li>
+<li>依赖升级是否经过安全评估与回归？</li>
+<li>符号文件是否在保留期内、可被有权限的人取到？</li>
+</ul>
+
+<h2>自测</h2>
+<ol>
+<li>为什么“只保留构建产物”不足以支撑事故响应？</li>
+<li>构建可重复性为什么难做到完全一致？工程上应追求什么程度的可控？</li>
+<li>归档中的哪些信息在对外分享时需要脱敏？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

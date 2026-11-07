@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/46-webviews.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>S07 WebView 与内容信任边界 · IOSBook</title>
+<meta name="description" content="WebView 的风险不在“用了网页”，而在“网页能碰到什么”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">S07</span><h1>WebView 与内容信任边界</h1><p class="sub">WebView 的风险不在“用了网页”，而在“网页能碰到什么”</p></header>
+
+<p class="lead">WebView 同时连着互联网内容和原生能力。判断它是否安全，要看三件事：允许加载什么、页面能调用哪些原生接口、数据在 Web 与原生之间如何流动。</p>
+
+<h2>1. 风险模型</h2>
+<table>
+<thead><tr><th>面</th><th>问题</th><th>控制</th></tr></thead>
+<tbody>
+<tr><td>内容来源</td><td>是否只加载自有域名？</td><td>域名白名单、禁用任意导航</td></tr>
+<tr><td>导航</td><td>重定向、外部链接、自定义 scheme</td><td>在决策阶段拦截并显式处理</td></tr>
+<tr><td>脚本桥</td><td>页面能调用哪些原生方法？</td><td>最小接口、参数校验、来源校验</td></tr>
+<tr><td>存储</td><td>Cookie、本地存储是否与其他内容隔离</td><td>独立数据存储、退出清理</td></tr>
+<tr><td>原生能力</td><td>摄像头、定位、文件是否被页面间接触发</td><td>权限仍由原生侧按用户意图申请</td></tr>
+</tbody>
+</table>
+
+<h2>2. 导航白名单</h2>
+<div class="code"><div class="code-title">Swift：只允许业务域名，其余交给系统浏览器</div><button class="copy" type="button">复制</button><pre><code>func webView(_ webView: WKWebView,
+             decidePolicyFor action: WKNavigationAction,
+             decisionHandler: @escaping (WKNavigationActionPolicy) -&gt; Void) {
+    guard let url = action.request.url else { return decisionHandler(.cancel) }
+    if allowedHosts.contains(url.host ?? "") {
+        decisionHandler(.allow)
+    } else {
+        UIApplication.shared.open(url)   // 外部链接交给系统
+        decisionHandler(.cancel)
+    }
+}</code></pre></div>
+<p>白名单要包含实际用到的主域与必要子域，而不是用后缀匹配（<code>hasSuffix</code> 会让 <code>evil-example.com</code> 通过）。同样要拦截自定义 scheme，避免页面借 URL 触发原生动作。</p>
+
+<h2>3. 脚本桥的安全边界</h2>
+<ul>
+<li>只暴露业务必需的方法，参数按不可信输入校验类型与范围。</li>
+<li>桥接消息要能判断来源页面，不能只看消息内容。</li>
+<li>不把令牌、密钥等敏感值注入页面脚本；需要时通过一次性、短时效的凭据交换。</li>
+<li>注入脚本前评估页面是否可能被第三方内容影响（广告、用户生成内容）。</li>
+</ul>
+
+<h2>4. 数据与身份</h2>
+<p>WebView 的 Cookie 与本地存储等同凭据载体。设计上要明确：登录态存在哪一侧、退出时如何同时清理、是否与非 WebView 的会话共享。共享越方便，越容易被跨站内容利用。</p>
+
+<h2>5. 测试用例</h2>
+<ol>
+<li>让页面跳转到不在白名单的域名，确认被拦截且没有静默加载。</li>
+<li>构造 <code>javascript:</code> 与自定义 scheme 的链接，确认不会触发原生动作。</li>
+<li>向桥接接口发送超长、类型错误、缺字段的消息，确认拒绝且不崩溃。</li>
+<li>退出登录后检查 Cookie 与本地存储是否被清理。</li>
+</ol>
+
+<h2>6. 维护</h2>
+<p>WebView 相关缺陷常随内容变化出现：运营配置了新域名、接入了新的第三方页面、增加了新的桥接方法。把它们纳入发布检查与回归清单，而不是上线后靠用户反馈发现。</p>
+
+<h2>自测</h2>
+<ol>
+<li>为什么“页面来自 HTTPS”不能证明内容可信？</li>
+<li>域名校验用后缀匹配会带来什么后果？</li>
+<li>脚本桥为什么必须校验消息来源，而不只是校验消息格式？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

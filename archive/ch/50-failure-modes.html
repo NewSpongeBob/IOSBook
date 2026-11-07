@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/50-failure-modes.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H04 失败模式与安全降级 · IOSBook</title>
+<meta name="description" content="降级要有依据：哪些功能可以退让，哪些必须拒绝">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">H04</span><h1>失败模式与安全降级</h1><p class="sub">降级要有依据：哪些功能可以退让，哪些必须拒绝</p></header>
+
+<p class="lead">“失败就全部禁用”看起来安全，实际会制造可用性事故；“失败就放行”看起来好用，实际会制造越权。降级需要按功能分级，事前写清楚。</p>
+
+<h2>1. 失败分类</h2>
+<table>
+<thead><tr><th>失败</th><th>典型表现</th><th>可接受降级</th></tr></thead>
+<tbody>
+<tr><td>网络不可用</td><td>请求超时、DNS 失败</td><td>读缓存、排队重试、明确提示</td></tr>
+<tr><td>凭据失效</td><td>401、刷新失败</td><td>重新认证；禁止继续敏感操作</td></tr>
+<tr><td>权限不足</td><td>403、用户拒绝授权</td><td>提示原因、提供替代路径</td></tr>
+<tr><td>配置缺失</td><td>拉取失败、字段非法</td><td>用本地默认值，关闭高风险功能</td></tr>
+<tr><td>平台服务异常</td><td>通知/定位/支付不可用</td><td>降级为手动流程</td></tr>
+<tr><td>存储异常</td><td>空间不足、写入失败</td><td>提示清理、禁止破坏性写入</td></tr>
+</tbody>
+</table>
+
+<h2>2. 哪些必须失败即拒绝</h2>
+<ul>
+<li>涉及资金、身份变更、数据删除的操作。</li>
+<li>服务端无法确认授权状态的敏感读取。</li>
+<li>完整性/签名校验失败后的高风险功能。</li>
+</ul>
+<p>判断标准是“错误放行的后果是否不可逆”。可逆的可以退让，不可逆的必须拒绝。</p>
+
+<h2>3. 故障注入计划</h2>
+<ol>
+<li>断网启动、断网中途、弱网 + 频繁切换。</li>
+<li>令牌过期与被撤销两种情形分别验证。</li>
+<li>权限从“已授权”改为“拒绝”，确认运行中能正确响应。</li>
+<li>配置下发非法值，验证回退路径。</li>
+<li>磁盘写满时执行保存，确认不产生半成品数据。</li>
+</ol>
+<div class="callout"><strong>可观测</strong><br>每次降级都应留下一条结构化记录（原因、功能、版本），否则线上只能看到“功能不可用”，无法区分是网络问题还是策略误伤。</div>
+
+<h2>4. 检查问题</h2>
+<ul>
+<li>降级状态下，用户能否完成核心任务？</li>
+<li>恢复后，积压的操作会不会重复提交？</li>
+<li>降级提示是否泄露内部实现（错误码、服务名、路径）？</li>
+<li>是否有“永久降级”陷阱——一次失败后功能再也没恢复？</li>
+</ul>
+
+<h2>5. 实验</h2>
+<ol>
+<li>对一个自有功能做三次注入：断网、401、403，记录三种提示与后续行为是否可区分。</li>
+<li>把降级开关打开 24 小时，观察恢复后的状态一致性与重复提交情况。</li>
+<li>检查降级日志，确认能统计出“触发了多少次、影响了哪些版本”。</li>
+</ol>
+
+<h2>自测</h2>
+<ol>
+<li>如何判断一个功能“能降级”还是“必须拒绝”？</li>
+<li>降级后恢复，最容易出现哪类数据问题？</li>
+<li>为什么降级也需要可观测性？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

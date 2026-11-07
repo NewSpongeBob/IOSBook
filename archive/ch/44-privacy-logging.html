@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/44-privacy-logging.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>S05 隐私、日志与遥测 · IOSBook</title>
+<meta name="description" content="“只是调试日志”不是理由，副本一旦产生就要按数据对待">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">S05</span><h1>隐私、日志与遥测</h1><p class="sub">“只是调试日志”不是理由，副本一旦产生就要按数据对待</p></header>
+
+<p class="lead">日志与遥测的价值在于排障与决策，代价是数据的第二份、第三份副本。设计时要同时回答：谁需要这份数据、保留多久、出错时会不会把敏感字段带出去。</p>
+
+<h2>1. 数据面盘点</h2>
+<table>
+<thead><tr><th>位置</th><th>常见风险</th><th>基本控制</th></tr></thead>
+<tbody>
+<tr><td>调试日志</td><td>打印请求头、令牌、完整响应</td><td>字段白名单、默认脱敏</td></tr>
+<tr><td>崩溃报告</td><td>异常信息夹带用户输入</td><td>清理自定义字段、限制附加信息</td></tr>
+<tr><td>分析事件</td><td>自由文本字段被塞入隐私数据</td><td>结构化字段 + 枚举值</td></tr>
+<tr><td>通知内容</td><td>锁屏可见敏感信息</td><td>摘要化、可选隐藏正文</td></tr>
+<tr><td>界面快照</td><td>后台切换缓存含敏感界面</td><td>非活跃状态遮挡</td></tr>
+<tr><td>剪贴板</td><td>敏感内容被其他应用读取</td><td>避免复制、及时清理、提示</td></tr>
+</tbody>
+</table>
+
+<h2>2. 日志的三条原则</h2>
+<ul>
+<li><strong>结构化：</strong>用固定字段承载可枚举的信息，避免把整段 JSON 拼进消息字符串。</li>
+<li><strong>白名单：</strong>默认不记录，明确列出需要记录的字段；黑名单永远漏项。</li>
+<li><strong>可关联但不识别：</strong>需要串联同一用户的操作时，用服务端生成的短生命周期标识，而不是手机号或邮箱。</li>
+</ul>
+
+<h2>3. 平台日志的隐私标注</h2>
+<p>统一日志系统支持对动态值标注隐私级别。默认策略下，字符串常常被隐去，这正是“本机看着有、导出的日志里全是占位符”的原因。</p>
+<div class="code"><div class="code-title">Swift：区分公开与私有字段</div><button class="copy" type="button">复制</button><pre><code>import os
+
+let logger = Logger(subsystem: "com.example.app", category: "auth")
+logger.info("sign-in attempt account=\(account, privacy: .private) result=\(result, privacy: .public)")</code></pre></div>
+<p>把结果与状态码标为公开、把账号等标识标为私有，既保留可诊断性，又避免把身份写进日志。调试期需要明文时，应在受控环境临时开启，并确保该设置不进入发布构建。</p>
+
+<h2>4. 保留与删除</h2>
+<ul>
+<li>按用途设定保留期限：调试日志以天计，聚合指标以月计。</li>
+<li>为“删除请求”准备可执行路径：本地缓存、分析平台、崩溃收集器都要覆盖。</li>
+<li>明确哪些数据不出境、不出第三方，并在隐私声明中与实际一致。</li>
+</ul>
+
+<h2>5. 可验证实验</h2>
+<ol>
+<li>在自有应用中触发几条包含账号与令牌的日志，导出系统日志，检查这些值是否可见。</li>
+<li>构造一次崩溃，查看报告的附加信息字段，确认没有用户输入被带入。</li>
+<li>审计一个分析事件的定义，列出每个字段的取值来源，删除非必要字段。</li>
+</ol>
+
+<h2>6. 事件响应时的取舍</h2>
+<p>事故中希望“日志越全越好”，但事后无法收回。可行做法是提前定义“可临时提升的诊断开关”：有范围、有期限、有审批，且只在受控环境生效，而不是长期全量记录。</p>
+
+<h2>自测</h2>
+<ol>
+<li>为什么日志脱敏应采用白名单而不是黑名单？</li>
+<li>统一日志里字段显示为占位符，通常说明什么？</li>
+<li>“临时提升日志级别”为什么需要期限与审批？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

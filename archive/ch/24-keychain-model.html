@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/24-keychain-model.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>10 Keychain 与凭据生命周期 · IOSBook</title>
+<meta name="description" content="可访问性与访问组决定凭据在什么状态下可用、能被谁共享">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">10</span><h1>Keychain 与凭据生命周期</h1><p class="sub">可访问性与访问组决定凭据在什么状态下可用、能被谁共享</p></header>
+
+<p class="lead">把令牌放进钥匙串只是第一步。真正决定安全与可用性的是三个属性：谁能读（访问组）、什么时候能读（可访问性）、换设备后还在不在（同步与“仅本设备”）。</p>
+
+<h2>1. 条目模型</h2>
+<ul>
+<li><strong>类型：</strong>通用密码、互联网密码、密钥、证书等，类型决定可用属性集合。</li>
+<li><strong>标识：</strong>服务名与账号名组成常用查询键。</li>
+<li><strong>访问组：</strong>限定哪些签名主体可以共享，缺失或不匹配时返回权限错误。</li>
+<li><strong>可访问性：</strong>决定设备锁定状态下的可用性，可附加生物识别保护。</li>
+</ul>
+
+<h2>2. 可访问性选择</h2>
+<table>
+<thead><tr><th>属性</th><th>可用条件</th><th>适用与代价</th></tr></thead>
+<tbody>
+<tr><td>解锁后可访问</td><td>设备已解锁</td><td>最常用；后台任务读不到，需处理失败</td></tr>
+<tr><td>首次解锁后可访问</td><td>本次启动解锁过一次</td><td>后台刷新可用，暴露面稍大</td></tr>
+<tr><td>仅本设备（配合解锁）</td><td>已解锁，且不随备份迁移</td><td>换机需重新登录</td></tr>
+<tr><td>需生物识别 / 需当前生物特征集合</td><td>用户通过生物识别</td><td>高价值操作；录入新指纹/面容后旧条目可能失效</td></tr>
+</tbody>
+</table>
+<p>“需要生物识别”不是“更安全就好”的默认选项：它会让后台刷新、自动续期一类流程无法读取凭据。选型要跟业务流程对齐。</p>
+
+<h2>3. 写入与更新</h2>
+<p>钥匙串接口没有“插入或更新”的单一调用。常见错误是重复添加导致 <code>errSecDuplicateItem</code>，或者先删后加在失败时丢数据。稳妥做法是先尝试更新，缺失时再添加：</p>
+<div class="code"><div class="code-title">Swift：先更新后添加</div><button class="copy" type="button">复制</button><pre><code>let query: [String: Any] = [
+    kSecClass as String: kSecClassGenericPassword,
+    kSecAttrService as String: service,
+    kSecAttrAccount as String: account
+]
+let attrs: [String: Any] = [kSecValueData as String: data]
+
+let status = SecItemUpdate(query as CFDictionary, attrs as CFDictionary)
+if status == errSecItemNotFound {
+    var add = query
+    add[kSecValueData as String] = data
+    add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+    let addStatus = SecItemAdd(add as CFDictionary, nil)
+    // 处理 addStatus，特别是 errSecMissingEntitlement
+}</code></pre></div>
+
+<h2>4. 常见问题清单</h2>
+<ul>
+<li><strong>用偏好设置存令牌：</strong>无加密、随备份扩散、易被日志带出。</li>
+<li><strong>忽略 <code>errSecInteractionNotAllowed</code>：</strong>后台或锁屏读取“解锁后可访问”条目时的典型错误，应按“稍后重试/需要用户操作”处理。</li>
+<li><strong>卸载重装后仍有旧数据：</strong>钥匙串条目可能保留，首次启动应主动清理或校验归属。</li>
+<li><strong>不处理生物特征变更：</strong>用户新增指纹后“需当前生物特征集合”的条目失效，需引导重新认证。</li>
+<li><strong>访问组配置与签名不一致：</strong>扩展与主应用读不到同一条目。</li>
+</ul>
+
+<h2>5. 可验证实验</h2>
+<ol>
+<li>写入一条“解锁后可访问”的条目，锁屏后在后台读取，记录返回状态码并实现对应的降级。</li>
+<li>把同一条目分别以不同可访问性写入，比较重启、锁屏、备份恢复后的行为。</li>
+<li>为自己构建的应用添加生物识别保护，录入新的生物特征后再读取，观察条目状态变化。</li>
+</ol>
+
+<h2>自测</h2>
+<ol>
+<li>为什么“需要生物识别”的条目不适合自动续期流程？</li>
+<li>卸载重装后仍读到旧令牌，可能带来什么产品与安全问题？</li>
+<li>先删后加与先更新后添加，在失败场景下有什么差别？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

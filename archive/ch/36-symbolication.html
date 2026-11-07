@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/36-symbolication.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B07 崩溃符号化与 dSYM · IOSBook</title>
+<meta name="description" content="UUID 是唯一可靠的匹配依据，版本号不是">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">B07</span><h1>崩溃符号化与 dSYM</h1><p class="sub">UUID 是唯一可靠的匹配依据，版本号不是</p></header>
+
+<p class="lead">符号化做的事很朴素：把一个运行时地址还原成“哪个映像、哪个函数、哪一行”。难点不在工具，而在于能否拿到与那次崩溃完全匹配的二进制与符号。</p>
+
+<h2>1. 需要的四样东西</h2>
+<table>
+<thead><tr><th>材料</th><th>作用</th><th>常见缺失</th></tr></thead>
+<tbody>
+<tr><td>崩溃报告</td><td>地址、映像列表、异常类型</td><td>被截断或转成纯文本丢掉字段</td></tr>
+<tr><td>对应二进制</td><td>提供符号表与架构</td><td>只保留最新构建</td></tr>
+<tr><td>符号文件</td><td>提供函数名与行号</td><td>未归档，或归档了错误构建</td></tr>
+<tr><td>UUID 匹配</td><td>确认三者同源</td><td>用版本号代替 UUID 比对</td></tr>
+</tbody>
+</table>
+
+<h2>2. 原理</h2>
+<ol>
+<li>从报告取出该帧地址与其所属映像的加载地址。</li>
+<li>计算相对偏移：地址减去映像加载地址，再加上该映像的首选基址（不同工具内部处理方式不同，概念上等价）。</li>
+<li>在符号表或调试信息中查找覆盖该偏移的符号与行号范围。</li>
+<li>输出“映像名 + 函数 + 偏移 + 文件:行号”。</li>
+</ol>
+<p>没有调试信息时，最多得到函数名或只有一个偏移；符号被剥离后，连函数名都没有，只剩映像名与地址。</p>
+
+<h2>3. 系统库的符号从哪来</h2>
+<p>系统框架的符号不在你的产物里。符号化它们需要与崩溃设备系统版本对应的符号信息。这也是为什么“同一个崩溃在开发机上能符号化、在另一台机器上只剩地址”——符号来源不同，不是报告损坏。</p>
+
+<h2>4. 工具与命令</h2>
+<div class="code"><div class="code-title">核对 UUID 并符号化单帧</div><button class="copy" type="button">复制</button><pre><code>dwarfdump --uuid YourApp.app/YourApp
+dwarfdump --uuid YourApp.app.dSYM
+atos -o YourApp.app.dSYM/Contents/Resources/DWARF/YourApp -arch arm64 -l 0x100000000 0x100004a1c</code></pre></div>
+<p>Xcode 的崩溃报告界面与 <code>atos</code> 做的事情本质相同。手工符号化的价值在于：当自动化流程失效时，你可以用一帧验证“符号文件到底对不对”。</p>
+
+<h2>5. 常见误判</h2>
+<ul>
+<li><strong>用最新构建的符号文件符号化旧崩溃：</strong>地址偏移会落在错误函数上，结果看起来合理但完全错误。</li>
+<li><strong>只看主程序 UUID：</strong>扩展、内嵌框架、系统库都有各自的 UUID，需要分别匹配。</li>
+<li><strong>把第一帧当根因：</strong>崩溃点常是“受害者”，真正的调用来源在下面几帧。</li>
+<li><strong>忽略内联：</strong>优化后一个地址可能对应多个内联函数，行号信息需要工具解释。</li>
+</ul>
+
+<h2>6. 可验证实验</h2>
+<ol>
+<li>在自有应用中制造一次崩溃，收集报告，用 <code>atos</code> 手工符号化触发帧，与 Xcode 显示结果对比。</li>
+<li>故意换成另一次构建的符号文件，观察输出如何“看似正常但函数不对”，并记录识别方法（UUID 不符）。</li>
+<li>把一份报告中的映像列表整理成表：映像名、UUID、加载地址、是否为自己构建，判断哪些能符号化、哪些不能。</li>
+</ol>
+
+<h2>7. 产物治理</h2>
+<p>符号文件应与发布包一起归档，按构建号与 UUID 建立索引，并设置保留期限与访问控制。符号文件本身包含内部函数名与路径，对外分享前要评估信息暴露。</p>
+
+<h2>自测</h2>
+<ol>
+<li>为什么 UUID 比版本号更适合做匹配依据？</li>
+<li>没有符号文件时，符号化能做到哪一步？</li>
+<li>系统库符号缺失的原因是什么？该如何补齐？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

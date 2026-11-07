@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/22-privacy-permissions.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>08 隐私权限与用户同意 · IOSBook</title>
+<meta name="description" content="权限状态是可查询、可变化、可被拒绝的产品状态，不是一次弹窗">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">08</span><h1>隐私权限与用户同意</h1><p class="sub">权限状态是可查询、可变化、可被拒绝的产品状态，不是一次弹窗</p></header>
+
+<p class="lead">隐私权限不是“申请一次就通过”的开关，而是四种以上状态的组合，且用户随时可以在设置里改变。把权限当成布尔值，是隐私相关崩溃与体验问题的常见根因。</p>
+
+<h2>1. 状态的完整集合</h2>
+<table>
+<thead><tr><th>状态</th><th>含义</th><th>应用侧应对</th></tr></thead>
+<tbody>
+<tr><td>未决定</td><td>尚未请求过</td><td>在合适的上下文中发起请求</td></tr>
+<tr><td>已拒绝</td><td>用户明确拒绝，或此前拒绝后系统不再弹窗</td><td>解释影响，提供跳转设置的路径</td></tr>
+<tr><td>受限</td><td>被家长控制或设备策略限制</td><td>不引导用户改设置，直接降级</td></tr>
+<tr><td>已授权</td><td>可使用</td><td>正常功能</td></tr>
+<tr><td>部分授权</td><td>如相册“仅选中的照片”、位置“大致位置”</td><td>按范围处理，不假设全量可访问</td></tr>
+</tbody>
+</table>
+<p>“已拒绝”与“受限”的差别很重要：前者用户可改，后者改不了。把受限当拒绝去引导用户设置，会让用户困惑。</p>
+
+<h2>2. 请求时机与用途说明</h2>
+<ul>
+<li>系统弹窗里展示的用途说明来自工程配置，必须具体：说清“用来做什么”，而不是“为了更好的体验”。</li>
+<li>请求应出现在用户能理解其必要性的时刻。启动即连环弹窗会显著降低授权率。</li>
+<li>被拒绝后不要反复弹窗——系统不会再显示，重复请求只是无效调用。</li>
+</ul>
+
+<h2>3. 降级路径才是产品能力</h2>
+<p>权限被拒时，功能应退化而不是中断。例如相册受限时允许用户逐张选择、位置降级为手动输入城市、通讯录不可用时允许手工填写。降级路径要能在测试中被稳定触发，否则等于没做。</p>
+<div class="code"><div class="code-title">处理相册“部分授权”</div><button class="copy" type="button">复制</button><pre><code>let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+switch status {
+case .authorized:
+    loadAllAssets()
+case .limited:
+    loadSelectedAssets()   // 仅用户选中的资源
+case .denied, .restricted:
+    showManualPickerHint()
+case .notDetermined:
+    await PHPhotoLibrary.requestAuthorization(for: .readWrite)
+@unknown default:
+    showManualPickerHint()
+}</code></pre></div>
+<p><code>@unknown default</code> 不是形式主义：新系统可能新增状态，漏掉会让旧代码走进未定义分支。</p>
+
+<h2>4. 敏感数据面不止权限 API</h2>
+<ul>
+<li><strong>日志与遥测：</strong>权限之外的泄漏常发生在日志、崩溃报告与分析事件里。</li>
+<li><strong>剪贴板：</strong>读取可能触发系统提示，也可能包含用户无意复制的内容。</li>
+<li><strong>通知内容：</strong>锁屏展示的信息是否包含敏感字段，应由产品明确决定。</li>
+<li><strong>跨应用追踪：</strong>需要单独的授权，且不应通过指纹式信号绕过。</li>
+</ul>
+
+<h2>5. 可验证实验</h2>
+<ol>
+<li>在自有应用中逐项查询并记录权限状态，切换系统设置后重新查询，确认代码能正确响应变化（不要缓存首次结果）。</li>
+<li>构造“拒绝”“受限”“部分授权”三种状态，验证降级路径可用且无崩溃。</li>
+<li>检查一段包含业务字段的日志，确认没有用户名、令牌、位置坐标等不应出现的内容。</li>
+</ol>
+
+<h2>自测</h2>
+<ol>
+<li>为什么“已拒绝”和“受限”需要不同的产品文案？</li>
+<li>部分授权为什么要求代码显式处理，而不能当作“已授权”？</li>
+<li>权限已授予，是否意味着可以随意记录相关数据？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

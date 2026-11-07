@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/18-hardening.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H01 纵深防御与版本回归 · IOSBook</title>
+<meta name="description" content="每项控制都要说明防什么、怎么验证、失效后还剩什么">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">H01</span><h1>纵深防御与版本回归</h1><p class="sub">每项控制都要说明防什么、怎么验证、失效后还剩什么</p></header>
+
+<p class="lead">纵深防御不是“多上几项措施”，而是让每项措施对应明确的威胁，并在被绕过时仍有下一层。衡量标准不是数量，而是“任意一层失效后，风险是否可接受”。</p>
+
+<h2>1. 控制矩阵</h2>
+<table>
+<thead><tr><th>威胁</th><th>平台层</th><th>应用层</th><th>服务端层</th></tr></thead>
+<tbody>
+<tr><td>凭据被读出</td><td>钥匙串、数据保护</td><td>不落盘、及时清理</td><td>短期令牌、可撤销</td></tr>
+<tr><td>接口被越权调用</td><td>沙盒限制横向访问</td><td>不缓存授权结论</td><td>对象级权限校验</td></tr>
+<tr><td>传输被窃听</td><td>系统信任评估</td><td>禁用不安全例外</td><td>强制 TLS、最小暴露</td></tr>
+<tr><td>客户端被篡改</td><td>代码签名、完整性</td><td>完整性信号上报</td><td>异常行为检测与限流</td></tr>
+<tr><td>依赖被替换</td><td>签名校验</td><td>锁定版本、核对哈希</td><td>构建流水线审计</td></tr>
+</tbody>
+</table>
+<p>矩阵的价值在于暴露空列：如果某行只有“客户端加固”一格有内容，说明这个威胁实际上没有纵深。</p>
+
+<h2>2. 版本回归的三类触发</h2>
+<ol>
+<li><strong>系统升级：</strong>权限提示文案、后台策略、隐私限制、系统服务行为都可能变化。重点回归权限、后台、通知、存储。</li>
+<li><strong>工具链升级：</strong>编译器优化、部署目标、签名与打包行为变化。重点回归崩溃符号化、体积、启动时间。</li>
+<li><strong>依赖升级：</strong>接口语义、默认值、线程模型变化。重点回归鉴权、网络与数据迁移。</li>
+</ol>
+
+<h2>3. 指标与门槛</h2>
+<table>
+<thead><tr><th>指标</th><th>用途</th><th>异常时的动作</th></tr></thead>
+<tbody>
+<tr><td>崩溃率（按版本/机型）</td><td>发现回归</td><td>暂停放量、定位最近变更</td></tr>
+<tr><td>授权失败率</td><td>发现策略误伤</td><td>检查权限规则与灰度范围</td></tr>
+<tr><td>登录异常与挑战率</td><td>发现攻击或误判</td><td>调整风控阈值、人工复核</td></tr>
+<tr><td>降级触发次数</td><td>发现依赖不稳</td><td>容量评估、超时与重试策略</td></tr>
+</tbody>
+</table>
+
+<h2>4. 交付物</h2>
+<ul>
+<li>控制矩阵：威胁 → 层 → 控制 → 证据 → 回归方式。</li>
+<li>版本矩阵：支持的设备与系统组合，以及未覆盖声明。</li>
+<li>回归报告：改动、影响面、验证结果、残余风险。</li>
+</ul>
+
+<h2>5. 可验证实验</h2>
+<ol>
+<li>选一个高风险威胁，关掉其中一层控制（在自有测试环境），观察是否还有其它层拦住。</li>
+<li>把一次系统升级前后的关键流程各跑一遍，记录行为差异并补进回归清单。</li>
+<li>为控制矩阵中的每一格补一条“证据来源”，删掉无法举证的格子。</li>
+</ol>
+
+<h2>自测</h2>
+<ol>
+<li>为什么“控制数量多”不等于“纵深足够”？</li>
+<li>系统升级回归应优先覆盖哪些流程？</li>
+<li>如何证明某一层控制在真实环境中生效？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/49-test-matrix.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H03 设备与系统版本测试矩阵 · IOSBook</title>
+<meta name="description" content="矩阵的目的不是穷举，而是让未覆盖的部分变成明确的已知">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">H03</span><h1>设备与系统版本测试矩阵</h1><p class="sub">矩阵的目的不是穷举，而是让未覆盖的部分变成明确的已知</p></header>
+
+<p class="lead">测试矩阵是“在有限资源下，用哪些组合覆盖风险”的声明。它的价值一半在选取，一半在说明没选什么。</p>
+
+<h2>1. 维度</h2>
+<table>
+<thead><tr><th>维度</th><th>取值示例</th><th>影响什么</th></tr></thead>
+<tbody>
+<tr><td>设备代际</td><td>老款小内存、主流、最新</td><td>内存、性能、传感器能力</td></tr>
+<tr><td>系统版本</td><td>最低支持、主流、最新</td><td>API 可用性、权限模型</td></tr>
+<tr><td>架构</td><td>设备 64 位、模拟器</td><td>指令、符号、平台字段</td></tr>
+<tr><td>授权状态</td><td>未决定/拒绝/受限/部分授权</td><td>降级路径</td></tr>
+<tr><td>网络</td><td>弱网、断网、切换</td><td>超时、重试、幂等</td></tr>
+<tr><td>存储状态</td><td>全新安装、覆盖升级、空间不足</td><td>迁移、缓存、错误处理</td></tr>
+</tbody>
+</table>
+
+<h2>2. 组合爆炸怎么裁</h2>
+<ol>
+<li><strong>风险驱动：</strong>影响资金、隐私、授权的路径优先覆盖。</li>
+<li><strong>等价类：</strong>同一系统大版本内的相邻小版本通常可合并，除非有已知差异。</li>
+<li><strong>用户分布：</strong>按真实活跃设备的版本与机型分布分配比重，而不是平均分配。</li>
+<li><strong>两两组合：</strong>不做全组合，至少覆盖“最低版本 + 最弱设备”“最新版本 + 最新设备”两端。</li>
+</ol>
+
+<h2>3. 记录模板</h2>
+<div class="code"><div class="code-title">一个可复用的用例记录</div><button class="copy" type="button">复制</button><pre><code>用例：后台刷新时令牌过期
+设备：iPhone SE (第 2 代) / iOS 16.x
+构建：1.4.2 (482)
+步骤：登录 → 切后台 → 等待 12 小时 → 触发刷新 → 回前台
+预期：静默刷新成功；失败则提示重新登录且不丢草稿
+证据：时间线日志 + 截图（脱敏）
+结论：通过 / 失败 / 阻塞（写明原因）</code></pre></div>
+
+<h2>4. 未覆盖声明</h2>
+<p>报告里应明确写出：本版未测试的机型与系统版本、未构造的异常状态、已知但不修的问题。没有这句话，读者会默认“全都测过”。</p>
+
+<h2>5. 维护</h2>
+<ul>
+<li>系统大版本发布前更新矩阵，而不是发布后补救。</li>
+<li>每次线上事故反问：这个组合是否在矩阵里？不在就补上。</li>
+<li>删除长期无差异的组合，把资源挪到高风险路径。</li>
+</ul>
+
+<h2>自测</h2>
+<ol>
+<li>为什么测试矩阵需要“未覆盖声明”？</li>
+<li>“两两组合”解决了全组合爆炸中的什么问题？</li>
+<li>线上事故如何反向改进矩阵？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

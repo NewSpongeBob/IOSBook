@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/42-runtime-testing.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R08 运行时观察与测试策略 · IOSBook</title>
+<meta name="description" content="用自有样例验证运行时假设，并把实现细节和契约分开">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">R08</span><h1>运行时观察与测试策略</h1><p class="sub">用自有样例验证运行时假设，并把实现细节和契约分开</p></header>
+<p class="lead">调试器、测试、日志和性能分析工具能提供运行时证据，但每种观测都有扰动、权限和版本限制。观察到的行为不自动成为平台保证。</p><h2>实验记录</h2><ul><li>写明问题、假设、反例条件与预期结果。</li><li>记录源代码提交、构建配置、编译器、SDK、架构和系统版本。</li><li>使用自有最小程序隔离变量；一次实验只改一项关键因素。</li><li>分别标注语言语义、公开 API 契约、ABI 承诺、实现观察和推断。</li></ul><h2>适合的工具类别</h2><p>XCTest 验证功能契约；Instruments 分析性能和生命周期；调试器检查自有进程状态；编译器输出与公开源码帮助理解生成结果。避免把工具显示格式当成真实内存布局的权威来源。</p><h2>测试金字塔</h2><ol><li>单元测试覆盖类型、错误、nil 和状态转换。</li><li>集成测试覆盖 Swift/Objective-C 模块边界。</li><li>设备矩阵验证架构、OS 和优化配置差异。</li><li>发布回归确认性能与崩溃率没有退化。</li></ol><p><strong>参考：</strong><a href="https://developer.apple.com/documentation/xctest">XCTest</a> · <a href="https://developer.apple.com/documentation/xcode">Xcode developer tools</a></p>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

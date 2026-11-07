@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/09-appsec.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>S01 威胁建模与防护验证 · IOSBook</title>
+<meta name="description" content="先明确“保护什么、防谁、被攻破后会怎样”，再谈措施">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">S01</span><h1>威胁建模与防护验证</h1><p class="sub">先明确“保护什么、防谁、被攻破后会怎样”，再谈措施</p></header>
+
+<p class="lead">威胁建模不是写一份文档，而是把“资产、边界、攻击者能力、授权范围”四件事说清楚，让后续每一项测试都有对应的问题。没有模型的检测清单，只是在碰运气。</p>
+
+<h2>1. 四个输入</h2>
+<table>
+<thead><tr><th>输入</th><th>要回答的问题</th><th>典型产出</th></tr></thead>
+<tbody>
+<tr><td>资产</td><td>哪些数据与操作有价值？</td><td>数据分级表、关键操作清单</td></tr>
+<tr><td>信任边界</td><td>数据在哪里换了“信任等级”？</td><td>数据流图上的边界标注</td></tr>
+<tr><td>攻击者能力</td><td>能接触设备、网络、构建链的哪一环？</td><td>能力假设与不在范围内的攻击</td></tr>
+<tr><td>授权范围</td><td>测试允许做什么、不允许做什么？</td><td>书面范围与停止条件</td></tr>
+</tbody>
+</table>
+<p>四项里最容易缺的是最后一项。范围不清时，技术越强越危险。</p>
+
+<h2>2. 画一条数据流</h2>
+<ol>
+<li><strong>采集：</strong>用户输入、设备信息、权限数据。</li>
+<li><strong>传输：</strong>通道、证书校验、重试与缓存。</li>
+<li><strong>存储：</strong>容器文件、钥匙串、偏好设置、内存缓存。</li>
+<li><strong>旁路：</strong>日志、分析事件、崩溃报告、通知内容、界面快照。</li>
+<li><strong>删除：</strong>注销、切换账号、卸载时的清理。</li>
+</ol>
+<p>多数泄漏不在主链路，而在旁路：一条调试日志、一次崩溃上报、一个备份文件。建模时把旁路画出来，测试才有落点。</p>
+
+<h2>3. 控制措施的分层</h2>
+<table>
+<thead><tr><th>层</th><th>能做什么</th><th>不能做什么</th></tr></thead>
+<tbody>
+<tr><td>客户端加固</td><td>提高逆向与篡改成本</td><td>形成信任边界</td></tr>
+<tr><td>平台机制</td><td>沙盒、数据保护、签名、权限</td><td>替代业务授权</td></tr>
+<tr><td>服务端授权</td><td>按身份与上下文判定</td><td>保护已下发到客户端的数据</td></tr>
+<tr><td>传输保护</td><td>防窃听与篡改</td><td>防客户端自身被控制</td></tr>
+<tr><td>监控与响应</td><td>发现异常、限制影响</td><td>事后修复已泄漏的数据</td></tr>
+</tbody>
+</table>
+
+<h2>4. 从威胁到用例</h2>
+<p>以“访问令牌泄漏”为例，把它拆成可执行测试：</p>
+<ul>
+<li>令牌是否出现在日志、崩溃报告、分析事件中？</li>
+<li>是否被写入可备份位置？换机恢复后是否仍有效？</li>
+<li>锁屏状态下能否被读取？读取失败时是否有降级？</li>
+<li>服务端是否校验令牌的设备绑定、有效期与权限范围？</li>
+<li>注销后令牌是否被撤销，而不只是本地删除？</li>
+</ul>
+
+<h2>5. 验证计划模板</h2>
+<div class="code"><div class="code-title">一次评估的最小记录</div><button class="copy" type="button">复制</button><pre><code>范围：仓库 / 构建号 / 测试设备 / 测试服务 / 明确禁止项
+假设：攻击者能力、已排除的攻击
+用例：编号 + 步骤 + 预期失败形态
+证据：截图、日志片段、报告（脱敏）、时间戳
+结论：事实 / 推断 / 未知（分别标注）
+状态：通过 / 失败 / 需复测 + 责任人</code></pre></div>
+
+<h2>6. 边界说明</h2>
+<div class="callout"><strong>只对自有或明确授权的目标</strong><br>所有动态验证限于自建应用、模拟器、自有测试服务与虚构数据。发现的问题按内部流程处理，不在公开渠道披露他人的实现细节。</div>
+
+<h2>自测</h2>
+<ol>
+<li>为什么“资产清单”必须先于“检测清单”？</li>
+<li>客户端加固为什么不能作为授权边界？</li>
+<li>一条威胁如何拆成可执行、可复现的测试用例？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

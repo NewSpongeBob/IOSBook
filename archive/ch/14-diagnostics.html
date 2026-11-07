@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/14-diagnostics.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B02 二进制观测工具与证据记录 · IOSBook</title>
+<meta name="description" content="工具只提供视图，结论需要坐标系、版本与可重复步骤">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">B02</span><h1>二进制观测工具与证据记录</h1><p class="sub">工具只提供视图，结论需要坐标系、版本与可重复步骤</p></header>
+
+<p class="lead">观测二进制不是“跑一条命令看输出”，而是回答三个问题：这是什么文件、它依赖与导出了什么、它的来源与完整性如何。每条结论都要能说明用了哪个工具、什么版本、对哪份产物。</p>
+
+<h2>1. 三个观察面</h2>
+<table>
+<thead><tr><th>面</th><th>回答的问题</th><th>常用工具</th></tr></thead>
+<tbody>
+<tr><td>结构</td><td>文件类型、架构、段与加载命令</td><td>file、otool、dyld_info</td></tr>
+<tr><td>符号</td><td>导出了什么、还缺什么、有无调试信息</td><td>nm、dwarfdump</td></tr>
+<tr><td>来源与完整性</td><td>谁签的、权限声明是什么、是否被改动</td><td>codesign、shasum</td></tr>
+</tbody>
+</table>
+<p>三面互相校验：只看符号会漏掉签名信息，只看签名会漏掉依赖异常。观测顺序建议从结构到符号再到签名，因为后两者的解读依赖前者的坐标系。</p>
+
+<h2>2. 一组可复用的命令</h2>
+<div class="code"><div class="code-title">对自己构建的产物做基础观测</div><button class="copy" type="button">复制</button><pre><code>file /path/to/YourApp.app/YourApp
+otool -hv /path/to/YourApp.app/YourApp          # 文件头与架构
+otool -L /path/to/YourApp.app/YourApp          # 依赖
+nm -m /path/to/YourApp.app/YourApp | head -20  # 符号表与类型
+codesign -dvvv /path/to/YourApp.app 2&gt;&amp;1       # 签名与标识
+shasum -a 256 /path/to/YourApp.app/YourApp     # 产物哈希</code></pre></div>
+<p>记录产物哈希很重要：同一版本号的不同构建，内容可能不同。没有哈希，后续所有对比都缺少锚点。</p>
+
+<h2>3. 证据记录模板</h2>
+<ol>
+<li>目标：要验证的假设（例如“Release 构建剥离了调试符号”）。</li>
+<li>产物：路径、构建号、SHA-256。</li>
+<li>环境：工具链版本、系统版本、架构。</li>
+<li>命令与原始输出：保留可复制的原文，而不是转述。</li>
+<li>结论与限制：这条输出能支持什么、不能支持什么。</li>
+</ol>
+
+<h2>4. 常见误读</h2>
+<ul>
+<li><strong>“有未定义符号就说明有问题”</strong>——动态链接的程序本来就有未定义符号，运行时由依赖提供。</li>
+<li><strong>“strings 里出现某个词就代表有该功能”</strong>——字符串可能来自资源、日志模板或第三方库。</li>
+<li><strong>“符号被剥离等于混淆”</strong>——发布构建剥离调试符号是常规做法，与代码混淆是两件事。</li>
+<li><strong>“依赖列表里有系统库就说明被使用”</strong>——弱链接或间接依赖都可能出现在列表里。</li>
+</ul>
+
+<h2>5. 可验证实验</h2>
+<ol>
+<li>对 Debug 与 Release 产物各跑一遍上述命令，列出差异（符号、依赖、体积），并解释每一项差异的构建原因。</li>
+<li>把同一份源码分别构建为单一架构与通用二进制，用 <code>file</code> 与 <code>otool -hv</code> 的结果说明差异。</li>
+<li>为自己的观测流程写一份记录，让另一位同事仅凭记录就能复现同一输出。</li>
+</ol>
+
+<h2>自测</h2>
+<ol>
+<li>为什么必须先记录产物哈希，再谈论符号与依赖？</li>
+<li>“未定义符号”在什么情况下是正常的？在什么情况下是缺陷？</li>
+<li>一条工具输出升级为“结论”需要补充哪些信息？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

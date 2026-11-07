@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/45-dependencies.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>S06 依赖与供应链安全 · IOSBook</title>
+<meta name="description" content="依赖、插件与构建脚本都是代码，都要有来源与版本">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">S06</span><h1>依赖与供应链安全</h1><p class="sub">依赖、插件与构建脚本都是代码，都要有来源与版本</p></header>
+
+<p class="lead">现代应用的代码大部分不是自己写的。供应链安全的目标不是“零依赖”，而是让每一个进入产物的组件都能回答三个问题：从哪来、是什么版本、谁能改它。</p>
+
+<h2>1. 依赖面</h2>
+<table>
+<thead><tr><th>类型</th><th>风险</th><th>控制点</th></tr></thead>
+<tbody>
+<tr><td>源码依赖（包管理器）</td><td>版本漂移、维护者变更、传递依赖</td><td>锁定文件、私有镜像、评审</td></tr>
+<tr><td>二进制框架</td><td>来源不明、架构缺失、无法审计</td><td>来源固定、哈希记录、签名核对</td></tr>
+<tr><td>构建插件/脚本</td><td>构建期执行任意代码</td><td>最小权限、代码评审、隔离环境</td></tr>
+<tr><td>CI 第三方动作</td><td>可读取凭据、篡改产物</td><td>版本固定、权限最小化、审计日志</td></tr>
+</tbody>
+</table>
+<p>最容易被忽略的是最后两行：它们不进入应用包，却能在构建时接触签名凭据与全部源码。</p>
+
+<h2>2. 版本锁定</h2>
+<ul>
+<li>提交锁定文件（如包解析结果），确保不同机器解析出同一版本集合。</li>
+<li>区分“允许自动升级的范围”和“实际锁定版本”，升级走评审而不是静默发生。</li>
+<li>传递依赖同样要出现在清单里，只记录直接依赖等于只看了冰山一角。</li>
+<li>私有源与镜像要有访问控制与完整性校验，避免中间人替换包内容。</li>
+</ul>
+
+<h2>3. 二进制依赖</h2>
+<p>第三方二进制框架无法像源码一样审查，因此检查项更偏“来源与可验证性”：</p>
+<ol>
+<li>是否存在可追溯的发布版本与校验值？</li>
+<li>包含哪些架构与最低系统版本？是否含模拟器切片？</li>
+<li>签名身份是谁？是否与声明的发布者一致？</li>
+<li>许可证与再分发条款是否允许当前用法？</li>
+</ol>
+
+<h2>4. 更新流程</h2>
+<div class="code"><div class="code-title">生成一份可审查的依赖清单</div><button class="copy" type="button">复制</button><pre><code>cat Package.resolved                 # 源码依赖解析结果
+find . -name "*.xcframework" -maxdepth 4 -print
+lipo -info Frameworks/YourKit.xcframework/ios-arm64/YourKit.framework/YourKit
+shasum -a 256 Frameworks/YourKit.xcframework/ios-arm64/YourKit.framework/YourKit</code></pre></div>
+<p>把清单随构建归档，配合提交 SHA，就能回答“这一版用了哪个依赖版本”。</p>
+
+<h2>5. 漏洞响应</h2>
+<ul>
+<li>建立依赖 → 应用版本的反向索引，出现公告时能快速定位受影响版本。</li>
+<li>区分“可利用”与“理论存在”：评估需要结合调用路径与实际暴露面。</li>
+<li>准备降级与禁用方案，避免只能等上游修复。</li>
+</ul>
+
+<h2>6. 可验证实验（自有项目）</h2>
+<ol>
+<li>列出全部依赖（含传递依赖），标注每个依赖的维护状态与最近更新时间。</li>
+<li>检查构建脚本与 CI 配置，找出拥有写权限或能读取凭据的第三方组件。</li>
+<li>对引入的二进制框架核对签名与哈希，并记录架构集合。</li>
+</ol>
+
+<h2>自测</h2>
+<ol>
+<li>为什么构建插件与 CI 动作属于供应链风险，即使它们不进入应用包？</li>
+<li>只记录直接依赖会漏掉什么？</li>
+<li>面对依赖漏洞公告，判断“是否受影响”需要哪些信息？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x01-workbench.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>X01 分析对象、工作台与证据 · IOSBook</title>
+<meta name="description" content="先确定“分析谁、为什么分析、证据怎么留”，再打开工具">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">X01</span><h1>分析对象、工作台与证据</h1><p class="sub">先确定“分析谁、为什么分析、证据怎么留”，再打开工具</p></header>
+
+<p class="lead">逆向工程在本书里的定义很窄：在自己构建的应用、自己的设备与公开样本上，用工具建立可复现的观察，回答“它是怎么工作的”。它不包含绕过他人保护、修改他人产物或分发破解版本。</p>
+
+<h2>1. 三类对象，三类动作</h2>
+<table>
+<thead><tr><th>对象</th><th>允许的动作</th><th>前提</th></tr></thead>
+<tbody>
+<tr><td>自己构建的应用</td><td>反汇编、调试、插桩、修改后重签</td><td>使用测试账号与虚构数据</td></tr>
+<tr><td>自己的测试设备 / 模拟器</td><td>抓包、日志、性能跟踪、安装调试构建</td><td>不接入生产环境与他人账号</td></tr>
+<tr><td>公开样本与开源代码</td><td>阅读、对比、学习结构</td><td>遵守许可证，不用于攻击他人</td></tr>
+<tr><td>他人应用 / 线上服务</td><td>不在本书范围</td><td>需书面授权，且遵守法律</td></tr>
+</tbody>
+</table>
+
+<h2>2. 工作台</h2>
+<table>
+<thead><tr><th>工具</th><th>用途</th><th>备注</th></tr></thead>
+<tbody>
+<tr><td>Xcode / Instruments</td><td>构建、运行、性能与内存观察</td><td>调试构建才有完整符号</td></tr>
+<tr><td>lldb</td><td>断点、查看对象与内存、调用栈</td><td>需要可调试的签名</td></tr>
+<tr><td>otool / nm / dyld_info</td><td>文件结构、依赖、符号</td><td>随 Xcode 提供</td></tr>
+<tr><td>反汇编器（Hopper、IDA、Ghidra）</td><td>阅读函数、交叉引用、调用图</td><td>先看符号，再看地址</td></tr>
+<tr><td>插桩框架</td><td>在运行时观察/替换自有方法</td><td>只对自己构建的应用使用</td></tr>
+<tr><td>代理工具</td><td>观察自有测试服务的请求</td><td>仅自有域名与测试账号</td></tr>
+</tbody>
+</table>
+<p>工具不是门槛，环境隔离才是：单独一台测试机、独立测试账号、独立测试服务，出问题不影响真实用户。</p>
+
+<h2>3. 证据规范</h2>
+<div class="code"><div class="code-title">每次分析至少留这六项</div><button class="copy" type="button">复制</button><pre><code>对象：应用名 + 构建号 + 产物哈希
+环境：设备型号 / 系统版本 / 是否模拟器
+目标：这次要回答的具体问题
+手段：工具与命令（含版本）
+观察：原始输出、截图、地址与符号
+限制：结论适用范围与不确定项</code></pre></div>
+
+<h2>4. 推荐的推进顺序</h2>
+<ol>
+<li><strong>静态侦察：</strong>先弄清产物由什么组成、有哪些名字可用（X02）。</li>
+<li><strong>运行时观察：</strong>用调试器确认调用顺序与真实参数（X03）。</li>
+<li><strong>反汇编阅读：</strong>当符号不够用时，看指令层（X06、X07）。</li>
+<li><strong>插桩验证：</strong>用可控改动验证假设，而不是猜测（X04）。</li>
+</ol>
+<div class="callout"><strong>边界</strong><br>涉及第三方应用的破解、绕过检测、去除保护步骤，本书不提供。X08 只讨论如何识别防护与评估自己防护的有效性。</div>
+
+<h2>自测</h2>
+<ol>
+<li>为什么“只分析自己的应用”既是合规要求，也是学习效率更高的选择？</li>
+<li>证据里为什么必须记录产物哈希与构建号？</li>
+<li>静态侦察与运行时观察各自能回答什么问题？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

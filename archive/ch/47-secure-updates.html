@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/47-secure-updates.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>S08 更新、配置与安全回滚 · IOSBook</title>
+<meta name="description" content="配置能改变行为，所以它必须像代码一样被校验和回滚">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">S08</span><h1>更新、配置与安全回滚</h1><p class="sub">配置能改变行为，所以它必须像代码一样被校验和回滚</p></header>
+
+<p class="lead">远程配置让产品不必发版就能调整行为，也因此成为一条影响全量用户的通道。安全设计要回答：谁能改、改动能到哪、错了怎么退。</p>
+
+<h2>1. 能下发什么</h2>
+<table>
+<thead><tr><th>内容</th><th>可以做</th><th>不可做</th></tr></thead>
+<tbody>
+<tr><td>功能开关</td><td>按人群、版本、地区开启</td><td>作为业务授权的唯一依据</td></tr>
+<tr><td>文案与资源</td><td>替换展示内容、图片</td><td>借资源路径加载可执行内容</td></tr>
+<tr><td>参数与阈值</td><td>调整超时、批量大小</td><td>传入未校验的值直接参与敏感计算</td></tr>
+<tr><td>可执行代码</td><td>平台通常不允许动态下发</td><td>任何形式的“热更新代码”</td></tr>
+</tbody>
+</table>
+<p>最后一行是硬约束：绕过平台规则下发可执行逻辑，既有审核风险，也让完整性无法保证。</p>
+
+<h2>2. 治理要点</h2>
+<ul>
+<li><strong>完整性：</strong>配置应通过受信通道获取，必要时校验签名或哈希。</li>
+<li><strong>类型与范围：</strong>解码后逐字段校验，拒绝越界值与未知枚举。</li>
+<li><strong>默认值：</strong>本地必须有可用默认值，配置缺失时行为可预测。</li>
+<li><strong>灰度：</strong>先小比例、可观测，再扩大；避免一次性全量。</li>
+<li><strong>过期：</strong>配置有生效期与失效期，避免历史值长期残留。</li>
+</ul>
+<div class="code"><div class="code-title">Swift：解码后做范围校验</div><button class="copy" type="button">复制</button><pre><code>struct RemoteConfig: Decodable {
+    let timeoutSeconds: Int
+    let maxRetry: Int
+}
+
+func validate(_ config: RemoteConfig) throws {
+    guard (5...60).contains(config.timeoutSeconds) else { throw ConfigError.outOfRange }
+    guard (0...3).contains(config.maxRetry) else { throw ConfigError.outOfRange }
+}</code></pre></div>
+
+<h2>3. 失败与回滚</h2>
+<table>
+<thead><tr><th>场景</th><th>期望行为</th></tr></thead>
+<tbody>
+<tr><td>拉取失败</td><td>使用本地缓存或默认值，不阻塞启动</td></tr>
+<tr><td>配置非法</td><td>整份拒绝或回退到上一份有效配置</td></tr>
+<tr><td>新配置导致异常</td><td>服务端开关关闭，客户端回到安全默认</td></tr>
+<tr><td>版本不兼容</td><td>按版本下发不同配置，旧版本保持可用</td></tr>
+</tbody>
+</table>
+<p>“安全默认”要在设计时就定好：关闭高风险功能、保持只读、提示用户稍后再试，而不是默认放开。</p>
+
+<h2>4. 审计</h2>
+<ul>
+<li>每次配置变更记录：谁改的、改了什么、影响范围、审批人、时间。</li>
+<li>客户端上报生效配置的版本号，出现问题时能确认影响面。</li>
+<li>敏感开关（涉及权限、支付、隐私）变更需要双人确认。</li>
+</ul>
+
+<h2>5. 可验证实验</h2>
+<ol>
+<li>构造越界与错误类型的配置，确认客户端拒绝而不是崩溃或使用异常值。</li>
+<li>断开网络启动应用，确认默认值生效且功能可用。</li>
+<li>下发一份“会导致异常”的配置（在自有测试环境），演练服务端关闭开关后的恢复时间。</li>
+</ol>
+
+<h2>自测</h2>
+<ol>
+<li>为什么配置需要范围校验，而不能只做类型解码？</li>
+<li>“本地默认值”在故障时起什么作用？</li>
+<li>哪些配置变更应当要求双人确认？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/25-platform-apis.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>11 公开 API、受限 API 与兼容性 · IOSBook</title>
+<meta name="description" content="公开、受限与未公开 API 的区别，本质是“谁向你承诺了兼容性”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">11</span><h1>公开 API、受限 API 与兼容性</h1><p class="sub">公开、受限与未公开 API 的区别，本质是“谁向你承诺了兼容性”</p></header>
+
+<p class="lead">平台 API 分三类：公开且承诺兼容的、需要能力或授权才能使用的、未公开且不承诺任何东西的。第三类会给上架与稳定性带来直接风险，前两类则需要按系统版本设计降级。</p>
+
+<h2>1. 三类 API</h2>
+<table>
+<thead><tr><th>类别</th><th>典型来源</th><th>兼容承诺</th><th>风险</th></tr></thead>
+<tbody>
+<tr><td>公开 API</td><td>系统框架公开头文件与文档</td><td>有，按版本演进并标注弃用</td><td>低，但需处理可用性差异</td></tr>
+<tr><td>受约束 API</td><td>需要 entitlement、审核批准或特定分发方式</td><td>有，但前提是具备资格</td><td>中，能力缺失时功能不可用</td></tr>
+<tr><td>未公开 API</td><td>符号存在于二进制但无文档</td><td>无</td><td>高：随时变化、审核拒绝、行为不可预期</td></tr>
+</tbody>
+</table>
+<p>判断标准不是“能不能调用成功”，而是“有没有人向你承诺下次仍然这样”。用反射或动态查找绕过编译检查，得到的只是“当前版本能跑”。</p>
+
+<h2>2. 可用性检查的正确写法</h2>
+<div class="code"><div class="code-title">按系统版本分支，而不是按设备猜测</div><button class="copy" type="button">复制</button><pre><code>if #available(iOS 17, *) {
+    useNewAPI()
+} else {
+    useFallbackPath()
+}</code></pre></div>
+<ul>
+<li>编译使用的 SDK 版本与运行设备的系统版本是两个维度，二者都要考虑。</li>
+<li>弱链接符号在旧系统上可能不存在，调用前必须有可用性判断。</li>
+<li>不要用 <code>responds(to:)</code> 作为版本判断的主要手段：它能告诉你对象是否实现某方法，但不能告诉你语义是否相同。</li>
+</ul>
+
+<h2>3. 弃用不是失效</h2>
+<p>弃用表示“计划移除、建议迁移”。迁移窗口内旧 API 往往仍可用，但新系统上可能行为不同。工程上的做法是把弃用当作待办事项进入技术债清单，而不是等编译警告堆积后一次性处理。</p>
+
+<h2>4. 受限 API 的合规路径</h2>
+<p>某些能力只对特定类型的应用开放，需要申请并在审核中说明用途。合规路径的要点是：能力与功能一一对应、用途可解释、失败有降级。绕开申请使用未公开手段，短期可行但会带来下架与兼容风险。</p>
+
+<h2>5. 可验证实验</h2>
+<ol>
+<li>对同一份自有代码在多个系统版本的模拟器上运行，记录可用性分支的实际走向，确认没有“只在最新版本测过”的路径。</li>
+<li>把某处 <code>#available</code> 判断故意写错（例如用错版本号），观察在旧系统上的失败形态，理解为什么需要测试矩阵。</li>
+<li>对自己依赖的第三方库检查其使用的 API 是否有弃用警告，评估升级成本。</li>
+</ol>
+
+<h2>6. 版本策略</h2>
+<ul>
+<li>维护一张“最低支持版本 → 关键能力 → 降级方案”的表，随版本更新。</li>
+<li>把系统版本纳入缺陷分级：只在旧版本出现的问题，同样需要回归。</li>
+<li>灰度发布时观察异常率与版本分布，避免把新系统特有问题误判为服务端问题。</li>
+</ul>
+
+<h2>自测</h2>
+<ol>
+<li>为什么“调用成功”不能证明使用公开 API 是安全的？</li>
+<li>SDK 版本与设备系统版本在什么情况下会造成“编译通过、运行崩溃”？</li>
+<li>受约束 API 的能力缺失时，产品应如何设计降级？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

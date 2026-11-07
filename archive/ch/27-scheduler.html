@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/27-scheduler.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K04 QoS、队列与调度意图 · IOSBook</title>
+<meta name="description" content="用系统提供的并发抽象表达工作优先级，而非自行假设执行顺序">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">K04</span><h1>QoS、队列与调度意图</h1><p class="sub">用系统提供的并发抽象表达工作优先级，而非自行假设执行顺序</p></header>
+<p class="lead">QoS（Quality of Service）描述工作的相对重要程度，帮助系统在响应性、能耗和资源分配之间作出调度决策。它不是实时期限，也不保证某个线程何时运行。</p><h2>从任务到执行</h2><p>应用把工作提交到队列或并发 API；系统结合 QoS、线程可运行状态、设备负载与电源状态安排执行。主线程承担 UI 响应，耗时 I/O、解码和计算不应阻塞它。队列是组织任务的抽象，不等于一个永久专属线程。</p><div class="callout"><strong>心智模型</strong><br>应用表达意图 → 调度系统评估上下文 → 工作在可用资源上执行。不要将“并发”误读为“并行”，也不要依赖未记录的线程顺序。</div><h2>QoS 使用原则</h2><ul><li>用户正在等待的短任务可采用适当的用户交互优先级；可延迟的维护工作使用较低优先级。</li><li>避免无依据地提高优先级，否则会增加能耗并挤占系统资源。</li><li>保持依赖关系清晰，避免高优先级工作等待低优先级任务造成优先级反转。</li><li>用结构化并发、OperationQueue 或 GCD 管理生命周期和取消，不手工制造线程池。</li></ul><h2>实验：观察而不是猜测</h2><ol><li>在自有样例中创建短时计算任务与 UI 更新任务，记录所用队列、QoS 和设备状态。</li><li>用 Instruments 的 Time Profiler / System Trace 观察主线程阻塞、任务等待与 CPU 使用。</li><li>改变任务优先级或取消策略，比较响应时间和能耗；每次只改变一个变量。</li><li>写明设备、OS、构建优化级别和测量误差，不把单次结果推广为调度保证。</li></ol><h2>常见误区</h2><p>线程数等于 CPU 核数、异步必定更快、后台队列永不阻塞，都是不成立的假设。优先从算法复杂度、批处理、缓存和取消能力入手优化。</p><p><strong>参考：</strong><a href="https://developer.apple.com/documentation/dispatch">Apple Dispatch 文档</a> · <a href="https://developer.apple.com/documentation/xcode/improving-your-app-s-performance">性能分析指南</a></p>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

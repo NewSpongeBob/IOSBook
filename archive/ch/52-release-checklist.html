@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/52-release-checklist.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H06 安全发布检查与回归 · IOSBook</title>
+<meta name="description" content="发布是证据交付，不是最后一天打勾">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">H06</span><h1>安全发布检查与回归</h1><p class="sub">发布是证据交付，不是最后一天打勾</p></header>
+
+<p class="lead">安全检查如果集中在发布当天，只能发现“来不及改”的问题。把检查前移、自动化，并把例外交给有权限的人书面接受，发布才会变快而不是变慢。</p>
+
+<h2>1. 发布前</h2>
+<table>
+<thead><tr><th>类别</th><th>检查项</th></tr></thead>
+<tbody>
+<tr><td>身份与能力</td><td>签名身份正确；能力集合与功能一致；发布包无调试附加</td></tr>
+<tr><td>数据与隐私</td><td>无新增敏感日志；隐私说明与实际一致；权限用途文案准确</td></tr>
+<tr><td>构建与产物</td><td>产物哈希归档；符号文件按 UUID 归档；无本地临时改动</td></tr>
+<tr><td>依赖</td><td>锁定文件已提交；二进制依赖来源与哈希记录；无已知高危漏洞</td></tr>
+<tr><td>配置</td><td>默认值可用；开关状态符合预期；灰度范围明确</td></tr>
+</tbody>
+</table>
+
+<h2>2. 发布后</h2>
+<ul>
+<li><strong>观察窗口：</strong>按放量节奏设 24/72 小时观察点，而不是发完就结束。</li>
+<li><strong>指标：</strong>崩溃率、启动时长、授权失败率、关键转化路径、降级触发次数。</li>
+<li><strong>对比基线：</strong>与上一版本、同机型的同窗口数据比较，避免被整体波动干扰。</li>
+</ul>
+
+<h2>3. 回滚触发条件</h2>
+<table>
+<thead><tr><th>信号</th><th>动作</th></tr></thead>
+<tbody>
+<tr><td>崩溃率超过基线阈值</td><td>暂停放量，评估回滚或服务端关闭功能</td></tr>
+<tr><td>关键路径成功率显著下降</td><td>立即关闭新功能开关，保留旧路径</td></tr>
+<tr><td>授权失败异常上升</td><td>检查策略与配置，必要时回滚规则</td></tr>
+<tr><td>安全告警（凭据泄漏等）</td><td>进入事件响应，优先吊销与止损</td></tr>
+</tbody>
+</table>
+<p>阈值要写进发布单，而不是当天再商量。没有阈值的“持续观察”等于没有观察。</p>
+
+<h2>4. 例外管理</h2>
+<ul>
+<li>例外必须有记录：哪一项、为什么不满足、谁批准、什么时候到期。</li>
+<li>附带补偿控制：例如缺少某项检测时，增加服务端限流与监控。</li>
+<li>到期自动失效，重新评估；不允许“临时”永久化。</li>
+</ul>
+
+<h2>5. 自动化</h2>
+<div class="code"><div class="code-title">把关键检查放进流水线</div><button class="copy" type="button">复制</button><pre><code>codesign --verify --deep --strict build/YourApp.app
+codesign -d --entitlements :- build/YourApp.app 2&gt;&amp;1 | grep -q get-task-allow &amp;&amp; echo "DEBUG ENTITLEMENT PRESENT"
+shasum -a 256 build/YourApp.ipa &gt;&gt; release-manifest.txt
+dwarfdump --uuid build/YourApp.app.dSYM &gt;&gt; release-manifest.txt</code></pre></div>
+<p>自动化负责“是否满足”，人负责“例外是否可接受”。两者混在一起，检查就会退化成形式。</p>
+
+<h2>6. 实验</h2>
+<ol>
+<li>为一个自有项目写一份发布单，含检查项、责任人、证据位置与阈值。</li>
+<li>故意保留一条调试能力构建，验证流水线能否拦住。</li>
+<li>演练一次回滚：从触发到用户可用，记录耗时与阻塞点。</li>
+</ol>
+
+<h2>自测</h2>
+<ol>
+<li>为什么检查要前移到日常提交，而不是发布当天？</li>
+<li>例外管理为什么必须包含到期时间？</li>
+<li>回滚阈值应该在什么时候确定？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

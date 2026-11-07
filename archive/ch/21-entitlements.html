@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/21-entitlements.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>07 Entitlements 与能力授权 · IOSBook</title>
+<meta name="description" content="entitlement 是签名声明的能力，不是用户授权，更不是业务权限">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">07</span><h1>Entitlements 与能力授权</h1><p class="sub">entitlement 是签名声明的能力，不是用户授权，更不是业务权限</p></header>
+
+<p class="lead">entitlement 描述“这个签名的应用被允许使用哪些系统能力”。它由签名与描述文件共同约束，安装与启动时被校验。它不等于用户同意，也不能替代服务端授权。</p>
+
+<h2>1. 常见能力与其来源</h2>
+<table>
+<thead><tr><th>能力</th><th>解决的问题</th><th>谁能授予</th></tr></thead>
+<tbody>
+<tr><td>应用标识</td><td>确定应用身份与归属团队</td><td>开发者后台 + 签名</td></tr>
+<tr><td>钥匙串访问组</td><td>限定能共享凭据的应用/扩展范围</td><td>开发者后台 + 签名</td></tr>
+<tr><td>推送环境</td><td>区分开发与生产推送通道</td><td>证书与描述文件</td></tr>
+<tr><td>关联域</td><td>声明可代理的通用链接域名</td><td>开发者后台 + 服务端文件</td></tr>
+<tr><td>调试附加</td><td>允许调试器附加到进程</td><td>开发构建，发布构建应移除</td></tr>
+</tbody>
+</table>
+<p>注意最后一行：调试能力只应存在于开发构建。发布包若残留该能力，等于把进程开放给附加调试，属于典型的构建配置事故。</p>
+
+<h2>2. 缺失能力时的表现</h2>
+<p>不同能力的失败形态不一样：有的在调用时返回权限错误，有的直接让功能不可用，有的在安装阶段就被拒绝。共同点是<strong>错误信息通常不会明确告诉你“缺哪个 entitlement”</strong>，需要回到签名与描述文件核对。</p>
+<div class="code"><div class="code-title">核对构建产物实际携带的能力</div><button class="copy" type="button">复制</button><pre><code>codesign -d --entitlements :- /path/to/YourApp.app 2&gt;&amp;1
+# 关注 application-identifier、keychain-access-groups、aps-environment、get-task-allow</code></pre></div>
+
+<h2>3. 三种“权限”不要混用</h2>
+<ul>
+<li><strong>entitlement：</strong>编译与签名期确定，回答“能不能用这个能力”。</li>
+<li><strong>用户授权：</strong>运行时由用户决定，回答“用户是否允许这次访问”。</li>
+<li><strong>业务授权：</strong>由服务端依据身份与上下文判定，回答“这个用户能不能执行这个操作”。</li>
+</ul>
+<p>把业务授权放在客户端——无论用 entitlement、越狱检测还是字符串混淆——都只是提高成本，不构成信任边界。客户端的一切都可被观察，判定必须在权威端完成。</p>
+
+<h2>4. 可验证实验</h2>
+<ol>
+<li>分别对 Debug 与 Release 构建查看 entitlements，列出差异并解释每一项为什么存在。</li>
+<li>在自有应用中用 group 标识创建共享存储，然后在签名中移除对应能力，记录访问返回的结果。</li>
+<li>检查关联域配置：域名侧的文件是否可访问、内容是否与工程配置一致，验证“声明”与“实际可用”是否一致。</li>
+</ol>
+
+<h2>5. 发布检查</h2>
+<ul>
+<li>能力集合与产品功能一一对应，没有历史遗留项。</li>
+<li>推送环境与发布通道匹配，扩展与主应用能力一致。</li>
+<li>发布构建不含调试附加能力。</li>
+<li>能力相关的失败路径有产品级降级方案，而不是直接崩溃。</li>
+</ul>
+
+<h2>自测</h2>
+<ol>
+<li>为什么 entitlement 不能代替用户授权？举一个两者都需要的能力。</li>
+<li>“发布包残留调试能力”会带来什么风险？</li>
+<li>如果一个功能在开发环境正常、TestFlight 上失败，你会先检查什么？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

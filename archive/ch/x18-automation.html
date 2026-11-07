@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/x18-automation.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>X18 自动化：XCUITest 与 WDA · IOSBook</title>
+<meta name="description" content="自动化负责“把路径走一遍”，不负责“看见内存”">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">X18</span><h1>自动化：XCUITest 与 WDA</h1><p class="sub">自动化负责“把路径走一遍”，不负责“看见内存”</p></header>
+
+<p class="lead">XCUITest 与被测应用是两个进程：测试进程通过辅助功能接口点击、输入、截图，不注入、不读内存。它适合把功能路径稳定跑通，再配合日志与断点做定位。</p>
+
+<h2>1. 两种形态</h2>
+<table>
+<thead><tr><th>形态</th><th>运行方式</th><th>适用</th></tr></thead>
+<tbody>
+<tr><td>XCTest UI 测试</td><td>Xcode 内置，测试进程驱动应用</td><td>本地回归、自有应用</td></tr>
+<tr><td>WebDriverAgent</td><td>设备上跑一个 HTTP 服务（默认 8100），外部脚本发请求</td><td>远程批量、跨语言脚本</td></tr>
+</tbody>
+</table>
+
+<h2>2. 能力边界</h2>
+<table>
+<thead><tr><th>能做</th><th>不能做</th></tr></thead>
+<tbody>
+<tr><td>点击、滑动、输入、截图</td><td>读取对象内存、调用任意方法</td></tr>
+<tr><td>断言界面元素与层级</td><td>绕过权限或签名限制</td></tr>
+<tr><td>稳定复现同一条路径</td><td>替代断点做调用级观测</td></tr>
+</tbody>
+</table>
+<p>所以自动化与插桩是互补关系：前者保证“每次都走到同一个地方”，后者负责“到了之后看什么”。</p>
+
+<h2>3. 定位元素</h2>
+<ul>
+<li>优先用 <code>accessibilityIdentifier</code>：文案会变，标识相对稳定。</li>
+<li>元素层级变化会让基于下标的定位失效，尽量按标识或类型 + 标识组合。</li>
+<li>系统弹窗（权限、更新提示）会打断流程，先写统一处理再谈用例。</li>
+</ul>
+<div class="code"><div class="code-title">Swift：按标识查找并点击</div><button class="copy" type="button">复制</button><pre><code>let app = XCUIApplication()
+app.launch()
+let login = app.buttons["login.submit"]
+XCTAssertTrue(login.waitForExistence(timeout: 5))
+login.tap()</code></pre></div>
+
+<h2>4. 与分析的配合</h2>
+<ol>
+<li>用自动化稳定触发目标功能（例如进入列表页并下拉刷新）。</li>
+<li>在固定位置下断点或打日志，观察参数与返回值。</li>
+<li>把“某次操作 → 某些调用”的对应关系记下来，形成路径表。</li>
+<li>改动代码后重跑同一用例，确认行为差异。</li>
+</ol>
+
+<h2>5. 失败分流</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>查哪里</th></tr></thead>
+<tbody>
+<tr><td>元素找不到</td><td>标识缺失或层级变化</td><td>打印元素树，补标识</td></tr>
+<tr><td>点了没反应</td><td>元素存在但不可交互</td><td>等待可点击状态</td></tr>
+<tr><td>随机失败</td><td>动画、网络、异步加载</td><td>加显式等待，去掉固定 sleep</td></tr>
+<tr><td>权限弹窗卡住</td><td>系统弹窗不在应用层级</td><td>统一处理或预置权限</td></tr>
+<tr><td>只能模拟器跑</td><td>签名或设备限制</td><td>核对测试构建与设备</td></tr>
+</tbody>
+</table>
+
+<h2>6. 自测</h2>
+<ol>
+<li>为什么 XCUITest 不能读取应用内存？</li>
+<li>元素定位为什么优先用标识而不是文案？</li>
+<li>自动化与插桩各自解决什么问题？</li>
+<li>“随机失败”最常见的三个原因是什么？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/28-memory-pressure.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K05 内存压力与应用生命周期 · IOSBook</title>
+<meta name="description" content="从分配、驻留到系统回收，设计可恢复而非依赖常驻的应用">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">K05</span><h1>内存压力与应用生命周期</h1><p class="sub">从分配、驻留到系统回收，设计可恢复而非依赖常驻的应用</p></header>
+<p class="lead">移动设备的内存是共享资源。系统可能在压力下回收缓存、要求应用释放可重建资源，或终止后台进程；应用必须保存必要状态并能从持久数据恢复。</p><h2>生命周期模型</h2><p>虚拟地址空间预留不代表同等数量的物理内存常驻。触页、映射、共享页、压缩和系统缓存都会影响实际占用。内存警告是释放缓存的机会，不是精确的“剩余内存计量器”。后台挂起也不意味着进程会一直保留。</p><h2>设计策略</h2><ul><li>区分权威持久数据、可恢复 UI 状态和可丢弃缓存。</li><li>为图像、媒体和大集合设置明确的大小、生命周期与淘汰策略。</li><li>避免强引用环和无界缓存；使用 Instruments、Memory Graph 等开发诊断能力定位自有代码问题。</li><li>后台切换时保存最小恢复信息，不能依赖内存中的状态作为唯一副本。</li></ul><h2>验证矩阵</h2><ol><li>模拟从前台转后台再恢复，验证用户操作不会重复提交。</li><li>加载大量测试资源，观察内存峰值、释放时机和页面响应。</li><li>在开发环境使用内存诊断工具检查增长趋势与对象持有关系。</li><li>测试冷启动恢复，并区分应用自身缺陷与系统资源回收。</li></ol><p>记录 Instruments 模板、设备型号、OS build、测试数据规模和采样时间。不要依据私有阈值构造依赖系统回收行为的业务逻辑。</p><p><strong>参考：</strong><a href="https://developer.apple.com/documentation/xcode/diagnosing-memory-thread-and-crash-issues-early">Xcode 内存与崩溃诊断</a> · <a href="https://developer.apple.com/documentation/uikit/app_and_environment/managing_your_app_s_life_cycle">UIKit 应用生命周期</a></p>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

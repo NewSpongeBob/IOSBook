@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/16-data-protection.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>S02 密钥、凭据与数据保护 · IOSBook</title>
+<meta name="description" content="客户端保管不了长期秘密，能做的只有缩短暴露与减少副本">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">S02</span><h1>密钥、凭据与数据保护</h1><p class="sub">客户端保管不了长期秘密，能做的只有缩短暴露与减少副本</p></header>
+
+<p class="lead">“把密钥藏进客户端”不是密钥管理，只是延迟被发现的时间。可靠的设计是：长期秘密留在服务端，客户端只持有短期、可撤销、范围受限的凭据，并用平台机制保护它。</p>
+
+<h2>1. 数据分级决定存储位置</h2>
+<table>
+<thead><tr><th>级别</th><th>示例</th><th>建议位置</th></tr></thead>
+<tbody>
+<tr><td>公开</td><td>静态配置、帮助文本</td><td>随包资源</td></tr>
+<tr><td>内部</td><td>功能开关、缓存的列表</td><td>容器文件，可重建</td></tr>
+<tr><td>用户私有</td><td>个人资料、聊天记录</td><td>容器文件 + 文件保护</td></tr>
+<tr><td>凭据</td><td>访问令牌、刷新令牌</td><td>钥匙串，限定可访问性</td></tr>
+<tr><td>高价值秘密</td><td>服务端主密钥、支付密钥</td><td>只存在于服务端</td></tr>
+</tbody>
+</table>
+
+<h2>2. 密钥从哪来</h2>
+<ul>
+<li><strong>短期令牌：</strong>服务端签发，带有效期与权限范围；客户端刷新时使用受限的刷新凭据。</li>
+<li><strong>设备本地密钥：</strong>在设备上生成对称密钥并存入钥匙串，用于加密本地数据，不参与服务端身份验证。</li>
+<li><strong>不可导出密钥：</strong>能使用安全隔区时，让密钥在隔离区内生成并只暴露操作接口。</li>
+<li><strong>不要硬编码：</strong>打包进二进制的字符串可被直接读出，无论做多少层混淆。</li>
+</ul>
+
+<h2>3. 加密怎么选</h2>
+<p>使用平台提供的认证加密（如 AES-GCM），不要自创模式或自己拼接“加密 + 校验”。认证加密同时保证机密性与完整性，避免填充预言机一类问题。</p>
+<div class="code"><div class="code-title">Swift CryptoKit：认证加密与解密</div><button class="copy" type="button">复制</button><pre><code>import CryptoKit
+
+let key = SymmetricKey(size: .bits256)
+let sealed = try AES.GCM.seal(plaintext, using: key, authenticating: aad)
+let payload = sealed.combined          // 含 nonce、密文与标签
+
+let box = try AES.GCM.SealedBox(combined: payload)
+let opened = try AES.GCM.open(box, using: key, authenticating: aad)</code></pre></div>
+<p>注意 <code>aad</code>（附加认证数据）要覆盖上下文（如用户标识、版本），否则密文可能被搬到别的语境使用。</p>
+
+<h2>4. 生命周期</h2>
+<ul>
+<li><strong>轮换：</strong>令牌有有效期，密钥有轮换计划；轮换期间要能同时接受旧新两套。</li>
+<li><strong>撤销：</strong>注销、改密、设备丢失时由服务端撤销，不能只删本地副本。</li>
+<li><strong>清理：</strong>切换账号、退出登录要清理本地缓存与钥匙串条目。</li>
+<li><strong>备份：</strong>高价值数据应排除备份，或明确“仅本设备”语义。</li>
+</ul>
+
+<h2>5. 泄漏面清单</h2>
+<table>
+<thead><tr><th>位置</th><th>检查点</th></tr></thead>
+<tbody>
+<tr><td>日志</td><td>是否打印请求头、令牌、完整响应体</td></tr>
+<tr><td>崩溃报告</td><td>异常信息是否携带敏感参数</td></tr>
+<tr><td>剪贴板</td><td>复制敏感内容后的清理与提示</td></tr>
+<tr><td>界面快照</td><td>进入后台时是否遮挡</td></tr>
+<tr><td>分析事件</td><td>自定义字段是否包含身份标识</td></tr>
+<tr><td>备份</td><td>哪些文件参与了备份</td></tr>
+</tbody>
+</table>
+
+<h2>6. 可验证实验</h2>
+<ol>
+<li>在自有应用里写入测试令牌，检查容器文件、偏好设置、日志中是否出现明文。</li>
+<li>把令牌放入钥匙串并设置为解锁后可访问，锁屏后在后台读取，记录失败形态与降级逻辑。</li>
+<li>用认证加密写入一段数据，改动一个字节后解密，确认被拒绝而不是返回错误明文。</li>
+</ol>
+
+<h2>自测</h2>
+<ol>
+<li>为什么客户端无法安全保管服务端主密钥？</li>
+<li>认证加密相比“加密 + 哈希”多了什么保证？</li>
+<li>注销时“删除本地令牌”与“服务端撤销”有什么区别？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

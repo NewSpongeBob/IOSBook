@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/35-universal-binaries.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B06 通用二进制与架构差异 · IOSBook</title>
+<meta name="description" content="一个文件装着多份产物，每份都要单独验证">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">B06</span><h1>通用二进制与架构差异</h1><p class="sub">一个文件装着多份产物，每份都要单独验证</p></header>
+
+<p class="lead">通用二进制（Fat/Universal）把多个架构的切片装进一个文件。它们不是“同一份代码的压缩副本”，而是分别编译、各自签名、各自带 UUID 的独立映像。</p>
+
+<h2>1. 结构</h2>
+<p>Fat 文件最外层是一个简单的目录：魔数、切片数量，随后每个切片一条记录（CPU 类型、子类型、文件偏移、大小、对齐）。真正的 Mach-O 从各自偏移开始。</p>
+<table>
+<thead><tr><th>层</th><th>内容</th><th>注意</th></tr></thead>
+<tbody>
+<tr><td>Fat 头</td><td>切片数量与字节序</td><td>魔数有两种字节序写法，需先判断</td></tr>
+<tr><td>切片记录</td><td>架构、偏移、大小、对齐</td><td>偏移与大小必须落在文件范围内</td></tr>
+<tr><td>切片主体</td><td>完整的 Mach-O（头 + 命令 + 段 + 签名）</td><td>签名在切片内，不是整文件一份</td></tr>
+</tbody>
+</table>
+<p>这解释了为什么用工具合并二进制后必须重新签名：原来的签名只覆盖各自切片，合并改动了整体布局与偏移。</p>
+
+<h2>2. 切片之间差在哪</h2>
+<ul>
+<li><strong>指令集与 ABI：</strong>寄存器使用、调用约定、对齐要求不同。</li>
+<li><strong>编译产物：</strong>优化、内联、向量化可能因架构而异，缺陷表现也可能不同。</li>
+<li><strong>平台字段：</strong>构建平台记录在版本命令中。arm64 的模拟器切片与设备切片 CPU 类型相同、平台不同，因此不能互相替代。</li>
+</ul>
+<div class="callout"><strong>常见误判</strong><br>在 Apple 芯片的 Mac 上，模拟器切片也是 arm64。只看“架构相同”就认为可以在真机运行或用于分析真机崩溃，是最典型的错误。</div>
+
+<h2>3. 发布检查清单</h2>
+<ul>
+<li>产物包含的架构集合与支持的设备范围一致，没有误带模拟器切片。</li>
+<li>每个切片的最低系统版本、依赖与签名身份一致且符合预期。</li>
+<li>符号文件覆盖每个切片，按各自 UUID 归档。</li>
+<li>体积与切片数量匹配预期；异常膨胀往往意味着重复打包或未开启裁剪。</li>
+</ul>
+
+<h2>4. 可验证实验</h2>
+<div class="code"><div class="code-title">查看切片与各自 UUID</div><button class="copy" type="button">复制</button><pre><code>lipo -info YourApp.app/YourApp
+file YourApp.app/YourApp
+otool -arch arm64 -hv YourApp.app/YourApp
+dwarfdump --uuid YourApp.app.dSYM</code></pre></div>
+<ol>
+<li>列出产物中的所有架构，逐个检查加载命令中的平台与最低版本字段。</li>
+<li>比较不同切片的体积差异，解释优化与对齐带来的影响。</li>
+<li>用符号文件逐个核对 UUID，确认没有把某个切片的符号丢掉。</li>
+</ol>
+
+<h2>补充：为什么必须分架构验证</h2>
+<p>同一份源码在不同架构上产生不同机器码，性能特征与边界条件都可能不同。只在模拟器通过，不能证明真机行为；只测一台真机，也不能覆盖全部设备代际。测试矩阵应至少覆盖：代表性强弱设备、不同系统版本、真实设备与模拟器各一侧。</p>
+
+<h2>自测</h2>
+<ol>
+<li>为什么合并二进制后必须重新签名？</li>
+<li>arm64 模拟器切片与 arm64 设备切片的区别体现在哪里的元数据上？</li>
+<li>一个通用二进制需要几份符号文件？如何确认覆盖完整？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

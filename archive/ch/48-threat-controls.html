@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/48-threat-controls.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H02 威胁、控制与残余风险 · IOSBook</title>
+<meta name="description" content="控制的作用不是消灭风险，而是把风险压到可接受并有记录">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">H02</span><h1>威胁、控制与残余风险</h1><p class="sub">控制的作用不是消灭风险，而是把风险压到可接受并有记录</p></header>
+
+<p class="lead">风险评估的产出不是“安全”或“不安全”，而是一份可讨论的清单：什么资产、通过什么路径被滥用、现在有哪些控制、还剩多少风险、谁接受它。</p>
+
+<h2>1. 风险条目的字段</h2>
+<table>
+<thead><tr><th>字段</th><th>要写清楚什么</th></tr></thead>
+<tbody>
+<tr><td>资产</td><td>数据或能力，及它对业务的价值</td></tr>
+<tr><td>威胁与路径</td><td>谁、具备什么能力、怎么到达</td></tr>
+<tr><td>影响</td><td>最坏情况：数据、资金、合规、声誉</td></tr>
+<tr><td>可能性</td><td>需要的条件、是否可重复、是否有现成工具</td></tr>
+<tr><td>现有控制</td><td>每项控制防的是哪一步</td></tr>
+<tr><td>残余风险</td><td>控制失效或被绕过后的暴露</td></tr>
+</tbody>
+</table>
+<p>“威胁”写成“被黑客攻击”没有信息量。有效的写法是“拿到设备但无密码的人，通过备份读取本地缓存中的令牌”。</p>
+
+<h2>2. 优先级</h2>
+<ul>
+<li>按影响与可能性排序，而不是只看单个评分。</li>
+<li>区分“理论存在”和“当前版本可利用”：需要构造条件的缺陷应标注前提。</li>
+<li>把修复成本与验证成本一起看：有些控制一行配置就能落地，不必等排期。</li>
+</ul>
+
+<h2>3. 控制失效假设</h2>
+<p>对每项控制问一句：<strong>如果它失效，会暴露什么？</strong></p>
+<table>
+<thead><tr><th>控制</th><th>失效后果</th><th>下一层</th></tr></thead>
+<tbody>
+<tr><td>客户端不存明文令牌</td><td>令牌仍可能被内存抓取</td><td>短期有效期 + 服务端撤销</td></tr>
+<tr><td>接口参数校验</td><td>逻辑可被绕过</td><td>服务端对象级授权</td></tr>
+<tr><td>证书固定</td><td>轮换失误导致中断</td><td>回退策略与监控</td></tr>
+<tr><td>越狱检测</td><td>被绕过</td><td>服务端风控与限流</td></tr>
+</tbody>
+</table>
+
+<h2>4. 残余风险的接受</h2>
+<ul>
+<li>由有权限的人书面接受，而不是默认沉默接受。</li>
+<li>设定复核期限：系统升级、依赖变更、业务扩容都可能改变结论。</li>
+<li>补偿性措施要具体：监控什么指标、触发后做什么。</li>
+</ul>
+
+<h2>5. 练习</h2>
+<ol>
+<li>为自有应用写三条风险条目，每条至少包含两个不同层的控制。</li>
+<li>挑其中一条，假设它的主要控制失效，写出 24 小时内能做的应急处置。</li>
+<li>把条目交给另一位同事，看对方能否仅凭文字复现攻击路径。</li>
+</ol>
+
+<h2>自测</h2>
+<ol>
+<li>为什么风险条目必须写清“需要的条件”？</li>
+<li>控制失效假设如何帮助发现“单点防御”？</li>
+<li>残余风险由谁接受，为什么需要期限？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

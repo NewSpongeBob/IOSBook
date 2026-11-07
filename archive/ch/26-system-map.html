@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/26-system-map.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>12 系统组件地图与启动后服务 · IOSBook</title>
+<meta name="description" content="从内核到主屏，找到“这个功能由谁负责”的地图">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">12</span><h1>系统组件地图与启动后服务</h1><p class="sub">从内核到主屏，找到“这个功能由谁负责”的地图</p></header>
+
+<p class="lead">排查 iOS 问题时，最常见的低效是“在应用里找系统的问题”。建立一张组件地图，可以快速定位责任层，避免在三层之外猜原因。</p>
+
+<h2>1. 分层地图</h2>
+<table>
+<thead><tr><th>层</th><th>代表组件</th><th>典型职责</th></tr></thead>
+<tbody>
+<tr><td>内核</td><td>XNU、驱动、文件系统</td><td>调度、内存、I/O、IPC 原语</td></tr>
+<tr><td>系统服务</td><td>launchd 管理的守护进程</td><td>生命周期、网络配置、凭据、通知分发</td></tr>
+<tr><td>界面服务</td><td>负责显示与事件的服务进程、主屏服务</td><td>输入事件、窗口合成、应用切换</td></tr>
+<tr><td>框架</td><td>Foundation、UIKit/SwiftUI、Core* 系列</td><td>把系统能力包装成 API</td></tr>
+<tr><td>应用</td><td>你的进程与扩展</td><td>业务逻辑、界面、数据</td></tr>
+</tbody>
+</table>
+<p>守护进程的名字与分工随版本调整，不要把某个具体进程名当成永久事实；要记住的是“存在哪几类职责”。</p>
+
+<h2>2. 一次点击经过谁</h2>
+<ol>
+<li>触摸硬件产生事件，由系统事件服务分发。</li>
+<li>窗口服务确定命中哪个应用的哪个窗口，并处理切换与动画。</li>
+<li>你的进程收到事件，框架把它转成手势或控件回调。</li>
+<li>界面更新被编码为绘制指令，由渲染相关服务合成到屏幕。</li>
+</ol>
+<p>因此“点击无响应”至少有四种可能：硬件/事件层、窗口层、应用主线程、渲染层。只看应用日志往往只能覆盖第三种。</p>
+
+<h2>3. 观察手段</h2>
+<ul>
+<li><strong>统一日志：</strong>按 subsystem 与 category 过滤，能看到跨进程的时间线；注意隐私字段默认被隐去。</li>
+<li><strong>系统诊断包：</strong>包含进程列表、日志、崩溃与资源信息，是事后分析的主要材料。</li>
+<li><strong>性能工具：</strong>观察主线程、系统调用、线程状态，比猜测更可靠。</li>
+<li><strong>模拟器命令行：</strong>可以查看进程与启动配置，但模拟器没有真实设备的安全组件与部分服务。</li>
+</ul>
+<div class="code"><div class="code-title">模拟器中查看进程与启动项</div><button class="copy" type="button">复制</button><pre><code>xcrun simctl spawn booted launchctl list | head -30
+xcrun simctl spawn booted ps -A -o pid,comm | head -30</code></pre></div>
+
+<h2>4. 从现象到层</h2>
+<table>
+<thead><tr><th>现象</th><th>优先怀疑</th><th>证据来源</th></tr></thead>
+<tbody>
+<tr><td>启动即退出、无界面</td><td>应用初始化或签名/能力</td><td>崩溃报告、启动日志、签名信息</td></tr>
+<tr><td>界面卡住但进程存活</td><td>主线程阻塞或渲染压力</td><td>性能工具、堆栈采样</td></tr>
+<tr><td>网络偶发失败</td><td>连接复用、策略配置或服务端</td><td>网络日志、客户端错误码分布</td></tr>
+<tr><td>后台被终止</td><td>内存压力或时间预算超限</td><td>系统诊断、终止原因字段</td></tr>
+<tr><td>跨应用共享数据异常</td><td>访问组配置或写入竞争</td><td>签名能力、文件时间线</td></tr>
+</tbody>
+</table>
+
+<h2>5. 可验证实验</h2>
+<ol>
+<li>在自有样例中制造“主线程阻塞”和“后台大量内存占用”，分别收集诊断材料，比较报告中的关键字段差异。</li>
+<li>用统一日志把一次完整的用户操作串起来，标注每一步发生在哪个进程，形成自己的时序图。</li>
+<li>把同一功能在模拟器与真机上各跑一次，列出行为差异（安全组件、性能、服务可用性），形成“不可在模拟器验证”的清单。</li>
+</ol>
+
+<h2>自测</h2>
+<ol>
+<li>为什么“应用日志里没有错误”不能证明系统层没有问题？</li>
+<li>哪些类型的问题必须在真实设备上验证？</li>
+<li>面对“偶发卡顿”，你会先采集哪三类证据？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

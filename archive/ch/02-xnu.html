@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/02-xnu.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>02 XNU、Mach 与 Darwin · IOSBook</title>
+<meta name="description" content="Mach 的任务与端口、BSD 的进程与凭据，共同组成一个内核">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">02</span><h1>XNU、Mach 与 Darwin</h1><p class="sub">Mach 的任务与端口、BSD 的进程与凭据，共同组成一个内核</p></header>
+
+<p class="lead">XNU 是混合内核：Mach 提供任务、线程、端口和内存对象，BSD 层提供进程、凭据、文件系统与网络栈，IOKit 负责驱动。应用看到的是 libSystem 暴露的函数，而不是这些层的分界线。</p>
+
+<h2>1. 三组容易混淆的抽象</h2>
+<table>
+<thead><tr><th>抽象</th><th>所属层</th><th>负责什么</th><th>应用能否直接看到</th></tr></thead>
+<tbody>
+<tr><td>task</td><td>Mach</td><td>地址空间、端口命名空间、线程容器</td><td>间接：通过线程与 IPC 使用</td></tr>
+<tr><td>thread</td><td>Mach</td><td>可调度执行流、寄存器与栈上下文</td><td>间接：pthread / GCD 之下</td></tr>
+<tr><td>port / port right</td><td>Mach</td><td>受权能的单向消息通道</td><td>间接：XPC、服务句柄之下</td></tr>
+<tr><td>process</td><td>BSD</td><td>凭据、pid、文件描述符表、信号</td><td>是：<code>getpid()</code>、<code>kill()</code></td></tr>
+<tr><td>vnode</td><td>BSD/VFS</td><td>文件对象及其缓存</td><td>间接：POSIX 文件接口</td></tr>
+</tbody>
+</table>
+<p>“一个进程对应一个 task”在多数情况下成立，但两者不是同一个概念：Mach 侧关心资源与 IPC 权限，BSD 侧关心身份与 POSIX 语义。排查权限问题看 BSD 凭据，排查 IPC 与内存问题看 Mach 对象。</p>
+
+<h2>2. 一次调用的下行路径</h2>
+<p>应用调用 <code>read()</code>，实际经过：libSystem 的包装函数 → 系统调用陷入内核 → BSD 层解析文件描述符与凭据 → VFS 定位 vnode → 驱动或缓存完成 I/O → 返回用户态。每一步都可能失败，且失败码的语义不同：<code>EBADF</code> 是描述符问题，<code>EACCES</code> 是权限问题，<code>EPERM</code> 常来自策略拒绝（例如文件保护类在设备锁定时）。</p>
+<div class="callout"><strong>排错原则</strong><br>先确定失败发生在哪一层，再猜原因。同一个“读不到文件”可能是路径不存在、沙盒拒绝、数据保护未解锁或描述符已关闭，对应的修复方式完全不同。</div>
+
+<h2>3. 端口是权限对象</h2>
+<p>Mach 端口不是“地址”，而是带权能的通信端点。持有发送权（send right）意味着可以向该端口投递消息；持有接收权（receive right）意味着可以取走消息。任务之间默认不能互相投递，必须显式获得端口权能。这一设计解释了为什么系统服务调用天然带访问控制：拿不到端口，就发不出请求。</p>
+<p>对应用开发者，这层通常被 XPC 或框架封装。但理解它有助于读懂“服务不可用”类错误：不是网络不通，而是没拿到对应服务的通道。</p>
+
+<h2>4. 开源代码的作用与边界</h2>
+<p>XNU 源码公开，可用于建立心智模型：任务与线程如何组织、系统调用如何分派、锁与内存管理如何实现。但设备上的实际构建包含未公开的配置、驱动与平台安全组件，公开源码不能当作设备行为的逐字证明。<strong>阅读源码得到的结论应标注为“模型”，在设备上通过可观测行为验证后才升级为“观察”。</strong></p>
+
+<h2>5. 可验证实验</h2>
+<ol>
+<li>在模拟器上确认内核版本与硬件架构，建立“我在观察哪一层”的习惯：</li>
+</ol>
+<div class="code"><div class="code-title">模拟器中的内核信息</div><button class="copy" type="button">复制</button><pre><code>xcrun simctl spawn booted uname -a
+xcrun simctl spawn booted sysctl kern.version kern.osproductversion</code></pre></div>
+<ol start="2">
+<li>在自有样例应用里用 <code>os_signpost</code> 标注一次耗时操作，用 Instruments 的 System Trace 观察主线程阻塞与系统调用分布，记录设备、系统版本与采样条件。</li>
+<li>写一个最小程序，分别触发 <code>EBADF</code>、<code>EACCES</code> 与 <code>ENOENT</code>，记录实际错误码。这比背诵手册更能建立“错误码对应哪一层”的直觉。</li>
+</ol>
+
+<h2>6. 工程含义</h2>
+<ul>
+<li>并发、内存和 IPC 问题往往横跨两层：错误现象在用户态，根因在内核对象的状态。</li>
+<li>不要依赖未文档化的内核行为做业务设计，例如假设某个系统调用一定原子、某个线程一定在特定 CPU 上运行。</li>
+<li>安全设计上，把内核视为可信基座，把用户态组件视为可能被攻破的部分；这也正是沙盒与签名存在的理由。</li>
+</ul>
+
+<h2>自测</h2>
+<ol>
+<li>task 与 process 各自回答了什么问题？为什么不能互换使用这两个词？</li>
+<li>为什么“拿到端口”本身就是一种授权？</li>
+<li>公开源码的结论在什么条件下才能升级为设备上的事实？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

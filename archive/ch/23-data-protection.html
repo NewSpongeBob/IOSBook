@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/23-data-protection.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>09 文件保护与设备锁定状态 · IOSBook</title>
+<meta name="description" content="文件保护类决定“设备锁定时文件还能不能被读”，这是与加密密钥绑定的系统策略">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">09</span><h1>文件保护与设备锁定状态</h1><p class="sub">文件保护类决定“设备锁定时文件还能不能被读”，这是与加密密钥绑定的系统策略</p></header>
+
+<p class="lead">文件保护把每个文件的解密密钥与设备状态绑定：设备锁屏、密码是否已解锁、密钥是否已派生，共同决定某次读取会不会成功。它不是应用自己做的加密，而是系统在 I/O 层施加的策略。</p>
+
+<h2>1. 保护类与设备状态</h2>
+<table>
+<thead><tr><th>保护类</th><th>密钥可用条件</th><th>典型用途</th></tr></thead>
+<tbody>
+<tr><td>完全保护</td><td>设备已解锁</td><td>高敏感数据，后台不应访问</td></tr>
+<tr><td>仅解锁时（除非已打开）</td><td>解锁后可继续访问已打开的文件</td><td>需要持续写入的敏感文件</td></tr>
+<tr><td>首次解锁前不可用</td><td>设备本次启动后至少解锁过一次</td><td>后台任务需要访问的数据</td></tr>
+<tr><td>无保护</td><td>始终可用</td><td>不含敏感信息的资源，慎用</td></tr>
+</tbody>
+</table>
+<p>保护类越严格，后台与锁屏场景的可用性越差。设计时应先列出“谁在什么状态下读这份数据”，再选保护类，而不是统一取最严格或最宽松。</p>
+
+<h2>2. 与 Keychain 的区别</h2>
+<ul>
+<li><strong>文件保护：</strong>作用于文件，读不到时返回权限错误。</li>
+<li><strong>Keychain 可访问性：</strong>作用于凭据条目，除了设备锁定状态，还可附加“仅本设备”“需要生物识别”等条件。</li>
+</ul>
+<p>两者可以配合：文件里存密文，密钥放在钥匙串；锁屏时钥匙串条目不可用，文件即使被读到也无法解密。这样即使保护类选得宽松，也有第二道保护。</p>
+
+<h2>3. 备份与迁移</h2>
+<p>备份会带走部分数据，某些可访问性属性在恢复后行为不同。“仅本设备”类条目通常不会随备份迁移，这既是安全特性也是产品约束：换机后需要重新登录。</p>
+<p>设计检查点：</p>
+<ul>
+<li>哪些数据必须跟随用户到新设备，哪些必须留在本机？</li>
+<li>恢复后首次启动能否正常走完引导流程，而不是卡在“等待某个密钥”上？</li>
+<li>退出登录时是否清除了不应保留的本地副本？</li>
+</ul>
+
+<h2>4. 可验证实验（自有设备）</h2>
+<ol>
+<li>分别用“完全保护”与“首次解锁前不可用”写入文件，锁屏后尝试读取，记录错误码与调用栈。注意：必须在真实设备上验证，模拟器不体现这套密钥状态。</li>
+<li>在后台任务中读取两类文件，观察是否出现“前台成功、后台失败”的差异。</li>
+<li>把同一份敏感数据分别放在容器文件与钥匙串条目中，比较锁屏、重启、备份三种场景下的可用性。</li>
+</ol>
+<div class="code"><div class="code-title">写入时指定保护类</div><button class="copy" type="button">复制</button><pre><code>let url = documents.appendingPathComponent("token.bin")
+try data.write(to: url, options: [.atomic, .completeFileProtection])
+// 其他选项：.completeFileProtectionUnlessOpen / .completeFileProtectionUntilFirstUserAuthentication</code></pre></div>
+
+<h2>5. 常见误区</h2>
+<ul>
+<li>“文件放在沙盒里就安全了”——沙盒限制其他应用访问，但不阻止设备被解锁后的本地读取。</li>
+<li>“加密一次就够”——密钥生命周期、备份、迁移都会改变威胁模型。</li>
+<li>“错误只可能是路径问题”——<code>EPERM</code> 常常来自保护类未解锁，而不是路径错误。</li>
+</ul>
+
+<h2>自测</h2>
+<ol>
+<li>为什么“完全保护”不适合需要后台写入的文件？</li>
+<li>文件保护与钥匙串可访问性各自解决什么问题？</li>
+<li>“仅本设备”类凭据在换机恢复后会发生什么？这对产品流程有什么要求？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/20-app-lifecycle.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>06 应用生命周期与场景 · IOSBook</title>
+<meta name="description" content="前台、后台、挂起与被终止，是四种不同的可用性假设">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">06</span><h1>应用生命周期与场景</h1><p class="sub">前台、后台、挂起与被终止，是四种不同的可用性假设</p></header>
+
+<p class="lead">生命周期不是一组回调的名字，而是“系统允许你做什么”的集合。多数线上问题来自把“进入后台”当成“还能继续跑”，或把“挂起”当成“进程已退出”。</p>
+
+<h2>1. 状态与场景</h2>
+<table>
+<thead><tr><th>状态</th><th>能做什么</th><th>系统可能做什么</th></tr></thead>
+<tbody>
+<tr><td>未运行</td><td>无</td><td>无</td></tr>
+<tr><td>前台活跃</td><td>正常执行、渲染、接收用户输入</td><td>受主线程响应性与内存限制约束</td></tr>
+<tr><td>前台非活跃</td><td>短暂过渡（来电、控制中心、切换中）</td><td>可能不派发触摸事件</td></tr>
+<tr><td>后台</td><td>有限时间与有限能力</td><td>到时挂起或终止</td></tr>
+<tr><td>挂起</td><td>无执行，内存保留</td><td>内存紧张时直接终止，不再回调</td></tr>
+</tbody>
+</table>
+<p>引入场景（scene）后，一个进程可以有多个界面实例，生命周期回调从“应用级”扩展到“场景级”。做状态判断时先问：这是进程的状态，还是某个界面的状态？两者在分屏、多窗口与外部显示场景下并不一致。</p>
+
+<figure>
+<img src="../assets/figures/lifecycle-states.svg" alt="应用从启动到终止的状态转换" loading="lazy">
+<figcaption>图 1-4　后台与挂起是两种不同承诺：前者有预算，后者只有内存；终止没有应用侧回调。</figcaption>
+</figure>
+
+<h2>2. 后台不是“继续运行”</h2>
+<ul>
+<li>进入后台后获得的执行时间用于收尾，不是常驻许可。</li>
+<li>需要延后执行的工作交给系统的后台任务调度，由系统决定何时运行，执行时长不保证。</li>
+<li>持续后台能力（音频、定位、通话等）需要相应能力声明，并被审核与用户可见性约束；滥用会导致耗电与上架风险。</li>
+</ul>
+
+<h2>3. 三种“被结束”</h2>
+<ol>
+<li><strong>崩溃：</strong>有崩溃报告，可符号化定位。</li>
+<li><strong>看门狗终止：</strong>启动或主线程长时间无响应，系统主动结束进程，报告形态与崩溃不同。</li>
+<li><strong>内存压力终止：</strong>挂起状态下被回收，通常没有应用侧回调。</li>
+</ol>
+<p>三者常被用户统一描述为“闪退”。排查时先按报告类型分类，再看时间线，否则容易在错误方向上加日志。</p>
+
+<h2>4. 生命周期里的安全时机</h2>
+<p>进入后台时，系统会为应用生成界面快照用于切换动画。如果界面上有敏感信息，这张快照会留在系统缓存中。正确做法是在进入非活跃状态时立即遮挡敏感内容：</p>
+<div class="code"><div class="code-title">SwiftUI：用场景阶段遮挡敏感界面</div><button class="copy" type="button">复制</button><pre><code>@Environment(\.scenePhase) private var phase
+@State private var masked = false
+
+var body: some View {
+    content
+        .overlay { if masked { Rectangle().fill(.regularMaterial) } }
+        .onChange(of: phase) { _, newValue in
+            masked = newValue != .active
+        }
+}</code></pre></div>
+<p>上面的 <code>onChange</code> 双参数形式自 iOS 17 起可用，旧版本需使用单参数重载或代理回调；写示例时要标注适用系统版本。</p>
+<p>同类时机还有：锁屏后受保护文件不可读、生物识别在后台不可用、令牌刷新失败需要重新认证。把这些当作状态机的分支，而不是异常兜底。</p>
+
+<h2>5. 可验证实验</h2>
+<ol>
+<li>在自有样例中用统一日志记录每次状态与场景切换，包含时间戳与原因；反复前后台切换，检查是否出现“只收到进入后台、没有回到前台”的异常序列。</li>
+<li>在后台触发一次耗时收尾，观察系统给的时间窗；把耗时人为放大，记录被终止时的报告类型。</li>
+<li>构造大内存占用后挂起，用开发者工具观察内存压力与终止，比较“主动释放”和“被回收”的差异。</li>
+</ol>
+
+<h2>自测</h2>
+<ol>
+<li>挂起与终止在“下次启动会发生什么”上有什么区别？</li>
+<li>为什么后台任务不能假设“提交了就会很快执行”？</li>
+<li>界面快照为什么会成为隐私问题？遮挡应放在哪个时机？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

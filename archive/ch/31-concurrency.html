@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/31-concurrency.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K08 并发正确性与资源管理 · IOSBook</title>
+<meta name="description" content="并发缺陷有分类，先定性再选工具">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">K08</span><h1>并发正确性与资源管理</h1><p class="sub">并发缺陷有分类，先定性再选工具</p></header>
+
+<p class="lead">并发问题之所以难，是因为失败往往依赖时序。把缺陷先分类，再选择隔离方式与检测工具，比泛泛地“加锁”更有效。</p>
+
+<h2>1. 五类问题</h2>
+<table>
+<thead><tr><th>类别</th><th>表现</th><th>根因</th></tr></thead>
+<tbody>
+<tr><td>数据竞争</td><td>结果偶发错误、崩溃</td><td>无同步的并发读写</td></tr>
+<tr><td>死锁</td><td>永久卡住</td><td>循环等待或锁顺序不一致</td></tr>
+<tr><td>活锁/饥饿</td><td>一直重试但无进展</td><td>策略导致某些任务永远拿不到资源</td></tr>
+<tr><td>优先级反转</td><td>高优先级任务被拖慢</td><td>等待低优先级持有的锁</td></tr>
+<tr><td>资源泄漏</td><td>描述符或任务累积</td><td>异常路径未释放、取消未生效</td></tr>
+</tbody>
+</table>
+
+<h2>2. 先选隔离，再加锁</h2>
+<p>锁是最容易想到也最容易出错的手段。优先级更高的设计是减少共享：</p>
+<ul>
+<li><strong>值语义：</strong>传递不可变副本，天然不存在并发写。</li>
+<li><strong>串行执行器：</strong>把状态限定在一个执行上下文，外部只能提交请求。</li>
+<li><strong>actor 隔离：</strong>把状态与操作绑定，跨隔离访问必须经过异步消息。</li>
+<li><strong>锁：</strong>用于确实无法隔离的共享，且锁内不做 I/O、不调用未知回调。</li>
+</ul>
+<div class="code"><div class="code-title">actor 把状态收敛到单一隔离域</div><button class="copy" type="button">复制</button><pre><code>actor Cache {
+    private var storage: [String: Data] = [:]
+
+    func value(for key: String) -&gt; Data? { storage[key] }
+    func store(_ data: Data, for key: String) { storage[key] = data }
+}</code></pre></div>
+<p>跨隔离访问自动变为异步调用，编译器会阻止直接读写内部状态。代价是你要处理等待与重入，而不是显式加锁。</p>
+
+<h2>3. 取消与结构化并发</h2>
+<ul>
+<li>取消是协作式的：任务需要在检查点主动退出，否则取消只是“标记”。</li>
+<li>父任务等待子任务结束，取消沿任务树传播；不要让子任务脱离作用域无限存活。</li>
+<li>不能用取消来保证资源释放——释放应写在作用域退出路径上。</li>
+</ul>
+
+<h2>4. 资源生命周期</h2>
+<p>文件描述符、socket、观察者、定时器、图像解码缓冲都有明确的关闭动作。设计要点：</p>
+<ul>
+<li>使用“作用域结束即释放”的结构，而不是依赖对象析构的时机。</li>
+<li>teardown 要幂等，允许重复调用；异常路径也必须走到。</li>
+<li>在退出登录、切换账号、进入后台等业务节点显式清理，而非只依赖释放。</li>
+</ul>
+
+<h2>5. 工具与实验</h2>
+<ol>
+<li>用线程检查工具对自有样例跑一遍完整测试，记录报告；修复后确认报告消失且功能未变。</li>
+<li>构造一个死锁（两把锁、相反顺序），采样卡住的线程栈，确认能凭栈判断锁顺序问题。</li>
+<li>让一个任务在取消后继续运行，观察资源是否被正确释放，验证“取消不等于清理”。</li>
+<li>用日志记录任务开始/结束与队列标识，重现一次偶发错误的时间线。</li>
+</ol>
+
+<h2>自测</h2>
+<ol>
+<li>为什么“加锁”不是并发设计的起点？</li>
+<li>取消与资源释放为什么是两件事？</li>
+<li>死锁的四个必要条件中，哪一个在工程上最容易打破？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/51-incident-response.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H05 安全事件响应与证据保全 · IOSBook</title>
+<meta name="description" content="响应靠预案与角色，不靠临场发挥">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">H05</span><h1>安全事件响应与证据保全</h1><p class="sub">响应靠预案与角色，不靠临场发挥</p></header>
+
+<p class="lead">移动端安全事件的特点是“改不回来”：已安装的旧版本仍在用户设备上运行。因此响应手段里，服务端开关与配置往往比发版更快、更可靠。</p>
+
+<h2>1. 六个阶段</h2>
+<table>
+<thead><tr><th>阶段</th><th>要产出什么</th></tr></thead>
+<tbody>
+<tr><td>发现</td><td>告警、报告渠道、初始时间线</td></tr>
+<tr><td>分级</td><td>影响范围（版本/用户/数据）、严重度</td></tr>
+<tr><td>遏制</td><td>服务端开关、权限收紧、令牌撤销</td></tr>
+<tr><td>根除</td><td>修复版本、依赖更新、配置修正</td></tr>
+<tr><td>恢复</td><td>灰度放量、指标回到基线</td></tr>
+<tr><td>复盘</td><td>根因、时间线、改进项与责任人</td></tr>
+</tbody>
+</table>
+
+<h2>2. 移动端的特殊约束</h2>
+<ul>
+<li><strong>版本碎片：</strong>旧版本可能存续数月，修复必须考虑“不能强制升级”的现实。</li>
+<li><strong>服务端优先：</strong>能通过开关、配置、接口收紧解决的，不要只依赖发版。</li>
+<li><strong>应用商店节奏：</strong>审核时间进入预案，紧急通道要提前确认资格。</li>
+<li><strong>第三方组件：</strong>SDK 的问题同样需要你方响应，不能等上游。</li>
+</ul>
+
+<h2>3. 证据处理</h2>
+<table>
+<thead><tr><th>问题</th><th>做法</th></tr></thead>
+<tbody>
+<tr><td>收集什么</td><td>只收与事件相关的日志片段与报告，避免全量导出</td></tr>
+<tr><td>如何脱敏</td><td>去除账号、令牌、位置、设备标识，保留关联用的临时编号</td></tr>
+<tr><td>谁能访问</td><td>限定响应小组，记录每次访问</td></tr>
+<tr><td>保留多久</td><td>按合规与调查需要设定，到期删除</td></tr>
+</tbody>
+</table>
+<div class="callout"><strong>不要在现场做实验</strong><br>调查阶段应复制数据到隔离环境分析，避免在生产环境反复试探造成二次影响。</div>
+
+<h2>4. 沟通</h2>
+<ul>
+<li>对内：固定的同步节奏与单一信息出口，避免多头对外。</li>
+<li>对外：由指定角色发布，内容经过法务与安全确认，不披露他人实现细节与可利用步骤。</li>
+<li>对用户：说清“发生了什么、你需要做什么、我们做了什么”，不夸大也不隐瞒。</li>
+</ul>
+
+<h2>5. 演练</h2>
+<ol>
+<li>设计一个场景：某版本把令牌写入了日志，且已随崩溃报告上传。</li>
+<li>按阶段走一遍：分级影响面、吊销令牌、关闭上报、评估是否需要发版。</li>
+<li>记录每步耗时与卡点，把“找不到负责人”“不知道谁能关开关”变成改进项。</li>
+</ol>
+
+<h2>自测</h2>
+<ol>
+<li>为什么移动端事件更依赖服务端手段？</li>
+<li>证据采集为什么强调“最小必要”而不是“尽量全”？</li>
+<li>复盘应产出哪两类内容，才能避免同类问题复发？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

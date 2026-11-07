@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN" data-root=".." data-page="ch/33-dyld-dependencies.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B04 动态依赖与符号绑定 · IOSBook</title>
+<meta name="description" content="依赖声明只是要求，运行时解析才是结果">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<input id="nav-toggle" type="checkbox" hidden>
+<label class="nav-btn" for="nav-toggle" aria-label="打开目录">☰</label>
+<aside class="sidebar" id="site-nav"></aside>
+<main class="content">
+<article class="hero">
+<p class="crumb" data-crumb></p>
+<header class="chapter-head"><span class="chapter-no">B04</span><h1>动态依赖与符号绑定</h1><p class="sub">依赖声明只是要求，运行时解析才是结果</p></header>
+
+<p class="lead">动态依赖分成两段：构建时写进文件的“我要求谁”，与启动时加载器实际找到的“我得到了谁”。两者不一致，就是“链接通过但启动失败”的根源。</p>
+
+<h2>1. 依赖声明与搜索路径</h2>
+<ul>
+<li><strong>安装名：</strong>依赖库里记录的自身标识，可能是绝对路径，也可能以 <code>@rpath</code>、<code>@loader_path</code> 开头。</li>
+<li><strong>LC_RPATH：</strong>声明额外的搜索目录，供 <code>@rpath</code> 展开。</li>
+<li><strong>解析顺序：</strong>先展开特殊前缀，再按搜索路径查找；找不到即启动失败，错误信息会列出尝试过的路径。</li>
+</ul>
+<p>在自有工程里，最常见的依赖事故是“本机路径能跑、分发后找不到库”：因为安装名里带了构建机的绝对路径，而分发环境不存在该目录。</p>
+
+<h2>2. 符号绑定的三种情形</h2>
+<table>
+<thead><tr><th>情形</th><th>含义</th><th>风险</th></tr></thead>
+<tbody>
+<tr><td>强符号</td><td>必须解析到实现，否则启动失败</td><td>依赖缺失时直接不可用</td></tr>
+<tr><td>弱符号</td><td>可以缺失，调用前需判空</td><td>未判断即调用会崩溃</td></tr>
+<tr><td>重导出</td><td>库把依赖的符号再导出给上层</td><td>依赖链隐蔽，排查困难</td></tr>
+</tbody>
+</table>
+<p>两级命名空间让符号绑定到“哪个库的哪个符号”（通过依赖序号定位），这减少了同名冲突，但要求依赖列表与实际加载的库严格对应。</p>
+
+<h2>3. 绑定的时机</h2>
+<ul>
+<li><strong>启动时绑定：</strong>加载器解析依赖闭包，修正指针与外部引用。数据指针、虚表一类通常在此阶段完成。</li>
+<li><strong>惰性绑定：</strong>函数调用在首次执行时才解析，缩短启动时间，代价是首次调用有额外开销。</li>
+<li><strong>链式修正：</strong>较新格式把修正信息压缩成链，减少指令与数据量，加载器遍历链完成修正。</li>
+</ul>
+<p>这解释了一个常见现象：应用能启动，直到调用某个功能才崩溃——那是惰性绑定在该次调用时失败。</p>
+
+<h2>4. 失败信息怎么读</h2>
+<table>
+<thead><tr><th>错误</th><th>含义</th><th>先查什么</th></tr></thead>
+<tbody>
+<tr><td>找不到库</td><td>安装名无法解析到文件</td><td>安装名、rpath、内嵌框架是否被打包</td></tr>
+<tr><td>找不到符号</td><td>库在，但没有期望的导出</td><td>架构、部署目标、库版本、符号可见性</td></tr>
+<tr><td>初始化异常</td><td>依赖已加载，但初始化代码失败</td><td>初始化器里的断言、依赖顺序、全局状态</td></tr>
+</tbody>
+</table>
+
+<h2>5. 可验证实验</h2>
+<div class="code"><div class="code-title">检查依赖与导出符号</div><button class="copy" type="button">复制</button><pre><code>otool -L /path/to/YourApp.app/YourApp
+dyld_info -dependents /path/to/YourApp.app/YourApp
+dyld_info -exports /path/to/Frameworks/YourKit.framework/YourKit | head -20
+nm -u /path/to/YourApp.app/YourApp | head -20</code></pre></div>
+<ol>
+<li>在自有工程里引入一个内嵌框架，检查安装名是 <code>@rpath</code> 形式还是绝对路径。</li>
+<li>把框架从打包内容中移除，记录启动失败信息，并标出信息中可用的线索（安装名、尝试路径）。</li>
+<li>为某个 API 提高部署目标，观察旧系统上是否转为弱符号缺失，并验证可用性判断是否生效。</li>
+</ol>
+
+<h2>6. 工程约束</h2>
+<ul>
+<li>依赖版本要固定并记录来源；二进制依赖同样需要来源校验。</li>
+<li>ABI 与最低系统版本必须匹配，跨版本混用会在运行时暴露。</li>
+<li>不要依赖未公开的加载器行为或调试用环境变量作为生产配置。</li>
+</ul>
+
+<h2>自测</h2>
+<ol>
+<li>为什么“链接成功”不能保证“启动成功”？</li>
+<li>惰性绑定会带来什么可观测的现象？</li>
+<li>“找不到库”与“找不到符号”在排查路径上有什么区别？</li>
+</ol>
+<nav class="pager" data-pager></nav>
+</article>
+</main>
+<script src="../nav.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>
